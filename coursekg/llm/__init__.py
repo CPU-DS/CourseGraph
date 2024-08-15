@@ -6,7 +6,7 @@
 
 from .prompt import Prompt, ExamplePrompt
 from .llm import LLM, VLLM, QwenAPI
-from .visual_lm import MiniCPM
-from .visual_prompt import MiniCPMPrompt, Interaction
+from .visual_lm import MiniCPM, VisualLM
+from .visual_prompt import MiniCPMPrompt, Interaction, VisualPrompt
 from .prompt_strategy import ExamplePromptStrategy, SentenceEmbeddingStrategy
 from .config import VisualConfig, LLMConfig

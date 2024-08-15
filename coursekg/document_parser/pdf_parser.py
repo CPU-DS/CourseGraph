@@ -13,7 +13,7 @@ from PIL import Image
 import numpy as np
 import cv2
 import re
-from ..llm import MiniCPM, MiniCPMPrompt
+from ..llm import VisualLM, VisualPrompt
 from typing import Literal
 from paddleocr.ppstructure.recovery.recovery_to_doc import sorted_layout_boxes
 import os
@@ -50,9 +50,11 @@ class PDFParser(Parser):
         """
         super().__init__(pdf_path)
         self.__pdf = fitz.open(pdf_path)
-        self.__parser_mode: Literal['base', 'pp', 'vl'] | None = None
+        self.__parser_mode: Literal['base', 'pp', 'vl',
+                                    'combination'] | None = None
         self.set_parser_mode_pp_structure()  # 默认模式
-        self.__visual_model: MiniCPMPrompt | None = None
+        self.__visual_model: VisualLM = None
+        self.__visual_prompt: VisualPrompt = None
         self.__ocr_engine = None
 
     def set_parser_mode_base(self):
@@ -66,14 +68,30 @@ class PDFParser(Parser):
         self.__parser_mode = 'pp'
         self.__ocr_engine = PPStructure(table=False, ocr=True, show_log=False)
 
-    def set_parser_mode_visual_model(self, model: MiniCPM):
+    def set_parser_mode_visual_model(self, model: VisualLM,
+                                     prompt: VisualPrompt):
         """ 使用多模态大模型解析, 实现参考: https://github.com/lazyFrogLOL/llmdocparser
 
         Args:
-            model (VisualLM): 多模态大模型解析
+            model (VisualLM): 多模态大模型
+            prompt (VisualPrompt): 大模型对应的提示词
         """
         self.__parser_mode = 'vl'
         self.__visual_model = model
+        self.__visual_prompt = prompt
+        self.__ocr_engine = PPStructure(table=False, ocr=True, show_log=False)
+
+    def set_parser_mode_combination(self, visual_model: VisualLM,
+                                    visual_prompt: VisualPrompt):
+        """ 使用飞桨OCR + 多模态大模型综合解析 (推荐)
+
+        Args:
+            visual_model (VisualLM): 多模态大模型
+            visual_prompt (VisualPrompt): 大模型对应的提示词
+        """
+        self.__parser_mode = 'combination'
+        self.__visual_model = visual_model
+        self.__visual_prompt = visual_prompt
         self.__ocr_engine = PPStructure(table=False, ocr=True, show_log=False)
 
     def __enter__(self) -> 'PDFParser':
@@ -257,10 +275,11 @@ class PDFParser(Parser):
                 cropped_img = Image.fromarray(img).crop((x1, y1, x2, y2))
                 file_path = os.path.join(cache_path, f'{idx}.png')
                 cropped_img.save(file_path)
-                assert isinstance(self.__visual_model, MiniCPM)
-                prompt = MiniCPMPrompt('ocr').use_examples()
-                res = self.__visual_model.chat(msgs=prompt.get_prompt(file_path), sys_prompt=prompt.get_sys_prompt())
-                print(res)
+                self.__visual_prompt.set_type('ocr')
+                prompt = self.__visual_prompt.use_examples()
+                res = self.__visual_model.chat(
+                    msgs=prompt.get_prompt(file_path),
+                    sys_prompt=prompt.get_sys_prompt())
                 if block['type'] == 'title':
                     contents.append(
                         Content(type=ContentType.Title, content=res))
@@ -269,6 +288,8 @@ class PDFParser(Parser):
                     contents.append(Content(type=ContentType.Text,
                                             content=res))
             shutil.rmtree(cache_path)
+        elif self.__parser_mode == 'combination':
+            pass
         else:
             contents = []
         return Page(page_index=page_index + 1, contents=contents)

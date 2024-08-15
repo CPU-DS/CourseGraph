@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from abc import abstractmethod, ABC
 from PIL import Image
 import os
 import json
@@ -13,15 +14,97 @@ class Interaction:
     answer: str
 
 
-class MiniCPMPrompt:
+class VisualPrompt(ABC):
 
-    def __init__(self, type_: Literal['ocr', 'ie']) -> None:
-        """ MiniCPM提示词, 支持多轮对话, 多图对话和上下文学习
+    def __init__(self) -> None:
+        """ 视觉提示词
+        """
+
+    @abstractmethod
+    def set_type(self, type_: Literal['ocr', 'ie', 'correct']) -> None:
+        """ 设置提示词类型
 
         Args:
-            type_ (Literal['ocr', 'ie']): 提示词类型: OCR/信息提取
+            type_ (Literal['ocr', 'ie', 'correct']): 提示词类型.
+
+        Raises:
+            NotImplementedError: 子类需要实现该方法
         """
+        raise NotImplementedError
+
+    @abstractmethod
+    def use_examples(
+            self,
+            example_dataset_path: str = 'dataset/image_example'
+    ) -> 'VisualPrompt':
+        """ 添加示例
+
+        Args:
+            example_dataset_path (str, optional): 使用多模态模型上下文学习源数据地址文件夹. Defaults to 'dataset/image_example'.
+        
+        Raises:
+            NotImplementedError: 子类需要实现该方法
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def add_history(self, history: Interaction) -> 'VisualPrompt':
+        """ 输入历史记录以进行多轮问答
+
+        Args:
+            history (Interaction): 一条问答记录
+        
+        Raises:
+            NotImplementedError: 子类需要实现该方法
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_prompt(self, image_path: str | list[str]) -> list:
+        """ 获取提示词
+
+        Args:
+            image_path (str, list[str]): 图片路径
+        
+        Raises:
+            NotImplementedError: 子类需要实现该方法
+
+        Returns:
+            list: 组装后的提示词
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_sys_prompt(self) -> str | None:
+        """ 获取系统提示词
+
+        Raises:
+            NotImplementedError: 子类需要实现该方法
+
+        Returns:
+            (str | None): 系统提示词
+        """
+        raise NotImplementedError
+
+
+class MiniCPMPrompt(VisualPrompt):
+
+    def __init__(self) -> None:
+        """ MiniCPM提示词, 支持多轮对话, 多图对话和上下文学习
+        """
+        super().__init__()
         self.interactions: list[Interaction] = []
+        self.type_: str = ''
+        self.prompt: str = ''
+        self.sys_prompt: str | None = None
+
+    def set_type(self, type_: Literal['ocr', 'ie', 'correct']) -> None:
+        """ 设置提示词类型
+
+        Args:
+            type_ (Literal['ocr', 'ie', 'correct']): 提示词类型.
+
+        """
         self.type_ = type_
         if self.type_ == 'ocr':
             self.prompt = """将图片中识别到的文字转换文本输出。你必须做到：
@@ -34,6 +117,9 @@ class MiniCPMPrompt:
         elif self.type_ == 'ie':
             self.prompt = '请帮我提取图片中的主要内容'
             self.sys_prompt = '你是一个能够总结图片内容的模型。'
+        elif self.type_ == 'correct':
+            # TODO
+            pass
         else:
             self.prompt = ''
             self.sys_prompt = None
@@ -51,8 +137,10 @@ class MiniCPMPrompt:
         with open(os.path.join(example_dataset_path, 'example.json')) as f:
             examples = json.load(f)
             for line in examples:
-                if line['type'] == 'ocr':
-                    self.interactions.append(Interaction(line['image'],  self.prompt, line['output']))
+                if line['type'] == self.type_:
+                    self.interactions.append(
+                        Interaction(line['image'], self.prompt,
+                                    line['output']))
         if len(self.interactions) > 5:
             self.interactions = random.sample(self.interactions, 5)
         return self
@@ -91,19 +179,23 @@ class MiniCPMPrompt:
         msgs = []
         for example in self.interactions:
             msgs.append({
-                'role': 'user',
-                'content': get_content(example.image_paths, example.question)
+                'role':
+                'user',
+                'content':
+                get_content(example.image_paths, example.question)
             })
-            msgs.append({
-                'role': 'assistant',
-                'content': [example.answer]
-            })
+            msgs.append({'role': 'assistant', 'content': [example.answer]})
 
         msgs.append({
             'role': 'user',
-            'content': get_content(image_path,  self.prompt)
+            'content': get_content(image_path, self.prompt)
         })
         return msgs
 
     def get_sys_prompt(self) -> str | None:
+        """ 获取系统提示词
+
+        Returns:
+            (str | None): 系统提示词
+        """
         return self.sys_prompt

@@ -8,7 +8,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pptx import Presentation
-from ..llm import MiniCPM, MiniCPMPrompt
+from ..llm import VisualLM, VisualPrompt
 from .utils import pptx2imgs
 import shutil
 from tqdm import tqdm
@@ -126,19 +126,21 @@ class PPTX(Resource):
         idxs = [key for key, val in self.index_maps.items() if keyword in val]
         return _merge_index_slice(idxs, self.file_path)
 
-    def set_maps_by_visual_model(self, model: MiniCPM) -> None:
+    def set_maps_by_visual_model(self, model: VisualLM,
+                                 prompt: VisualPrompt) -> None:
         """ 使用多模态大模型提取pptx主要内容
 
         Args:
-            model (MiniCPM): 多模态大模型
+            model (VisualLM): 多模态大模型
+            prompt (VisualPrompt): 相应提示词
         """
+        prompt.set_type('ie')
         cache_path = '.cache/pptx_imgs_cache'
         imgs = pptx2imgs(self.file_path, cache_path)
-        prompt = MiniCPMPrompt('ie')
         for idx, img in tqdm(enumerate(imgs), total=len(imgs)):
             res = model.chat(prompt.get_prompt(img))
             # 页数从1开始
-            self.index_maps[idx+1] = res
+            self.index_maps[idx + 1] = res
         # 删除缓存文件夹
         shutil.rmtree(cache_path)
 
