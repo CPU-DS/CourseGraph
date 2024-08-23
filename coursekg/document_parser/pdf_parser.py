@@ -13,7 +13,7 @@ from PIL import Image
 import numpy as np
 import cv2
 import re
-from ..llm import VisualLM, VisualPrompt
+from ..llm import MLLM, VisualPrompt
 from typing import Literal
 from paddleocr.ppstructure.recovery.recovery_to_doc import sorted_layout_boxes
 import os
@@ -53,7 +53,7 @@ class PDFParser(Parser):
         self.__parser_mode: Literal['base', 'pp', 'vl',
                                     'combination'] | None = None
         self.set_parser_mode_pp_structure()  # 默认模式
-        self.__visual_model: VisualLM = None
+        self.__visual_model: MLLM = None
         self.__visual_prompt: VisualPrompt = None
         self.__ocr_engine = None
 
@@ -68,12 +68,11 @@ class PDFParser(Parser):
         self.__parser_mode = 'pp'
         self.__ocr_engine = PPStructure(table=False, ocr=True, show_log=False)
 
-    def set_parser_mode_visual_model(self, model: VisualLM,
-                                     prompt: VisualPrompt):
+    def set_parser_mode_visual_model(self, model: MLLM, prompt: VisualPrompt):
         """ 使用多模态大模型解析, 实现参考: https://github.com/lazyFrogLOL/llmdocparser
 
         Args:
-            model (VisualLM): 多模态大模型
+            model (MLLM): 多模态大模型
             prompt (VisualPrompt): 大模型对应的提示词
         """
         self.__parser_mode = 'vl'
@@ -81,12 +80,12 @@ class PDFParser(Parser):
         self.__visual_prompt = prompt
         self.__ocr_engine = PPStructure(table=False, ocr=True, show_log=False)
 
-    def set_parser_mode_combination(self, visual_model: VisualLM,
+    def set_parser_mode_combination(self, visual_model: MLLM,
                                     visual_prompt: VisualPrompt):
         """ 使用飞桨OCR + 多模态大模型综合解析 (推荐)
 
         Args:
-            visual_model (VisualLM): 多模态大模型
+            visual_model (MLLM): 多模态大模型
             visual_prompt (VisualPrompt): 大模型对应的提示词
         """
         self.__parser_mode = 'combination'

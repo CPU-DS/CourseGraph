@@ -4,7 +4,7 @@ from modelscope import AutoModel, AutoTokenizer
 from abc import ABC, abstractmethod
 
 
-class VisualLM(ABC):
+class MLLM(ABC):
 
     def __init__(self, path: str,
                  config: VisualConfig = VisualConfig()) -> None:
@@ -18,7 +18,7 @@ class VisualLM(ABC):
 
     @abstractmethod
     def chat(self, msgs: list, sys_prompt: str = None) -> str:
-        """ 图片问答任务
+        """ 问答任务
 
         Args:
             msgs (list): 输入内容
@@ -33,7 +33,7 @@ class VisualLM(ABC):
         raise NotImplementedError
 
 
-class MiniCPM(VisualLM):
+class MiniCPM(MLLM):
 
     def __init__(self, path: str,
                  config: VisualConfig = VisualConfig()) -> None:

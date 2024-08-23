@@ -8,7 +8,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pptx import Presentation
-from ..llm import VisualLM, VisualPrompt
+from ..llm import MLLM, VisualPrompt
 from .utils import pptx2imgs
 import shutil
 from tqdm import tqdm

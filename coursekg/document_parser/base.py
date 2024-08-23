@@ -5,7 +5,7 @@
 # Description: 定义文档、书签以及抽取知识图谱相关类和方法
 
 from dataclasses import dataclass, field
-from ..llm import LLM, Prompt
+from ..llm import LLM, IEPrompt
 import uuid
 from loguru import logger
 from .config import Config
@@ -147,7 +147,7 @@ class Document:
 
     def set_knowledgepoints_by_llm(self,
                                    llm: LLM,
-                                   prompt: Prompt,
+                                   prompt: IEPrompt,
                                    self_consistency: bool = False,
                                    samples: int = 5,
                                    top: float = 0.5) -> None:
