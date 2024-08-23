@@ -35,6 +35,7 @@ CourseKG 使用大模型，利用多种 prompt 优化技术, 自动从教材、�
 git clone git@github.com:wangtao2001/CourseKG.git
 cd CourseKG
 conda create -n kg python=3.10
+conda activate kg
 pip install -r requirements.txt
 pip install -e .
 ```
