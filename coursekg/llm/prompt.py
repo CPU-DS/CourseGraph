@@ -19,7 +19,7 @@ relations = {
 attributes = {"定义": "清楚的规定出知识点概念、意义的描述语句"}
 
 
-class IEPrompt(ABC):
+class Prompt(ABC):
 
     def __init__(self) -> None:
         """ 提示词类, 包含获取提示词和格式化模型返回两类方法
@@ -106,7 +106,7 @@ class IEPrompt(ABC):
         raise NotImplementedError
 
 
-class ExamplePrompt(IEPrompt):
+class ExamplePrompt(Prompt):
 
     def __init__(self, strategy: ExamplePromptStrategy = None) -> None:
         """ 获取提取提示词, 使用多种提示词优化, 包括CoT、基于动态检索的ICL

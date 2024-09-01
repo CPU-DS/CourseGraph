@@ -40,7 +40,9 @@ pip install -r requirements.txt
 pip install -e .
 ```
 
-执行 `examples` 目录下的示例文件
+> 其中 windows 下安装 faiss-gpu 请使用命令: `conda install conda-forge::faiss-gpu==1.7.2`
+
+然后执行 `examples` 目录下的示例文件
 
 ## 文档
 
