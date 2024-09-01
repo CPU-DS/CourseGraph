@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # Create Date: 2024/08/05
 # Author: wangtao <wangtao.cpu@gmail.com>
-# File Name: coursekg/document_parser/utils.py
+# File Name: coursekg/parser/utils.py
 # Description: 工具函数
 
 from __future__ import annotations

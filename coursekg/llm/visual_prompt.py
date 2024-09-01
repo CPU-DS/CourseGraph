@@ -21,7 +21,7 @@ class VisualPrompt(ABC):
         """
 
     @abstractmethod
-    def set_type(self, type_: Literal['ocr', 'ie', 'correct']) -> None:
+    def set_type(self, type_: Literal['ocr', 'ie', 'correct']) -> 'VisualPrompt':
         """ 设置提示词类型
 
         Args:
@@ -98,11 +98,11 @@ class MiniCPMPrompt(VisualPrompt):
         self.prompt: str = ''
         self.sys_prompt: str | None = None
 
-    def set_type(self, type_: Literal['ocr', 'ie', 'correct']) -> None:
+    def set_type(self, type_: Literal['ocr', 'ie']) -> VisualPrompt:
         """ 设置提示词类型
 
         Args:
-            type_ (Literal['ocr', 'ie', 'correct']): 提示词类型.
+            type_ (Literal['ocr', 'ie']): 提示词类型.
 
         """
         self.type_ = type_
@@ -117,12 +117,10 @@ class MiniCPMPrompt(VisualPrompt):
         elif self.type_ == 'ie':
             self.prompt = '请帮我提取图片中的主要内容'
             self.sys_prompt = '你是一个能够总结图片内容的模型。'
-        elif self.type_ == 'correct':
-            # TODO
-            pass
         else:
             self.prompt = ''
             self.sys_prompt = None
+        return self
 
     def use_examples(
         self,

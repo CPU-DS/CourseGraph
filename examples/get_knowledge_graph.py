@@ -4,7 +4,7 @@
 # File Name: examples/pdf_knowledgepoint.py
 # Description: 为pdf文档抽取知识点图谱
 
-from coursekg.document_parser import get_parser
+from coursekg.parser import get_parser
 from coursekg.database import Neo4j
 from coursekg.llm import ExamplePrompt, VLLM
 

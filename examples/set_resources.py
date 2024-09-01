@@ -4,7 +4,7 @@
 # File Name: examples/set_resources.py
 # Description: 为实体挂载资源
 
-from coursekg.document_parser import get_parser
+from coursekg.parser import get_parser
 from coursekg.resource import PPTX, ResourceMap
 from coursekg.llm import VLLM, MiniCPM, ExamplePrompt, MiniCPMPrompt
 

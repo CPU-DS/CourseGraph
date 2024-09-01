@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # Create Date: 2024/07/15
 # Author: wangtao <wangtao.cpu@gmail.com>
-# File Name: coursekg/document_parser/resource.py
+# File Name: coursekg/parser/resource.py
 # Description: 定义资源类
 
 from __future__ import annotations
@@ -126,7 +126,7 @@ class PPTX(Resource):
         idxs = [key for key, val in self.index_maps.items() if keyword in val]
         return _merge_index_slice(idxs, self.file_path)
 
-    def set_maps_by_visual_model(self, model: VisualLM,
+    def set_maps_by_visual_model(self, model: MLLM,
                                  prompt: VisualPrompt) -> None:
         """ 使用多模态大模型提取pptx主要内容
 

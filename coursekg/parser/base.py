@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # Create Date: 2024/07/11
 # Author: wangtao <wangtao.cpu@gmail.com>
-# File Name: coursekg/document_parser/base.py
+# File Name: coursekg/parser/base.py
 # Description: 定义文档、书签以及抽取知识图谱相关类和方法
 
 from dataclasses import dataclass, field

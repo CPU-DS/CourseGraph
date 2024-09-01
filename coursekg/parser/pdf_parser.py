@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # Create Date: 2024/07/11
 # Author: wangtao <wangtao.cpu@gmail.com>
-# File Name: coursekg/document_parser/pdf_parser.py
+# File Name: coursekg/parser/pdf_parser.py
 # Description: 定义pdf文档解析器
 
 from .base import BookMark
@@ -13,7 +13,7 @@ from PIL import Image
 import numpy as np
 import cv2
 import re
-from ..llm import MLLM, VisualPrompt
+from ..llm import MLLM, VisualPrompt, LLM, get_ocr_aided_prompt
 from typing import Literal
 from paddleocr.ppstructure.recovery.recovery_to_doc import sorted_layout_boxes
 import os
@@ -53,9 +53,10 @@ class PDFParser(Parser):
         self.__parser_mode: Literal['base', 'pp', 'vl',
                                     'combination'] | None = None
         self.set_parser_mode_pp_structure()  # 默认模式
-        self.__visual_model: MLLM = None
-        self.__visual_prompt: VisualPrompt = None
+        self.__visual_model = None
+        self.__visual_prompt = None
         self.__ocr_engine = None
+        self.__llm = None
 
     def set_parser_mode_base(self):
         """ 使用基础模式解析
@@ -77,21 +78,23 @@ class PDFParser(Parser):
         """
         self.__parser_mode = 'vl'
         self.__visual_model = model
-        self.__visual_prompt = prompt
+        self.__visual_prompt = prompt.set_type('ocr')
         self.__ocr_engine = PPStructure(table=False, ocr=True, show_log=False)
 
-    def set_parser_mode_combination(self, visual_model: MLLM,
+    def set_parser_mode_combination(self, visual_model: MLLM, llm: LLM,
                                     visual_prompt: VisualPrompt):
-        """ 使用飞桨OCR + 多模态大模型综合解析 (推荐)
+        """ 使用飞桨OCR + 大模型综合解析 (推荐)
 
         Args:
+            llm (LLM): 语言大模型
             visual_model (MLLM): 多模态大模型
             visual_prompt (VisualPrompt): 大模型对应的提示词
         """
         self.__parser_mode = 'combination'
         self.__visual_model = visual_model
-        self.__visual_prompt = visual_prompt
+        self.__visual_prompt = visual_prompt.set_type('ocr')
         self.__ocr_engine = PPStructure(table=False, ocr=True, show_log=False)
+        self.__llm = llm
 
     def __enter__(self) -> 'PDFParser':
         return self
@@ -218,7 +221,13 @@ class PDFParser(Parser):
         result = self.__ocr_engine(img)
         h, w, _ = img.shape
         res = sorted_layout_boxes(result, w)
-        return [{'type': item['type'], 'bbox': item['bbox']} for item in res]
+        return [
+            {
+                'type': item['type'],  # 区域类型
+                'bbox': item['bbox'],  # 区域边界坐标
+                'text': ''.join([r['text'] for r in item['res']])  # 文字ocr结果
+            } for item in res
+        ]
 
     def get_page(self, page_index: int) -> Page:
         """ 获取文档页面
@@ -248,8 +257,10 @@ class PDFParser(Parser):
             contents = [
                 Content(type=ContentType.Text, content=pdf_page.get_text())
             ]
-        elif self.__parser_mode == 'vl':
-            img = self._get_page_img(page_index, zoom=2)
+        elif self.__parser_mode == 'vl' or self.__parser_mode == 'combination':
+            zoom = 2
+            pdf_page = self.__pdf[page_index]
+            img = self._get_page_img(page_index, zoom=zoom)
             h, w, _ = img.shape
             blocks = self._page_structure(img)
 
@@ -260,7 +271,8 @@ class PDFParser(Parser):
                 os.mkdir(cache_path)
             contents: list[Content] = []
             for idx, block in enumerate(blocks):
-                if block['type'] in ['header', 'footer', 'reference']:
+                type_ = block['type']
+                if type_ in ['header', 'footer', 'reference']:
                     continue  # 页眉页脚注释部分不要
                 x1, y1, x2, y2 = block['bbox']
                 # 扩充裁剪区域
@@ -268,17 +280,32 @@ class PDFParser(Parser):
                     w, x2 + t), min(h, y2 + t)  # 防止越界
                 if (x2 - x1) < 5 or (y2 - y1) < 5:
                     continue  # 区域过小
-                if block['type'] == 'figure' and ((x2 - x1) < 150 or
-                                                  (y2 - y1) < 150):
+                if type_ == 'figure' and ((x2 - x1) < 150 or (y2 - y1) < 150):
                     continue  # 图片过小
                 cropped_img = Image.fromarray(img).crop((x1, y1, x2, y2))
-                file_path = os.path.join(cache_path, f'{idx}.png')
+                file_path = os.path.join(cache_path, f'{idx}_{type_}.png')
                 cropped_img.save(file_path)
-                self.__visual_prompt.set_type('ocr')
-                prompt = self.__visual_prompt.use_examples()
-                res = self.__visual_model.chat(
-                    msgs=prompt.get_prompt(file_path),
-                    sys_prompt=prompt.get_sys_prompt())
+                if self.__parser_mode == 'vl':
+                    self.__visual_prompt.set_type('ocr')
+                    res = self.__visual_model.chat(
+                        msgs=self.__visual_prompt.get_prompt(file_path),
+                        sys_prompt=self.__visual_prompt.get_sys_prompt())
+                else:  # self.__parser_mode == 'combination'
+                    if type_ in ['title', 'text']:  # 直接读取或ocr + 大模型矫正
+                        bbox = [b / zoom for b in block['bbox']]
+                        res = pdf_page.get_textbox(bbox).replace(
+                            '\n', '')  # 直接读取可能存在不正确地换行
+                        # 有些pdf是图片形可能无法直接读取
+                        if res == '':
+                            res = block['text']
+                        try:
+                            res = self.__llm.chat(get_ocr_aided_prompt(res))
+                        finally:
+                            pass
+                    else:
+                        res = self.__visual_model.chat(
+                            msgs=self.__visual_prompt.get_prompt(file_path),
+                            sys_prompt=self.__visual_prompt.get_sys_prompt())
                 if block['type'] == 'title':
                     contents.append(
                         Content(type=ContentType.Title, content=res))
@@ -287,8 +314,6 @@ class PDFParser(Parser):
                     contents.append(Content(type=ContentType.Text,
                                             content=res))
             shutil.rmtree(cache_path)
-        elif self.__parser_mode == 'combination':
-            pass
         else:
             contents = []
         return Page(page_index=page_index + 1, contents=contents)

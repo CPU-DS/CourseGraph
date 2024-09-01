@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # Create Date: 2024/07/11
 # Author: wangtao <wangtao.cpu@gmail.com>
-# File Name: coursekg/document_parser/config.py
+# File Name: coursekg/parser/config.py
 # Description: 定义知识图谱抽取配置
 
 from dataclasses import dataclass, field

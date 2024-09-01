@@ -4,7 +4,7 @@
 # File Name: examples/pdf_knowledgepoint.py
 # Description: 使用动态提示词示例抽取知识点图谱
 
-from coursekg.document_parser import PDFParser
+from coursekg.parser import PDFParser
 from coursekg.database import Neo4j
 from coursekg.llm import ExamplePrompt, VLLM, SentenceEmbeddingStrategy
 

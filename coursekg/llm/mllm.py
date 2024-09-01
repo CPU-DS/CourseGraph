@@ -43,7 +43,7 @@ class MiniCPM(MLLM):
             path (str): 模型名称或路径
             config (VisualConfig, optional): 配置. Defaults to VisualConfig().
         """
-        super().__init__()
+        super().__init__(path, config)
         self.model = AutoModel.from_pretrained(path,
                                                trust_remote_code=True,
                                                torch_dtype=torch.float16)

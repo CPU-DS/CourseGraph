@@ -39,12 +39,12 @@ class LLM(ABC):
 class QwenAPI(LLM):
 
     def __init__(
-            self,
-            api_type: str = 'qwen-max',
-            api_key: str = os.getenv("DASHSCOPE_API_KEY"),
-            url:
-            str = 'https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation',
-            config: LLMConfig = LLMConfig()
+        self,
+        api_type: str = 'qwen-max',
+        api_key: str = os.getenv("DASHSCOPE_API_KEY"),
+        url:
+        str = 'https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation',
+        config: LLMConfig = LLMConfig()
     ) -> None:
         """ Qwen 系列模型 API 服务
 
@@ -100,7 +100,11 @@ class QwenAPI(LLM):
 
 class VLLM(LLM):
 
-    def __init__(self, path: str, stop_token_ids: list[int] = None, config: LLMConfig = LLMConfig()) -> None:
+    def __init__(
+        self,
+        path: str,
+        stop_token_ids: list[int] = None,
+        config: LLMConfig = LLMConfig()) -> None:
         """ 使用VLLM加载模型
 
         Args:
@@ -111,12 +115,13 @@ class VLLM(LLM):
         super().__init__()
         self.path = path
         self.config = config
-        self.llm = vllm.LLM(model=path,
-                            tensor_parallel_size=self.config.tensor_parallel_size,
-                            max_model_len=self.config.max_model_len,
-                            gpu_memory_utilization=1,
-                            enforce_eager=True,
-                            trust_remote_code=True)
+        self.llm = vllm.LLM(
+            model=path,
+            tensor_parallel_size=self.config.tensor_parallel_size,
+            max_model_len=self.config.max_model_len,
+            gpu_memory_utilization=1,
+            enforce_eager=True,
+            trust_remote_code=True)
         self.tokenizer = AutoTokenizer.from_pretrained(path,
                                                        trust_remote_code=True)
         self.stop_token_ids = stop_token_ids
@@ -130,13 +135,14 @@ class VLLM(LLM):
         Returns:
             str: 模型输出
         """
-        sampling_params = SamplingParams(temperature=self.config.temperature,
-                                         top_p=self.config.top_p,
-                                         top_k=self.config.top_k,
-                                         repetition_penalty=self.config.repetition_penalty,
-                                         max_tokens=self.config.max_tokens,
-                                         presence_penalty=self.config.presence_penalty,
-                                         stop_token_ids=self.stop_token_ids)
+        sampling_params = SamplingParams(
+            temperature=self.config.temperature,
+            top_p=self.config.top_p,
+            top_k=self.config.top_k,
+            repetition_penalty=self.config.repetition_penalty,
+            max_tokens=self.config.max_tokens,
+            presence_penalty=self.config.presence_penalty,
+            stop_token_ids=self.stop_token_ids)
         messages = [{"role": "user", "content": message}]
         text = self.tokenizer.apply_chat_template(messages,
                                                   tokenize=False,

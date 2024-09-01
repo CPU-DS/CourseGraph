@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # Create Date: 2024/07/11
 # Author: wangtao <wangtao.cpu@gmail.com>
-# File Name: coursekg/document_parser/parser.py
+# File Name: coursekg/parser/parser.py
 # Description: 定义文档解析器基类
 
 from __future__ import annotations
