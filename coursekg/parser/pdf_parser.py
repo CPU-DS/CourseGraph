@@ -13,11 +13,12 @@ from PIL import Image
 import numpy as np
 import cv2
 import re
-from ..llm import MLLM, VisualPrompt, LLM, get_ocr_aided_prompt
+from ..llm import MLLM, VisualPrompt, LLM, get_ocr_aided_prompt, get_directory_prompt, get_outline_prompt
 from typing import Literal
 from paddleocr.ppstructure.recovery.recovery_to_doc import sorted_layout_boxes
 import os
 import shutil
+import ast
 
 
 def _replace_linefeed(sentence: str, ignore_end=True, replace='') -> str:
@@ -52,11 +53,15 @@ class PDFParser(Parser):
         self.__pdf = fitz.open(pdf_path)
         self.__parser_mode: Literal['base', 'pp', 'vl',
                                     'combination'] | None = None
-        self.set_parser_mode_pp_structure()  # 默认模式
         self.__visual_model = None
         self.__visual_prompt = None
         self.__ocr_engine = None
         self.__llm = None
+        self.set_parser_mode_pp_structure()  # 默认模式
+        self.outline: list = outline if len(
+            outline := self.__pdf.get_toc()) != 0 else []
+        # 可以使用 simple=False 获得更详细的信息，包含锚点等
+        # 这里如果不自带书签则需要手动制定目录页，读取文字再使用大模型解析
 
     def set_parser_mode_base(self):
         """ 使用基础模式解析
@@ -81,14 +86,16 @@ class PDFParser(Parser):
         self.__visual_prompt = prompt.set_type('ocr')
         self.__ocr_engine = PPStructure(table=False, ocr=True, show_log=False)
 
-    def set_parser_mode_combination(self, visual_model: MLLM, llm: LLM,
-                                    visual_prompt: VisualPrompt):
-        """ 使用飞桨OCR + 大模型综合解析 (推荐)
+    def set_parser_mode_combination(self,
+                                    visual_model: MLLM,
+                                    visual_prompt: VisualPrompt,
+                                    llm: LLM | None = None):
+        """ 使用paddle OCR + 大模型综合解析 (推荐)
 
         Args:
-            llm (LLM): 语言大模型
             visual_model (MLLM): 多模态大模型
             visual_prompt (VisualPrompt): 大模型对应的提示词
+            llm (LLM | None, optional): 使用大模型矫正OCR结果. Defaults to None.
         """
         self.__parser_mode = 'combination'
         self.__visual_model = visual_model
@@ -104,6 +111,110 @@ class PDFParser(Parser):
         """
         self.__pdf.close()
 
+    def get_catalogue_index_by_visual_model(
+            self,
+            visual_model: MLLM,
+            visual_prompt: VisualPrompt,
+            ratio: float = 0.1) -> tuple[int, int]:
+        """ 通过多模态大模型寻找目录页, 返回目录页起始页和终止页页码 (从0开始编序)
+
+        Args:
+            visual_model (MLLM): 多模态大模型
+            visual_prompt (VisualPrompt): 视觉提示词
+            ratio (float, optional): 查询前 ratio 比例的页面. Defaults to 0.1 即 10%.
+
+        Returns:
+            tuple[int, int]: 目录页起始页和终止页页码
+        """
+        visual_prompt.set_type('catalogue')
+        cache_path = '.cache/pdf_cache'
+        if not os.path.exists(cache_path):
+            os.mkdir(cache_path)
+        catalogue = []
+        for index in range(int(self.__pdf.page_count * ratio)):
+            img = self._get_page_img(index, zoom=2)
+            file_path = os.path.join(cache_path, f'{index}.png')
+            Image.fromarray(img).save(file_path)
+            res = visual_model.chat(msgs=visual_prompt.get_prompt(file_path),
+                                    sys_prompt=visual_prompt.get_sys_prompt())
+            if res == '是' or res == '是。' or res == '是.':
+                catalogue.append(index)
+        shutil.rmtree(cache_path)
+
+        def find_longest_consecutive_sequence(nums):
+            if not nums:
+                return None, None
+
+            nums = sorted(set(nums))
+            max_start = max_end = nums[0]
+            current_start = nums[0]
+            max_length = 1
+            current_length = 1
+
+            for i in range(1, len(nums)):
+                if nums[i] == nums[i - 1] + 1:
+                    current_length += 1
+                    if current_length > max_length:
+                        max_length = current_length
+                        max_start = current_start
+                        max_end = nums[i]
+                else:
+                    current_start = nums[i]
+                    current_length = 1
+
+            return max_start, max_end
+
+        return find_longest_consecutive_sequence(catalogue)
+
+    def set_outline_by_catalogue(self, start_index: int, end_index: int,
+                                 offset: int, llm: LLM) -> None:
+        """ 手动制定目录页, 通过大模型解析目录页获取大纲层级
+
+        Args:
+            start_index (int): 目录页起始页 (从0开始编序)
+            end_index (int): 目录页终止页
+            offset (int): 首页偏移
+            llm (LLM): 大模型
+        """
+
+        def get_list(text: str) -> list:
+            list_string = ''
+            stack = 0
+            for s in text:
+                if s == '[':
+                    stack += 1
+                if stack > 0:
+                    list_string += s
+                if s == ']':
+                    stack -= 1
+                    if stack == 0:
+                        break
+            return ast.literal_eval(list_string)
+
+        self.outline = []
+        page_index = list(range(start_index, end_index + 1))
+        lines = []
+        for index in page_index:
+            page = self.__pdf[index]
+            text = page.get_text()
+            if len(text) == 0:  # 图片型pdf则使用ocr
+                text = '\n'.join([
+                    item['text'] for item in self._page_structure(
+                        self._get_page_img(index, zoom=2))
+                ])
+            res = llm.chat(get_directory_prompt(text)).replace("，", ",")
+            lines.extend(get_list(res))
+        lines_without_index = [line[0] for line in lines]
+        res = llm.chat(get_outline_prompt(lines_without_index))
+        r2 = get_list(res)
+
+        outline = []
+        for i in range(len(r2)):
+            level = int(re.findall(r'\d+', r2[i][1])[0])
+            if str(lines[i][1]).isdigit():
+                outline.append([level, lines[i][0], int(lines[i][1]) + offset])
+        self.outline = outline
+
     def get_bookmarks(self) -> list[BookMark]:
         """  获取pdf文档书签
 
@@ -112,8 +223,9 @@ class PDFParser(Parser):
         """
         stack: list[BookMark] = []
         bookmarks: list[BookMark] = []
-        result = self.__pdf.get_toc()
-        for item in result:
+        if len(self.outline) == 0:
+            raise ValueError('请先通过 set_outline_by_catalogue 方法手动设置大纲')
+        for item in self.outline:
             level, title, page = item
             page -= 1  # 从0开始
             level -= 1  # 从0开始
@@ -138,11 +250,11 @@ class PDFParser(Parser):
         stack.reverse()
 
         # 设置各个书签的结束页码
-        def set_page_end(bookmarks: list[BookMark]):
-            for idx in range(len(bookmarks)):
-                if idx != len(bookmarks) - 1:
-                    bookmarks[idx].set_page_end(bookmarks[idx + 1].page_index)
-                set_page_end(bookmarks[idx].subs)
+        def set_page_end(bks: list[BookMark]):
+            for idx in range(len(bks)):
+                if idx != len(bks) - 1:
+                    bks[idx].set_page_end(bks[idx + 1].page_index)
+                set_page_end(bks[idx].subs)
 
         set_page_end(stack)
         stack[-1].set_page_end(self.__pdf.page_count - 1)
@@ -270,6 +382,7 @@ class PDFParser(Parser):
             if not os.path.exists(cache_path):
                 os.mkdir(cache_path)
             contents: list[Content] = []
+
             for idx, block in enumerate(blocks):
                 type_ = block['type']
                 if type_ in ['header', 'footer', 'reference']:
@@ -285,27 +398,31 @@ class PDFParser(Parser):
                 cropped_img = Image.fromarray(img).crop((x1, y1, x2, y2))
                 file_path = os.path.join(cache_path, f'{idx}_{type_}.png')
                 cropped_img.save(file_path)
+
                 if self.__parser_mode == 'vl':
-                    self.__visual_prompt.set_type('ocr')
                     res = self.__visual_model.chat(
                         msgs=self.__visual_prompt.get_prompt(file_path),
                         sys_prompt=self.__visual_prompt.get_sys_prompt())
+
                 else:  # self.__parser_mode == 'combination'
                     if type_ in ['title', 'text']:  # 直接读取或ocr + 大模型矫正
                         bbox = [b / zoom for b in block['bbox']]
                         res = pdf_page.get_textbox(bbox).replace(
                             '\n', '')  # 直接读取可能存在不正确地换行
-                        # 有些pdf是图片形可能无法直接读取
-                        if res == '':
+                        # 有些pdf是图片型可能无法直接读取, 则使用ocr的结果
+                        if len(res) == 0:
                             res = block['text']
-                        try:
-                            res = self.__llm.chat(get_ocr_aided_prompt(res))
-                        finally:
-                            pass
+                        if self.__llm is not None:
+                            try:
+                                res = self.__llm.chat(
+                                    get_ocr_aided_prompt(res))
+                            finally:
+                                pass  # 这一步不是必须的
                     else:
                         res = self.__visual_model.chat(
                             msgs=self.__visual_prompt.get_prompt(file_path),
                             sys_prompt=self.__visual_prompt.get_sys_prompt())
+
                 if block['type'] == 'title':
                     contents.append(
                         Content(type=ContentType.Title, content=res))

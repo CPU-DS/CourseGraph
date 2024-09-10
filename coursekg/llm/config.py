@@ -17,6 +17,7 @@ class LLMConfig:
     repetition_penalty: float = 1.05  # 重复token惩罚，被添加到softmax函数中
     presence_penalty: float = 0  # 整个序列的重复度，被添加到损失函数中
     tensor_parallel_size: int = 2  # 张量并行大小
+    gpu_memory_utilization: float = 0.6
 
 
 @dataclass

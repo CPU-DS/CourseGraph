@@ -39,12 +39,12 @@ class LLM(ABC):
 class QwenAPI(LLM):
 
     def __init__(
-        self,
-        api_type: str = 'qwen-max',
-        api_key: str = os.getenv("DASHSCOPE_API_KEY"),
-        url:
-        str = 'https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation',
-        config: LLMConfig = LLMConfig()
+            self,
+            api_type: str = 'qwen-max',
+            api_key: str = os.getenv("DASHSCOPE_API_KEY"),
+            url:
+            str = 'https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation',
+            config: LLMConfig = LLMConfig()
     ) -> None:
         """ Qwen 系列模型 API 服务
 
@@ -101,10 +101,10 @@ class QwenAPI(LLM):
 class VLLM(LLM):
 
     def __init__(
-        self,
-        path: str,
-        stop_token_ids: list[int] = None,
-        config: LLMConfig = LLMConfig()) -> None:
+            self,
+            path: str,
+            stop_token_ids: list[int] = None,
+            config: LLMConfig = LLMConfig()) -> None:
         """ 使用VLLM加载模型
 
         Args:
@@ -119,7 +119,7 @@ class VLLM(LLM):
             model=path,
             tensor_parallel_size=self.config.tensor_parallel_size,
             max_model_len=self.config.max_model_len,
-            gpu_memory_utilization=1,
+            gpu_memory_utilization=self.config.gpu_memory_utilization,
             enforce_eager=True,
             trust_remote_code=True)
         self.tokenizer = AutoTokenizer.from_pretrained(path,

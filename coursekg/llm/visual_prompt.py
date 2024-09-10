@@ -21,11 +21,12 @@ class VisualPrompt(ABC):
         """
 
     @abstractmethod
-    def set_type(self, type_: Literal['ocr', 'ie', 'correct']) -> 'VisualPrompt':
+    def set_type(self, type_: Literal['ocr', 'ie',
+                                      'catalogue']) -> 'VisualPrompt':
         """ 设置提示词类型
 
         Args:
-            type_ (Literal['ocr', 'ie', 'correct']): 提示词类型.
+            type_ (Literal['ocr', 'ie', 'catalogue']): 提示词类型.
 
         Raises:
             NotImplementedError: 子类需要实现该方法
@@ -98,7 +99,8 @@ class MiniCPMPrompt(VisualPrompt):
         self.prompt: str = ''
         self.sys_prompt: str | None = None
 
-    def set_type(self, type_: Literal['ocr', 'ie']) -> VisualPrompt:
+    def set_type(self, type_: Literal['ocr', 'ie',
+                                      'catalogue']) -> VisualPrompt:
         """ 设置提示词类型
 
         Args:
@@ -116,6 +118,11 @@ class MiniCPMPrompt(VisualPrompt):
             self.sys_prompt = '你是一个OCR模型。'
         elif self.type_ == 'ie':
             self.prompt = '请帮我提取图片中的主要内容'
+            self.sys_prompt = '你是一个能够总结图片内容的模型。'
+        elif self.type_ == 'catalogue':
+            self.prompt = """给你一张图片，他是书籍中的某一页。请你帮我判断这一页是不是这本书的目录页中的其中一页。你必须做到：
+1.只需要回答我是或否这一个字即可。不需要其他任何的解释。
+2.书籍的目录页是指包含一些章节名称和对应的页码。书籍的封面、作者介绍、版权页、前言和正文等都不能算作目录页。"""
             self.sys_prompt = '你是一个能够总结图片内容的模型。'
         else:
             self.prompt = ''
