@@ -13,7 +13,7 @@ from PIL import Image
 import numpy as np
 import cv2
 import re
-from ..llm import MLLM, VisualPrompt, LLM, get_ocr_aided_prompt, get_directory_prompt, get_outline_prompt
+from ..llm import MLLM, VisualPrompt, LLM, ParserPrompt
 from typing import Literal
 from paddleocr.ppstructure.recovery.recovery_to_doc import sorted_layout_boxes
 import os
@@ -141,9 +141,18 @@ class PDFParser(Parser):
                 catalogue.append(index)
         shutil.rmtree(cache_path)
 
-        def find_longest_consecutive_sequence(nums):
+        def find_longest_consecutive_sequence(
+                nums: list[int]) -> tuple[int, int]:
+            """ 找到一个最长的连续序列的起点和终点
+
+            Args:
+                nums (list[int]): 序列
+
+            Returns:
+                tuple[int, int]: 起点数字和终点数字
+            """
             if not nums:
-                return None, None
+                return -1, -1
 
             nums = sorted(set(nums))
             max_start = max_end = nums[0]
@@ -166,8 +175,13 @@ class PDFParser(Parser):
 
         return find_longest_consecutive_sequence(catalogue)
 
-    def set_outline_by_catalogue(self, start_index: int, end_index: int,
-                                 offset: int, llm: LLM) -> None:
+    def set_outline_by_catalogue(
+            self,
+            start_index: int,
+            end_index: int,
+            offset: int,
+            llm: LLM,
+            parser_prompt: ParserPrompt = ParserPrompt) -> None:
         """ 手动制定目录页, 通过大模型解析目录页获取大纲层级
 
         Args:
@@ -175,6 +189,7 @@ class PDFParser(Parser):
             end_index (int): 目录页终止页
             offset (int): 首页偏移
             llm (LLM): 大模型
+            parser_prompt (ParserPrompt, optional): 文件解析提示词. Defaults to ParserPrompt.
         """
 
         def get_list(text: str) -> list:
@@ -202,10 +217,11 @@ class PDFParser(Parser):
                     item['text'] for item in self._page_structure(
                         self._get_page_img(index, zoom=2))
                 ])
-            res = llm.chat(get_directory_prompt(text)).replace("，", ",")
+            res = llm.chat(parser_prompt.get_directory_prompt(text)).replace(
+                "，", ",")
             lines.extend(get_list(res))
         lines_without_index = [line[0] for line in lines]
-        res = llm.chat(get_outline_prompt(lines_without_index))
+        res = llm.chat(parser_prompt.get_outline_prompt(lines_without_index))
         r2 = get_list(res)
 
         outline = []
@@ -415,7 +431,7 @@ class PDFParser(Parser):
                         if self.__llm is not None:
                             try:
                                 res = self.__llm.chat(
-                                    get_ocr_aided_prompt(res))
+                                    ParserPrompt.get_ocr_aided_prompt(res))
                             finally:
                                 pass  # 这一步不是必须的
                     else:

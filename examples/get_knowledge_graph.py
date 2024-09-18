@@ -6,7 +6,7 @@
 
 from coursekg.parser import get_parser
 from coursekg.database import Neo4j
-from coursekg.llm import ExamplePrompt, VLLM
+from coursekg.llm import VLLM
 
 model = VLLM('model/Qwen/Qwen2-7B-Instruct')
 neo = Neo4j('http://10.4.3.67:7474', 'neo4j', 'neo4j')
@@ -15,9 +15,5 @@ files = ['assets/深度学习入门：基于Python的理论与实现.pdf', 'asse
 for file in files:
     with get_parser(file) as parser:
         document = parser.get_document()
-        document.set_knowledgepoints_by_llm(model,
-                                            ExamplePrompt(),
-                                            self_consistency=True,
-                                            samples=6,
-                                            top=0.8)
+        document.set_knowledgepoints_by_llm(model)
         neo.run(document.to_cyphers())

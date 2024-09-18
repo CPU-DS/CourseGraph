@@ -5,7 +5,7 @@
 # Description: 定义文档、书签以及抽取知识图谱相关类和方法
 
 from dataclasses import dataclass, field
-from ..llm import LLM, Prompt
+from ..llm import LLM, IEPrompt, ExamplePrompt
 import uuid
 from loguru import logger
 from .config import Config
@@ -147,7 +147,7 @@ class Document:
 
     def set_knowledgepoints_by_llm(self,
                                    llm: LLM,
-                                   prompt: Prompt,
+                                   prompt: IEPrompt = ExamplePrompt(),
                                    self_consistency: bool = False,
                                    samples: int = 5,
                                    top: float = 0.5) -> None:
@@ -155,7 +155,7 @@ class Document:
 
         Args:
             llm (LLM): 指定 LLM
-            prompt (Prompt): 使用的提示词类
+            prompt (Prompt, optional): 使用的提示词类. Defaults to ExamplePrompt().
             self_consistency (bool, optional): 是否采用自我一致性策略 (需要更多的模型推理次数). Defaults to False.
             samples (int, optional): 采用自我一致性策略的采样次数. Defaults to 5.
             top (float, optional): 采用自我一致性策略时，出现次数超过 top * samples 时才会被采纳，范围为 [0, 1]. Defaults to 0.5.
