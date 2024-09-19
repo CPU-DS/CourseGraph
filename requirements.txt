@@ -21,3 +21,7 @@ vllm==0.5.3.post1
 pymongo==4.8.0
 paddleocr==2.8.1
 paddlepaddle==2.6.1
+ollama==0.3.3
+json5==0.9.25
+ray==2.35.0
+

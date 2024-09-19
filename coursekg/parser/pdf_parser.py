@@ -83,7 +83,7 @@ class PDFParser(Parser):
         """
         self.__parser_mode = 'vl'
         self.__visual_model = model
-        self.__visual_prompt = prompt.set_type('ocr')
+        self.__visual_prompt = prompt.set_type_ocr()
         self.__ocr_engine = PPStructure(table=False, ocr=True, show_log=False)
 
     def set_parser_mode_combination(self,
@@ -99,7 +99,7 @@ class PDFParser(Parser):
         """
         self.__parser_mode = 'combination'
         self.__visual_model = visual_model
-        self.__visual_prompt = visual_prompt.set_type('ocr')
+        self.__visual_prompt = visual_prompt.set_type_ocr()
         self.__ocr_engine = PPStructure(table=False, ocr=True, show_log=False)
         self.__llm = llm
 
@@ -115,23 +115,23 @@ class PDFParser(Parser):
             self,
             visual_model: MLLM,
             visual_prompt: VisualPrompt,
-            ratio: float = 0.1) -> tuple[int, int]:
+            rate: float = 0.1) -> tuple[int, int]:
         """ 通过多模态大模型寻找目录页, 返回目录页起始页和终止页页码 (从0开始编序)
 
         Args:
             visual_model (MLLM): 多模态大模型
             visual_prompt (VisualPrompt): 视觉提示词
-            ratio (float, optional): 查询前 ratio 比例的页面. Defaults to 0.1 即 10%.
+            rate (float, optional): 查询前 ratio 比例的页面. Defaults to 0.1 即 10%.
 
         Returns:
             tuple[int, int]: 目录页起始页和终止页页码
         """
-        visual_prompt.set_type('catalogue')
+        visual_prompt.set_type_catalogue()
         cache_path = '.cache/pdf_cache'
         if not os.path.exists(cache_path):
             os.mkdir(cache_path)
         catalogue = []
-        for index in range(int(self.__pdf.page_count * ratio)):
+        for index in range(int(self.__pdf.page_count * rate)):
             img = self._get_page_img(index, zoom=2)
             file_path = os.path.join(cache_path, f'{index}.png')
             Image.fromarray(img).save(file_path)

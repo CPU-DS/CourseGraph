@@ -14,9 +14,7 @@ def check_os_windows() -> bool:
     Returns:
         bool: 操作系统是否为windows
     """
-    if os.name == 'nt':
-        return True
-    return False
+    return True if os.name == 'nt' else False
 
 
 def pptx2imgs(path: str, cache_path: str) -> list[str]:
@@ -43,11 +41,12 @@ def pptx2imgs(path: str, cache_path: str) -> list[str]:
         pdf_path = os.path.join(
             cache_path,
             os.path.basename(path).replace('.pptx', '.pdf'))
-        pdf = fitz.open(pdf_path)
-        for idx, page in enumerate(pdf):
+        idx = 0
+        for page in fitz.open(pdf_path):
             page.get_pixmap().save(
                 os.path.join(cache_path,
                              f"{os.path.basename(path)}_{idx}.png"))
+            idx += 1
         os.remove(pdf_path)
 
     res = glob(f'{cache_path}/*')
