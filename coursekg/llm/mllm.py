@@ -1,3 +1,9 @@
+# -*- coding: utf-8 -*-
+# Create Date: 2024/07/11
+# Author: wangtao <wangtao.cpu@gmail.com>
+# File Name: coursekg/llm/mllm.py
+# Description: 定义多模态大模型类
+
 from .config import VisualConfig
 import torch
 from modelscope import AutoModel, AutoTokenizer

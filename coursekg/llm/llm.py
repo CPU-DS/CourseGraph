@@ -1,113 +1,86 @@
 # -*- coding: utf-8 -*-
-# Create Date: 2024/07/11
+# Create Date: 2024/09/20
 # Author: wangtao <wangtao.cpu@gmail.com>
 # File Name: coursekg/llm/llm.py
-# Description: 定义大模型类
+# Description: 定义兼容 openAI API 的大模型类
 
+from openai import OpenAI
+from openai.types.chat import ChatCompletionMessage
+from openai import NOT_GIVEN
+from abc import ABC
+from .config import LLMConfig
 import os
 import requests
-from abc import ABC, abstractmethod
-import vllm
-from vllm import SamplingParams
-from .config import LLMConfig
-from modelscope import AutoTokenizer
-import ollama
+import subprocess
+import time
+import shlex
 
 
 class LLM(ABC):
 
-    def __init__(self) -> None:
-        """ 多种大模型封装类
-        """
-        pass
-
-    @abstractmethod
-    def chat(self, message: str) -> str:
-        """ 模型的单轮对话
+    def __init__(self, config: LLMConfig = LLMConfig()) -> None:
+        """ 大模型抽象类
 
         Args:
-            message (str): 用户输入
-        
-        Raises:
-            NotImplementedError: 子类需要实现该方法
-
-        Returns:
-            str: 模型输出
-        """
-        raise NotImplementedError
-
-
-class QwenAPI(LLM):
-
-    def __init__(
-        self,
-        api_type: str = 'qwen-max',
-        api_key: str = os.getenv("DASHSCOPE_API_KEY"),
-        url:
-        str = 'https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation',
-        config: LLMConfig = LLMConfig()
-    ) -> None:
-        """ Qwen 系列模型 API 服务
-
-        Args:
-            api_type (str, optional): 模型类型. Defaults to 'qwen-max'.
-            api_key (str, optional): API_KEY, 不输入则尝试从环境变量 DASHSCOPE_API_KEY 中获取.
-            url (str, optional): 请求地址, 不输入则使用阿里云官方地址.
-            config (LLMConfig, optional): 配置. Defaults to LLMConfig().
+            config (LLMConfig, optional): 大模型配置. Defaults to LLMConfig().
         """
         super().__init__()
-        self.api_type = api_type
-        self.api_key = api_key
-        self.url = url
         self.config = config
-        self.stop = None
-        self.tools = None
+
+        self.model: str | None = None
+        self.client: OpenAI | None = None
+
+        self.tools: list = []
+        self.tool_functions: dict = {}
         self.json: bool = False
+        self.stop = None
+        self.messages: list[dict] = [{
+            "role": "system",
+            "content": "You are a helpful assistant."
+        }]
+
+    def reset_messages(self) -> None:
+        """ 清空历史记录
+        """
         self.messages = [{
             "role": "system",
             "content": "You are a helpful assistant."
         }]
 
-    def _chat_with_messages(self, messages: list) -> dict:
+    def _chat(self,
+              messages: list[dict],
+              tool: bool = False) -> ChatCompletionMessage:
         """ 基于message中保存的历史记录进行对话
 
         Args:
             messages (list): 历史记录
+            tool (bool, optional): 是否使用tools. Defaults to False.
 
         Returns:
-            dict: json格式的模型返回结果
+            ChatCompletionMessage: 模型返回结果
         """
-
-        headers = {
-            'Content-Type': 'application/json',
-            'Authorization': f'Bearer {self.api_key}'
-        }
-        body = {
-            'model': self.api_type,
-            "input": {
-                "messages": messages
+        return self.client.chat.completions.create(
+            model=self.model,
+            messages=messages,
+            top_p=self.config.top_p,
+            temperature=self.config.temperature,
+            presence_penalty=self.config.presence_penalty,
+            frequency_penalty=self.config.frequency_penalty,
+            max_tokens=self.config.max_tokens,
+            tools=self.tools if tool and len(self.tools) != 0 else NOT_GIVEN,
+            response_format={
+                'type': 'json_object'
+            } if self.json else {
+                'type': 'text'
             },
-            "parameters": {
-                "result_format": "message",
-                "temperature": self.config.temperature,
-                "top_p": self.config.top_p,
-                "top_k": self.config.top_k,
-                "max_tokens": self.config.max_tokens,
-                "response_format": {
-                    "type": "json_object"
-                } if self.json else {
-                    "type": "text"
-                },
-                "repetition_penalty": self.config.repetition_penalty,
-                "presence_penalty": self.config.presence_penalty,
-                "stop": self.stop,
-                "tools": self.tools
-            }
-        }
-        response = requests.post(self.url, headers=headers, json=body)
-        return response.json()
+            stop=self.stop,
+            extra_body={
+                'top_k': self.config.top_k
+            }).choices[0].message
 
-    def chat(self, message: str, content_only: bool = True) -> str | dict:
+    def chat(self,
+             message: str,
+             content_only: bool = True) -> str | ChatCompletionMessage:
         """ 模型的单轮对话
 
         Args:
@@ -115,9 +88,9 @@ class QwenAPI(LLM):
             content_only (bool, optional): 只返回模型的文本输出. Defaults to True.
 
         Returns:
-            str | dict: 模型输出
+            str | ChatCompletionMessage: 模型输出
         """
-        response = self._chat_with_messages(  # 不使用历史记录
+        response = self._chat(
             messages=[{
                 "role": "system",
                 "content": "You are a helpful assistant."
@@ -125,28 +98,29 @@ class QwenAPI(LLM):
                 "role": "user",
                 "content": message
             }])
-        content = response['output']['choices'][0]['message']['content']
-        return content if content_only else response
+        return response.content if content_only else response
 
-    def chat_with_history(self,
-                          message: str | None = None,
-                          content_only: bool = True) -> str | dict:
+    def chat_with_messages(self,
+                           message: str | None = None,
+                           content_only: bool = True,
+                           tool: bool = False) -> str | ChatCompletionMessage:
         """ 模型的多轮对话
 
         Args:
             message (str): 用户输入
             content_only (bool, optional): 只返回模型的文本输出. Defaults to True.
+            tool (bool, optional): 是否使用tools. Defaults to False.
         Returns:
-            str | dict: 模型输出
+            str | ChatCompletionMessage: 模型输出
         """
         if message is not None:
             self.messages.append({'role': 'user', 'content': message})
-        response = self._chat_with_messages(self.messages)
-        content = response['output']['choices'][0]['message']['content']
-        self.messages.append({'role': 'assistant', 'content': content})
-        return content if content_only else response
+        response = self._chat(self.messages, tool=tool)
+        self.messages.append(response.model_dump())
+        return response.content if content_only else response
 
-    def add_message_tool_call(self, tool_content: str, tool_name: str) -> None:
+    def _add_message_tool_call(self, tool_content: str,
+                               tool_name: str) -> None:
         """ 向历史记录中添加工具调用的历史记录
 
         Args:
@@ -156,101 +130,145 @@ class QwenAPI(LLM):
         self.messages.append({
             "role": "tool",
             "content": tool_content,
-            "name": tool_content
+            "name": tool_name
         })
+
+    def add_tool_functions(self, *functions, **function_kwargs):
+        """ 添加工具函数以供模型调用
+        """
+        self.tool_functions.update({tool.__name__: tool for tool in functions})
+        # 允许通过关键字的方式自定义工具名称
+        self.tool_functions.update(function_kwargs)
+
+    def chat_with_tools(self, message: str) -> str:
+        """ 调用外部函数进行对话
+
+        Args:
+            message (str): 用户输入
+
+        Returns:
+            str: 模型输出
+        """
+        assistant_output = self.chat_with_messages(message,
+                                                   content_only=False,
+                                                   tool=True)
+        while assistant_output.tool_calls:  # None 或者空数组
+            functions = assistant_output.tool_calls
+            for item in functions:
+                function = item.function
+                tool_function = self.tool_functions.get(function.name)
+                if tool_function:
+                    tool_content = tool_function(**eval(function.arguments))
+                    tool_name = function.name
+                    self._add_message_tool_call(tool_content, tool_name)
+            assistant_output = self.chat_with_messages(content_only=False,
+                                                       tool=True)
+        return assistant_output.content
+
+    def close(self):
+        """ 关闭模型, 子类如果需要可以重载
+        """
+        pass
+
+
+class Qwen(LLM):
+
+    def __init__(self,
+                 name: str = 'qwen-max',
+                 config: LLMConfig = LLMConfig()):
+        """ Qwen 系列模型 API 服务
+
+        Args:
+            name (str): 模型名称
+            config (LLMConfig, optional): 大模型配置. Defaults to LLMConfig().
+        """
+        super().__init__(config)
+
+        self.model = name
+        self.client = OpenAI(
+            api_key=os.getenv("DASHSCOPE_API_KEY"),
+            base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
+        )
 
 
 class VLLM(LLM):
 
-    def __init__(self, path: str, config: LLMConfig = LLMConfig()) -> None:
-        """ 使用VLLM加载模型
+    def __init__(self,
+                 path: str,
+                 config: LLMConfig = LLMConfig(),
+                 starting_command: str = None):
+        """使用VLLM加载模型
+
+        Args: path (str): 模型名称或路径 config (LLMConfig, optional): 配置. Defaults to LLMConfig(). starting_command (str,
+        optional): VLLM启动命令 (适合于需要自定义template的情况), 也可以使用默认命令, LLMConfig中的配置会自动加入. Defaults to None.
+        """
+        super().__init__(config)
+
+        self.model = path
+        if starting_command is None:
+            command_list = shlex.split(f"""vllm serve {self.model}\
+                                            --host 127.0.0.1\
+                                            --port 9017\
+                                            --gpu-memory-utilization {str(self.config.gpu_memory_utilization)}\
+                                            --tensor-parallel-size {str(self.config.tensor_parallel_size)}\
+                                            --max-model-len {str(self.config.max_model_len)}\
+                                            --enable-auto-tool-choice\
+                                            --tool-call-parser hermes\
+                                            --disable-log-requests""")
+            self.host = '127.0.0.1'
+            self.port = '9017'
+        else:
+            command_list = shlex.split(starting_command)
+            if "--gpu-memory-utilization" not in command_list:
+                command_list.extend(["--gpu-memory-utilization",
+                                    str(self.config.gpu_memory_utilization)])
+            if "--tensor-parallel-size" not in command_list:
+                command_list.extend(["--tensor-parallel-size",
+                                    str(self.config.tensor_parallel_size)])
+            if "--max-model-len" not in command_list:
+                command_list.extend(["--max-model-len",
+                                    str(self.config.max_model_len)])
+            try:
+                idx = command_list.index('--host')
+                self.host = command_list[idx + 1]
+            except ValueError:
+                self.host = '0.0.0.0'
+            try:
+                idx = command_list.index('--port')
+                self.port = command_list[idx + 1]
+            except ValueError:
+                self.port = '8000'
+
+        self.vllm_process = subprocess.Popen(command_list)
+        self._wait_for_vllm()
+
+        self.client = OpenAI(api_key='EMPTY',
+                             base_url=f'http://{self.host}:{self.port}/v1')
+
+    def _wait_for_vllm(self, timeout: int = 30):
+        """ 等待VLLM服务启动
 
         Args:
-            path (str): 模型名称或路径
-            config (LLMConfig, optional): 配置. Defaults to LLMConfig().
+            timeout (int, optional): 超时时间. Defaults to 30.
+
+        Raises:
+            TimeoutError: 超时
         """
-        super().__init__()
-        self.path = path
-        self.config = config
-        self.llm = vllm.LLM(
-            model=path,
-            tensor_parallel_size=self.config.tensor_parallel_size,
-            max_model_len=self.config.max_model_len,
-            gpu_memory_utilization=self.config.gpu_memory_utilization,
-            enforce_eager=True,
-            trust_remote_code=True)
-        self.tokenizer = AutoTokenizer.from_pretrained(path,
-                                                       trust_remote_code=True)
-        self.stop_token_ids = None
-        self.stop_words = None
+        start_time = time.time()
+        while time.time() - start_time < timeout:
+            try:
+                response = requests.get(
+                    f"http://{self.host}:{self.port}/health")
+                if response.status_code == 200:
+                    return
+            except requests.ConnectionError:
+                pass
+            time.sleep(1)
+        raise TimeoutError
 
-    def chat(self, message: str) -> str:
-        """ 模型的单轮对话
-
-        Args:
-            message (str): 用户输入
-
-        Returns:
-            str: 模型输出
+    def close(self):
+        """ 关闭VLLM进程
         """
-        sampling_params = SamplingParams(
-            temperature=self.config.temperature,
-            top_p=self.config.top_p,
-            top_k=self.config.top_k,
-            repetition_penalty=self.config.repetition_penalty,
-            max_tokens=self.config.max_tokens,
-            presence_penalty=self.config.presence_penalty,
-            stop_token_ids=self.stop_token_ids,
-            stop=self.stop_words,
-            frequency_penalty=self.config.frequency_penalty)
-        messages = [{"role": "user", "content": message}]
-        text = self.tokenizer.apply_chat_template(messages,
-                                                  tokenize=False,
-                                                  add_generation_prompt=True)
-
-        outputs = self.llm.generate([text], sampling_params)
-        return outputs[0].outputs[0].text
-
-
-class Ollama(LLM):
-
-    def __init__(self, name: str, config: LLMConfig = LLMConfig()) -> None:
-        """ 使用ollama加载模型
-
-        Args:
-            name (str): 模型名称
-            config (LLMConfig, optional): 配置. Defaults to LLMConfig().
-        """
-        super().__init__()
-        self.config = config
-        self.name = name
-        available_models = [m['name'] for m in ollama.list()['models']]
-        if name not in available_models and name:
-            ollama.pull(name)
-        self.stop = None
-        self.json: bool = False
-
-    def chat(self, message: str) -> str:
-        """ 模型的单轮对话
-
-        Args:
-            message (str): 用户输入
-
-        Returns:
-            str: 模型输出
-        """
-        return ollama.generate(self.name,
-                               prompt=message,
-                               format='json' if self.json else '',
-                               options={
-                                   "temperature": self.config.temperature,
-                                   "top_k": self.config.top_k,
-                                   "top_p": self.config.top_p,
-                                   "repeat_penalty":
-                                   self.config.repetition_penalty,
-                                   "frequency_penalty":
-                                   self.config.frequency_penalty,
-                                   "presence_penalty":
-                                   self.config.presence_penalty,
-                                   "stop": self.stop,
-                               })['response']
+        if self.vllm_process:
+            self.vllm_process.terminate()
+            self.vllm_process.wait()

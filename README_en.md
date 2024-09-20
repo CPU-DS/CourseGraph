@@ -10,6 +10,6 @@
 
 <h4 align="center">
     <p>
-        <b href="README.md">中文</b> | <a>English</a>
+        <a href="README.md">中文</a> | <b>English</b>
     </p>
 </h4>

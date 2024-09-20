@@ -21,3 +21,5 @@ with PDFParser('assets/深度学习入门：基于Python的理论与实现.pdf')
                                         samples=6,
                                         top=0.8)
     neo.run(document.to_cyphers())
+
+model.close()

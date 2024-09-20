@@ -17,3 +17,5 @@ document.set_knowledgepoints_by_llm(model, ExamplePrompt())
 pptx = PPTX('assets/pptx/探索数据的奥秘.docx/Chpt6_5_决策树.pptx')
 pptx.set_maps_by_visual_model(visual_model, MiniCPMPrompt())
 document.set_resource(ResourceMap('6.5决策树', pptx))
+
+model.close()

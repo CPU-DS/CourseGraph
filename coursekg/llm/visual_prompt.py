@@ -1,3 +1,9 @@
+# -*- coding: utf-8 -*-
+# Create Date: 2024/07/11
+# Author: wangtao <wangtao.cpu@gmail.com>
+# File Name: coursekg/llm/visual_prompt.py
+# Description: 定义多模态大模型提示词类
+
 from dataclasses import dataclass
 from abc import abstractmethod, ABC
 from PIL import Image
