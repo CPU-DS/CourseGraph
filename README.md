@@ -22,18 +22,15 @@ CourseKG 使用大模型，利用多种 prompt 优化技术, 自动从教材、�
 <img src="docs/assets/framework.png" alt="" width="600">
 <p align="center">
 
-#### 局限性：
+## 局限性
 
 - 目前只实现了基本的知识图谱抽取和对 pptx 的解析，效果有待优化
 - 对视频的解析还处于规划中
 
-#### 未来发展方向：
+## 未来发展方向
 
 - 改进提示词工程，并尝试使用 Agent 完成相关工作
 - 基于图谱的问答 ( KBQA 或 Graph-RAG )
-
-#### 补充说明：
-该项目伴随着作者不断学习的过程，因此设计可能较为基础，代码也可能不够规范。欢迎提出任何建议和意见。
 
 ## 快速使用
 
@@ -71,11 +68,11 @@ npm run docs:dev
 
 #### 部署
 
-文档修改和部署请参考 [VitePress文档](https://vitepress.dev/guide/what-is-vitepress/)
+文档修改和部署请参考 VitePress文档
 
 ## 贡献和引用
 
-欢迎提交 `<a href="https://github.com/wangtao2001/CourseKG/pulls">`PR`</a>` 或 `<a href="https://github.com/wangtao2001/CourseKG/issues">`Issues`</a>`，也欢迎参与任何形式的贡献
+欢迎提交 [PR](https://github.com/wangtao2001/CourseKG/pulls) 或 [Issues](https://github.com/wangtao2001/CourseKG/issues)，也欢迎参与任何形式的贡献
 
 如果觉得 CourseKG 项目有助于您的工作，请考虑如下引用:
 
