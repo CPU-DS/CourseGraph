@@ -14,6 +14,7 @@ import requests
 import subprocess
 import time
 import shlex
+import ollama
 
 
 class LLM(ABC):
@@ -24,10 +25,10 @@ class LLM(ABC):
         Args:
             config (LLMConfig, optional): 大模型配置. Defaults to LLMConfig().
         """
-        super().__init__()
+        ABC.__init__(self)
         self.config = config
 
-        self.model: str | None = None
+        self.model: str | None = None  # 需要在子类中额外初始化
         self.client: OpenAI | None = None
 
         self.tools: list = []
@@ -165,11 +166,6 @@ class LLM(ABC):
                                                        tool=True)
         return assistant_output.content
 
-    def close(self):
-        """ 关闭模型, 子类如果需要可以重载
-        """
-        pass
-
 
 class Qwen(LLM):
 
@@ -191,7 +187,44 @@ class Qwen(LLM):
         )
 
 
-class VLLM(LLM):
+class Serve:
+
+    def __init__(self,
+                 command_list: list[str],
+                 test_url: str,
+                 timeout: int = 30):
+        """ 启动服务
+
+        Args:
+            command_list (list[str]): 命令列表
+            test_url (str): 测试地址
+            timeout (int, optional): 超时时间. Defaults to 30.
+
+        Raises:
+            TimeoutError: 服务启动超时
+        """
+        self.process = subprocess.Popen(command_list)
+
+        start_time = time.time()
+        while time.time() - start_time < timeout:
+            try:
+                response = requests.get(test_url)
+                if response.status_code == 200:
+                    return
+            except requests.ConnectionError:
+                pass
+            time.sleep(1)
+        raise TimeoutError
+
+    def close(self):
+        """ 关闭服务
+        """
+        if self.process:
+            self.process.terminate()
+            self.process.wait()
+
+
+class VLLM(LLM, Serve):
 
     def __init__(self,
                  path: str,
@@ -202,12 +235,12 @@ class VLLM(LLM):
         Args: path (str): 模型名称或路径 config (LLMConfig, optional): 配置. Defaults to LLMConfig(). starting_command (str,
         optional): VLLM启动命令 (适合于需要自定义template的情况), 也可以使用默认命令, LLMConfig中的配置会自动加入. Defaults to None.
         """
-        super().__init__(config)
+        LLM.__init__(self, config)
 
         self.model = path
         if starting_command is None:
             command_list = shlex.split(f"""vllm serve {self.model}\
-                                            --host 127.0.0.1\
+                                            --host localhost\
                                             --port 9017\
                                             --gpu-memory-utilization {str(self.config.gpu_memory_utilization)}\
                                             --tensor-parallel-size {str(self.config.tensor_parallel_size)}\
@@ -215,19 +248,24 @@ class VLLM(LLM):
                                             --enable-auto-tool-choice\
                                             --tool-call-parser hermes\
                                             --disable-log-requests""")
-            self.host = '127.0.0.1'
+            self.host = 'localhost'
             self.port = '9017'
         else:
             command_list = shlex.split(starting_command)
             if "--gpu-memory-utilization" not in command_list:
-                command_list.extend(["--gpu-memory-utilization",
-                                    str(self.config.gpu_memory_utilization)])
+                command_list.extend([
+                    "--gpu-memory-utilization",
+                    str(self.config.gpu_memory_utilization)
+                ])
             if "--tensor-parallel-size" not in command_list:
-                command_list.extend(["--tensor-parallel-size",
-                                    str(self.config.tensor_parallel_size)])
+                command_list.extend([
+                    "--tensor-parallel-size",
+                    str(self.config.tensor_parallel_size)
+                ])
             if "--max-model-len" not in command_list:
-                command_list.extend(["--max-model-len",
-                                    str(self.config.max_model_len)])
+                command_list.extend(
+                    ["--max-model-len",
+                     str(self.config.max_model_len)])
             try:
                 idx = command_list.index('--host')
                 self.host = command_list[idx + 1]
@@ -239,36 +277,39 @@ class VLLM(LLM):
             except ValueError:
                 self.port = '8000'
 
-        self.vllm_process = subprocess.Popen(command_list)
-        self._wait_for_vllm()
+        Serve.__init__(self,
+                       command_list=command_list,
+                       timeout=60,
+                       test_url=f'http://{self.host}:{self.port}/health')
 
         self.client = OpenAI(api_key='EMPTY',
                              base_url=f'http://{self.host}:{self.port}/v1')
 
-    def _wait_for_vllm(self, timeout: int = 30):
-        """ 等待VLLM服务启动
+
+class Ollama(LLM, Serve):
+
+    def __init__(self, name: str, config: LLMConfig = LLMConfig()):
+        """ ollama模型服务
 
         Args:
-            timeout (int, optional): 超时时间. Defaults to 30.
-
-        Raises:
-            TimeoutError: 超时
+            name (str): 模型名称
+            config (LLMConfig, optional): 大模型配置. Defaults to LLMConfig().
         """
-        start_time = time.time()
-        while time.time() - start_time < timeout:
-            try:
-                response = requests.get(
-                    f"http://{self.host}:{self.port}/health")
-                if response.status_code == 200:
-                    return
-            except requests.ConnectionError:
-                pass
-            time.sleep(1)
-        raise TimeoutError
+        LLM.__init__(self, config)
+        self.model = name
 
-    def close(self):
-        """ 关闭VLLM进程
-        """
-        if self.vllm_process:
-            self.vllm_process.terminate()
-            self.vllm_process.wait()
+        available_models = [m['name'] for m in ollama.list()['models']]
+        if name not in available_models and name:
+            ollama.pull(name)
+
+        self.host = 'localhost'
+        self.port = 11434
+
+        Serve.__init__(self,
+                       command_list=['ollama', 'serve'],
+                       timeout=60,
+                       test_url=f'http://{self.host}:{self.port}')
+        self.client = OpenAI(
+            api_key='EMPTY',
+            base_url=f'http://{self.host}:{self.port}/v1',
+        )
