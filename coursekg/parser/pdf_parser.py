@@ -53,10 +53,12 @@ class PDFParser(Parser):
         self.__pdf = fitz.open(pdf_path)
         self.__parser_mode: Literal['base', 'pp', 'vl',
                                     'combination'] | None = None
-        self.__visual_model = None
-        self.__visual_prompt = None
-        self.__ocr_engine = None
-        self.__llm = None
+
+        self.__parser_visual_model = None
+        self.__parser_visual_prompt = None
+        self.__parser_llm = None
+
+        self.__ocr_engine = PPStructure(table=False, ocr=True, show_log=False)
         self.set_parser_mode_pp_structure()  # 默认模式
         self.outline: list = outline if len(
             outline := self.__pdf.get_toc()) != 0 else []
@@ -72,7 +74,6 @@ class PDFParser(Parser):
         """ 使用飞桨的版面分析解析
         """
         self.__parser_mode = 'pp'
-        self.__ocr_engine = PPStructure(table=False, ocr=True, show_log=False)
 
     def set_parser_mode_visual_model(self, model: MLLM, prompt: VisualPrompt):
         """ 使用多模态大模型解析, 实现参考: https://github.com/lazyFrogLOL/llmdocparser
@@ -82,9 +83,8 @@ class PDFParser(Parser):
             prompt (VisualPrompt): 大模型对应的提示词
         """
         self.__parser_mode = 'vl'
-        self.__visual_model = model
-        self.__visual_prompt = prompt.set_type_ocr()
-        self.__ocr_engine = PPStructure(table=False, ocr=True, show_log=False)
+        self.__parser_visual_model = model
+        self.__parser_visual_prompt = prompt.set_type_ocr()
 
     def set_parser_mode_combination(self,
                                     visual_model: MLLM,
@@ -98,10 +98,9 @@ class PDFParser(Parser):
             llm (LLM | None, optional): 使用大模型矫正OCR结果. Defaults to None.
         """
         self.__parser_mode = 'combination'
-        self.__visual_model = visual_model
-        self.__visual_prompt = visual_prompt.set_type_ocr()
-        self.__ocr_engine = PPStructure(table=False, ocr=True, show_log=False)
-        self.__llm = llm
+        self.__parser_visual_model = visual_model
+        self.__parser_visual_prompt = visual_prompt.set_type_ocr()
+        self.__parser_llm = llm
 
     def __enter__(self) -> 'PDFParser':
         return self
@@ -416,9 +415,10 @@ class PDFParser(Parser):
                 cropped_img.save(file_path)
 
                 if self.__parser_mode == 'vl':
-                    res = self.__visual_model.chat(
-                        msgs=self.__visual_prompt.get_prompt(file_path),
-                        sys_prompt=self.__visual_prompt.get_sys_prompt())
+                    res = self.__parser_visual_model.chat(
+                        msgs=self.__parser_visual_prompt.get_prompt(file_path),
+                        sys_prompt=self.__parser_visual_prompt.get_sys_prompt(
+                        ))
 
                 else:  # self.__parser_mode == 'combination'
                     if type_ in ['title', 'text']:  # 直接读取或ocr + 大模型矫正
@@ -428,16 +428,18 @@ class PDFParser(Parser):
                         # 有些pdf是图片型可能无法直接读取, 则使用ocr的结果
                         if len(res) == 0:
                             res = block['text']
-                        if self.__llm is not None:
+                        if self.__parser_llm is not None:
                             try:
-                                res = self.__llm.chat(
+                                res = self.__parser_llm.chat(
                                     ParserPrompt.get_ocr_aided_prompt(res))
                             finally:
                                 pass  # 这一步不是必须的
                     else:
-                        res = self.__visual_model.chat(
-                            msgs=self.__visual_prompt.get_prompt(file_path),
-                            sys_prompt=self.__visual_prompt.get_sys_prompt())
+                        res = self.__parser_visual_model.chat(
+                            msgs=self.__parser_visual_prompt.get_prompt(
+                                file_path),
+                            sys_prompt=self.__parser_visual_prompt.
+                            get_sys_prompt())
 
                 if block['type'] == 'title':
                     contents.append(

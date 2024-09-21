@@ -5,7 +5,7 @@
 # Description: 大模型接口
 
 from .prompt import IEPrompt, ExamplePrompt, ParserPrompt
-from .llm import LLM, VLLM, Qwen
+from .llm import LLM, VLLM, Qwen, Ollama
 from .mllm import MiniCPM, MLLM
 from .visual_prompt import MiniCPMPrompt, Interaction, VisualPrompt
 from .prompt_strategy import ExamplePromptStrategy, SentenceEmbeddingStrategy

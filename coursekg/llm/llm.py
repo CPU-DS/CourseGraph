@@ -9,6 +9,7 @@ from openai.types.chat import ChatCompletionMessage
 from openai import NOT_GIVEN
 from abc import ABC
 from .config import LLMConfig
+from typing import Callable
 import os
 import requests
 import subprocess
@@ -32,7 +33,7 @@ class LLM(ABC):
         self.client: OpenAI | None = None
 
         self.tools: list = []
-        self.tool_functions: dict = {}
+        self.tool_functions: dict[str, Callable] = {}
         self.json: bool = False
         self.stop = None
         self.messages: list[dict] = [{
@@ -134,7 +135,8 @@ class LLM(ABC):
             "name": tool_name
         })
 
-    def add_tool_functions(self, *functions, **function_kwargs):
+    def add_tool_functions(self, *functions: Callable,
+                           **function_kwargs: Callable):
         """ 添加工具函数以供模型调用
         """
         self.tool_functions.update({tool.__name__: tool for tool in functions})
