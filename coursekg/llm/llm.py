@@ -5,7 +5,7 @@
 # Description: 定义兼容 openAI API 的大模型类
 
 from openai import OpenAI
-from openai.types.chat import ChatCompletionMessage
+from openai.types.chat import ChatCompletionMessage, ChatCompletionMessageParam
 from openai import NOT_GIVEN
 from abc import ABC
 from .config import LLMConfig
@@ -16,6 +16,7 @@ import subprocess
 import time
 import shlex
 import ollama
+from ..agent import Tool
 
 
 class LLM(ABC):
@@ -36,9 +37,11 @@ class LLM(ABC):
         self.tool_functions: dict[str, Callable] = {}
         self.json: bool = False
         self.stop = None
-        self.messages: list[dict] = [{
-            "role": "system",
-            "content": "You are a helpful assistant."
+        self.messages: list[ChatCompletionMessageParam] = [{
+            "role":
+            "system",
+            "content":
+            "You are a helpful assistant."
         }]
 
     def reset_messages(self) -> None:
@@ -47,7 +50,7 @@ class LLM(ABC):
         self.messages = [{
             "role": "system",
             "content": "You are a helpful assistant."
-        }]
+        }]  # 缺少 name
 
     def _chat(self,
               messages: list[dict],
@@ -61,6 +64,8 @@ class LLM(ABC):
         Returns:
             ChatCompletionMessage: 模型返回结果
         """
+        # functions 废弃
+        # 参考: https://platform.openai.com/docs/api-reference/chat/create
         return self.client.chat.completions.create(
             model=self.model,
             messages=messages,
@@ -116,32 +121,39 @@ class LLM(ABC):
             str | ChatCompletionMessage: 模型输出
         """
         if message is not None:
-            self.messages.append({'role': 'user', 'content': message})
+            self.messages.append({
+                'role': 'user',
+                'content': message
+            })  # 缺少 name
         response = self._chat(self.messages, tool=tool)
-        self.messages.append(response.model_dump())
+        self.messages.append(response.model_dump(
+        ))  # ChatCompletionMessage -> ChatCompletionMessageParam 缺少 name
         return response.content if content_only else response
 
     def _add_message_tool_call(self, tool_content: str,
-                               tool_name: str) -> None:
+                               tool_call_id: str) -> None:
         """ 向历史记录中添加工具调用的历史记录
 
         Args:
             tool_content (str): 工具调用结果
-            tool_name (str): 工具名称
+            tool_call_id (str): 工具id
         """
         self.messages.append({
             "role": "tool",
             "content": tool_content,
-            "name": tool_name
+            "tool_call_id": tool_call_id
         })
 
-    def add_tool_functions(self, *functions: Callable,
-                           **function_kwargs: Callable):
-        """ 添加工具函数以供模型调用
+    def add_tools(self, *tools: Tool) -> 'LLM':
+        """ 添加外部工具函数
         """
-        self.tool_functions.update({tool.__name__: tool for tool in functions})
-        # 允许通过关键字的方式自定义工具名称
-        self.tool_functions.update(function_kwargs)
+        for tool in tools:
+            self.tools.append(tool["tool"])
+            self.tool_functions.update({
+                tool.get('function_name', tool["function"].__name__):
+                tool["function"]
+            })
+        return self
 
     def chat_with_tools(self, message: str) -> str:
         """ 调用外部函数进行对话
@@ -162,8 +174,7 @@ class LLM(ABC):
                 tool_function = self.tool_functions.get(function.name)
                 if tool_function:
                     tool_content = tool_function(**eval(function.arguments))
-                    tool_name = function.name
-                    self._add_message_tool_call(tool_content, tool_name)
+                    self._add_message_tool_call(tool_content, item.id)
             assistant_output = self.chat_with_messages(content_only=False,
                                                        tool=True)
         return assistant_output.content

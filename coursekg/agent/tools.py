@@ -3,22 +3,25 @@
 # Author: wangtao <wangtao.cpu@gmail.com>
 # File Name: coursekg/agent/tools.py
 # Description: 提供常用的工具函数
+
 import requests
 import json
 from typing import TypedDict, Callable
 from openai.types.chat import ChatCompletionToolParam
+from typing_extensions import Required
 
 
-class Tool(TypedDict):
-    tool: ChatCompletionToolParam
-    function: Callable
+class Tool(TypedDict, total=False):
+    tool: Required[ChatCompletionToolParam]
+    function: Required[Callable]
+    function_name: str  # 需要与tool.function.name相同，作为function的索引
 
 
 def baidu_baike_api(keyword: str) -> str:
     res = requests.get(
-        f'https://baike.baidu.com/api/openapi/BaikeLemmaCardApi?scope=103&format=json&appid=379020&bk_key={keyword}&bk_length=1000'
+        f'https://baike.baidu.com/api/openapi/BaikeLemmaCardApi?appid=379020&bk_key={keyword}'
     ).text
-    if len(res) == 0:
+    if len(res) == '{}':  # json 空对象
         return '抱歉，暂时未查询到相关信息'
     return json.loads(res)['abstract']
 

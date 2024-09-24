@@ -3,3 +3,5 @@
 # Author: wangtao <wangtao.cpu@gmail.com>
 # File Name: coursekg/agent/__init__.py
 # Description: agent 相关
+
+from .tools import Tool
