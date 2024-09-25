@@ -5,7 +5,6 @@
 # Description: 定义提示词示例检索策略
 
 from ..database import Mongo, Faiss
-from pymongo.collection import Collection
 import os
 from sentence_transformers import SentenceTransformer
 import json
@@ -13,19 +12,7 @@ import numpy as np
 from glob import glob
 from typing import Literal
 from abc import ABC, abstractmethod
-
-
-class Database:
-
-    def __init__(self, faiss: Faiss, mongo: Collection) -> None:
-        """ 数据库组合类
-
-        Args:
-            faiss (Faiss): faiss 向量数据库
-            mongo (Collection): mongo collection 文档数据库
-        """
-        self.faiss = faiss
-        self.mongo = mongo
+from .type import Database
 
 
 class ExamplePromptStrategy(ABC):

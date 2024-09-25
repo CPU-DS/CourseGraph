@@ -184,18 +184,21 @@ class Qwen(LLM):
 
     def __init__(self,
                  name: str = 'qwen-max',
+                 *,
+                 api_key: str = os.getenv("DASHSCOPE_API_KEY"),
                  config: LLMConfig = LLMConfig()):
         """ Qwen 系列模型 API 服务
 
         Args:
             name (str): 模型名称
+            api_key (str, optional): API key. Defaults to os.getenv("DASHSCOPE_API_KEY").
             config (LLMConfig, optional): 大模型配置. Defaults to LLMConfig().
         """
         super().__init__(config)
 
         self.model = name
         self.client = OpenAI(
-            api_key=os.getenv("DASHSCOPE_API_KEY"),
+            api_key=api_key,
             base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
         )
 
@@ -236,17 +239,26 @@ class Serve:
             self.process.terminate()
             self.process.wait()
 
+    def __enter__(self) -> 'Serve':
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback) -> None:
+        self.close()
+
 
 class VLLM(LLM, Serve):
 
     def __init__(self,
                  path: str,
+                 *,
                  config: LLMConfig = LLMConfig(),
                  starting_command: str = None):
-        """使用VLLM加载模型
+        """ 使用VLLM加载模型
 
-        Args: path (str): 模型名称或路径 config (LLMConfig, optional): 配置. Defaults to LLMConfig(). starting_command (str,
-        optional): VLLM启动命令 (适合于需要自定义template的情况), 也可以使用默认命令, LLMConfig中的配置会自动加入. Defaults to None.
+        Args: 
+            path (str): 模型名称或路径 
+            config (LLMConfig, optional): 大模型配置. Defaults to LLMConfig(). 
+            starting_command (str, optional): VLLM启动命令 (适合于需要自定义template的情况), 也可以使用默认命令, LLMConfig中的配置会自动加入. Defaults to None.
         """
         LLM.__init__(self, config)
 
@@ -301,7 +313,7 @@ class VLLM(LLM, Serve):
 
 class Ollama(LLM, Serve):
 
-    def __init__(self, name: str, config: LLMConfig = LLMConfig()):
+    def __init__(self, name: str, *, config: LLMConfig = LLMConfig()):
         """ ollama模型服务
 
         Args:

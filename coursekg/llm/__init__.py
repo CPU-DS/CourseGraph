@@ -10,3 +10,4 @@ from .mllm import MiniCPM, MLLM
 from .visual_prompt import MiniCPMPrompt, Interaction, VisualPrompt
 from .prompt_strategy import ExamplePromptStrategy, SentenceEmbeddingStrategy
 from .config import VisualConfig, LLMConfig
+from .type import Model, Database

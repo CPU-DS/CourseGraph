@@ -25,4 +25,4 @@ paddlepaddle==2.6.1
 ollama==0.3.3
 json5==0.9.25
 ray==2.35.0
-
+verovio==4.3.1

@@ -8,6 +8,7 @@ from .config import VisualConfig
 import torch
 from modelscope import AutoModel, AutoTokenizer
 from abc import ABC, abstractmethod
+from .type import Model
 
 
 class MLLM(ABC):
@@ -41,23 +42,23 @@ class MLLM(ABC):
 
 class MiniCPM(MLLM):
 
-    def __init__(self, path: str,
-                 config: VisualConfig = VisualConfig()) -> None:
+    def __init__(
+        self,
+        path: str = 'OpenBMB/MiniCPM-V-2_6',
+        config: VisualConfig = VisualConfig()
+    ) -> None:
         """ MiniCPM系列模型, 执行图片问答任务
 
         Args:
-            path (str): 模型名称或路径
+            path (str, optional): 模型名称或路径. Defaults to 'OpenBMB/MiniCPM-V-2_6'.
             config (VisualConfig, optional): 配置. Defaults to VisualConfig().
         """
         super().__init__(path, config)
-        self.model = AutoModel.from_pretrained(path,
-                                               trust_remote_code=True,
-                                               torch_dtype=torch.float16)
-        self.model = self.model.to(device='cuda')
-
-        self.tokenizer = AutoTokenizer.from_pretrained(path,
-                                                       trust_remote_code=True)
-        self.model.eval()
+        self.model: Model = Model(model=AutoModel.from_pretrained(
+            path, trust_remote_code=True,
+            torch_dtype=torch.float16).eval().cuda(),
+                                  tokenizer=AutoTokenizer.from_pretrained(
+                                      path, trust_remote_code=True))
         self.config = config
 
     def chat(self, msgs: list, sys_prompt: str = None) -> str:
@@ -71,9 +72,9 @@ class MiniCPM(MLLM):
             str: 模型输出
         """
 
-        return self.model.chat(image=None,
-                               msgs=msgs,
-                               tokenizer=self.tokenizer,
-                               sampling=True,
-                               temperature=self.config.temperature,
-                               sys_prompt=sys_prompt)
+        return self.model.model.chat(image=None,
+                                     msgs=msgs,
+                                     tokenizer=self.model.tokenizer,
+                                     sampling=True,
+                                     temperature=self.config.temperature,
+                                     sys_prompt=sys_prompt)

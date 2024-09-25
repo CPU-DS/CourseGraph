@@ -28,7 +28,7 @@ class VisualPrompt(ABC):
         self.sys_prompt: str | None = None
 
     @abstractmethod
-    def set_type_ocr(self) -> None:
+    def set_type_ocr(self) -> 'VisualPrompt':
         """ OCR
 
         Raises:
@@ -36,7 +36,7 @@ class VisualPrompt(ABC):
         """
         raise NotImplementedError
 
-    def set_type_context_ie(self, message: str) -> None:
+    def set_type_context_ie(self, message: str) -> 'VisualPrompt':
         """ 带有上文信息的信息提取
 
         Args:
@@ -48,7 +48,7 @@ class VisualPrompt(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def set_type_ie(self) -> None:
+    def set_type_ie(self) -> 'VisualPrompt':
         """ 信息提取
 
         Raises:
@@ -57,7 +57,7 @@ class VisualPrompt(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def set_type_catalogue(self) -> None:
+    def set_type_catalogue(self) -> 'VisualPrompt':
         """ 目录识别
 
         Raises:
@@ -125,7 +125,7 @@ class MiniCPMPrompt(VisualPrompt):
         self.interactions: list[Interaction] = []
         self.type_ = ''
 
-    def set_type_ocr(self) -> None:
+    def set_type_ocr(self) -> 'MiniCPMPrompt':
         """ ocr
         """
         self.prompt = """将图片中识别到的文字转换文本输出。你必须做到：
@@ -136,15 +136,17 @@ class MiniCPMPrompt(VisualPrompt):
         再次强调，不要输出和识别到的内容无关的文字。"""
         self.sys_prompt = '你是一个OCR模型。'
         self.type_ = 'ocr'
+        return self
 
-    def set_type_ie(self) -> None:
+    def set_type_ie(self) -> 'MiniCPMPrompt':
         """ 信息提取
         """
         self.prompt = '请帮我提取图片中的主要内容'
         self.sys_prompt = '你是一个能够总结图片内容的模型。'
         self.type_ = 'ie'
+        return self
 
-    def set_type_catalogue(self) -> None:
+    def set_type_catalogue(self) -> 'MiniCPMPrompt':
         """ 判断目录
         """
         self.prompt = """给你一张图片，他是书籍中的某一页。请你帮我判断这一页是不是这本书的目录页中的其中一页。你必须做到：
@@ -152,8 +154,9 @@ class MiniCPMPrompt(VisualPrompt):
         2.书籍的目录页是指包含一些章节名称和对应的页码。书籍的封面、作者介绍、版权页、前言和正文等都不能算作目录页。"""
         self.sys_prompt = '你是一个能够总结图片内容的模型。'
         self.type_ = 'catalogue'
+        return self
 
-    def set_type_context_ie(self, message: str) -> None:
+    def set_type_context_ie(self, message: str) -> 'MiniCPMPrompt':
         """ 带有上文信息的信息提取
 
         Args:
@@ -163,6 +166,7 @@ class MiniCPMPrompt(VisualPrompt):
         第一张图片和第二张图片在文档中是顺序出现的，请你据此帮我总结第二张图片的主要内容'''
         self.sys_prompt = '你是一个能够总结图片内容的模型。'
         self.type_ = 'context_ie'
+        return self
 
     def use_examples(
         self,

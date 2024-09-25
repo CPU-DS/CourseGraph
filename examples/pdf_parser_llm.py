@@ -8,7 +8,7 @@ from coursekg.parser import PDFParser
 from coursekg.llm import MiniCPM, MiniCPMPrompt
 
 file = 'assets/深度学习入门：基于Python的理论与实现.pdf'
-visual_model = MiniCPM(path='model/openbmb/MiniCPM-Llama3-V-2_5')
+visual_model = MiniCPM()
 parser = PDFParser(file)
 parser.set_parser_mode_visual_model(visual_model, MiniCPMPrompt())
 parser.close()
