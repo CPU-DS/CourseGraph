@@ -415,10 +415,6 @@ class PDFParser(Parser):
         result = self._pp(img)
         h, w, _ = img.shape
         res = sorted_layout_boxes(result, w)
-        from pprint import pprint
-        pprint(res)
-        # got 重新优化 text ?
-        # type 目标检测模型
         return [
             {
                 'type': item['type'],  # 区域类型
