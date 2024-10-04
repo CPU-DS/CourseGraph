@@ -34,20 +34,17 @@ CourseKG 使用大模型，利用多种 prompt 优化技术, 自动从教材、�
 
 ## 快速使用
 
-直接 clone 本仓库并安装相应依赖, cuda 版本建议: 12.2
+首先请确保已存在 Anaconda(或Miniconda)、Rust 和 Cuda Driver(版本建议: 12.2)，然后 clone 本仓库并安装相应依赖
 
-```bash
 git clone git@github.com:wangtao2001/CourseKG.git
 cd CourseKG
 conda create -n kg python=3.10
 conda activate kg
-pip install -r requirements.txt
-pip install -e .
-```
+pip install poetry
+poetry install
+cd rust_ext && maturin develop
 
-> 其中 windows 下安装 faiss-gpu 请使用命令: `conda install conda-forge::faiss-gpu==1.7.2`
-
-> linux 下还需安装 libreoffice 以完成文档转换，以 Debian 系为例执行安装: `sudo apt install libreoffice`
+> linux 下还需安装 libreoffice 以完成文档转换，以 Debian 系为例: `sudo apt install libreoffice`
 
 然后执行 `examples` 目录下的示例文件
 
