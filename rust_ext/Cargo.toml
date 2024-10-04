@@ -2,5 +2,13 @@
 name = "rust_ext"
 version = "0.1.0"
 edition = "2021"
+include = ['src/**/*', 'Cargo.toml', 'rust_ext.pyi']
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+name = "rust_ext"
+crate-type = ["cdylib"]
 
 [dependencies]
+regex = "1"
+pyo3 = "0.22.0"
