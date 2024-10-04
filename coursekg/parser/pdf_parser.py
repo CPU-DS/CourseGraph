@@ -294,7 +294,7 @@ class PDFParser(Parser):
             img = self._get_page_img(index, zoom=1)
             res = self._page_structure(img)
             titles.extend([[block['text'], index] for block in res
-                           if block['type']])
+                           if block['type'] == 'title'])
         self._set_outline(titles, 0, llm, parser_prompt)
 
     def get_bookmarks(self) -> list[BookMark]:

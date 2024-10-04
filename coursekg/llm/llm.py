@@ -146,6 +146,12 @@ class LLM(ABC):
 
     def add_tools(self, *tools: Tool) -> 'LLM':
         """ 添加外部工具函数
+        
+        Args:
+            *tools (Tool): 外部工具
+
+        Returns:
+            LLM: 大模型
         """
         for tool in tools:
             self.tools.append(tool["tool"])

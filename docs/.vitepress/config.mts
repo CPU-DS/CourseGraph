@@ -1,17 +1,5 @@
 import { defineConfig } from 'vitepress'
 
-const tutorials = {
-  text: '指南', items: [
-    { text: '环境搭建', link: '/tutorials/env' },
-    { text: '知识图谱抽取', link: '/tutorials/kg' },
-    { text: '为实体设置资源', link: '/tutorials/resource' },
-    { text: '文档解析器', link: '/tutorials/parser' },
-    { text: '大模型', link: '/tutorials/llm' },
-    { text: 'example管理', link: '/tutorials/example' },
-    { text: '数据库', link: '/tutorials/kb' },
-  ], collapsed: false
-}
-
 export default defineConfig({
   base: '/CourseKG/',
   title: "CourseKG",
@@ -24,7 +12,18 @@ export default defineConfig({
     },
     nav: [
       { text: '主页', link: '/' },
-      tutorials,
+      {
+        text: '指南', items: [
+          { text: '环境搭建', link: '/tutorials/env' },
+          { text: '知识图谱抽取', link: '/tutorials/kg' },
+          { text: '为实体设置资源', link: '/tutorials/resource' },
+          { text: '文档解析器', link: '/tutorials/parser' },
+          { text: '大模型', link: '/tutorials/llm' },
+          { text: 'example管理', link: '/tutorials/example' },
+          { text: '数据库', link: '/tutorials/kb' },
+          { text: 'Rust扩展', link: '/tutorials/other/rust' },
+          { text: '文档目标检测', link: '/tutorials/other/dob' }]
+      },
       { text: 'API 参考', link: '/api-reference' }
     ],
     logo: '/logo.png',
@@ -39,7 +38,23 @@ export default defineConfig({
           { text: '介绍', link: '/introduce' }
         ], collapsed: false
       },
-      tutorials,
+      {
+        text: '指南', items: [
+          { text: '环境搭建', link: '/tutorials/env' },
+          { text: '知识图谱抽取', link: '/tutorials/kg' },
+          { text: '为实体设置资源', link: '/tutorials/resource' },
+          { text: '文档解析器', link: '/tutorials/parser' },
+          { text: '大模型', link: '/tutorials/llm' },
+          { text: 'example管理', link: '/tutorials/example' },
+          { text: '数据库', link: '/tutorials/kb' },
+          {
+            text: '其他', items: [
+              { text: 'Rust扩展', link: '/tutorials/other/rust' },
+              { text: '文档目标检测', link: '/tutorials/other/dob' },
+            ]
+          }
+        ], collapsed: false
+      },
       { text: 'API 参考', link: '/api-reference' }
     ],
 

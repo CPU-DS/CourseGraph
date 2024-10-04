@@ -8,9 +8,9 @@ _ext
 *.so
 *.dll
 *.egg-info/
-build/
-dist/
-wheels/
+build
+dist
+wheels
 
 # pytorch/python/numpy formats
 *.pth
@@ -22,7 +22,7 @@ model_ts*.txt
 *.onnx
 
 # ipython/jupyter notebooks
-**/.ipynb_checkpoints/
+**/.ipynb_checkpoints
 
 # Editor temporaries
 *.swn
@@ -50,3 +50,5 @@ model
 assets/pptx
 coursekg/database/faiss_index
 libreoffice_convert.log
+
+rust_ext/target

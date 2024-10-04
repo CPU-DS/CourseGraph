@@ -147,7 +147,7 @@ class PPTX(Resource):
             # 页数从1开始
             self.index_maps[idx + 1] = res
         # 删除缓存文件夹
-        # shutil.rmtree(cache_path)
+        shutil.rmtree(cache_path)
 
 
 @dataclass
