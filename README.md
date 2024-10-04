@@ -43,7 +43,7 @@ conda create -n kg python=3.10
 conda activate kg
 pip install poetry
 poetry install
-cd rust_ext && maturin develop、
+cd rust_ext && maturin develop
 ```
 
 > linux 下还需安装 libreoffice 以完成文档转换，以 Debian 系为例: `sudo apt install libreoffice`
