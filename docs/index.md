@@ -3,12 +3,12 @@
 layout: home
 
 hero:
-  name: "CourseKG"
+  name: "CourseGraph"
   text: "使用大模型自动构建课程知识图谱"
   tagline: 使用语言和多模态大模型，完全实现自动化
   image:
     src: /logo.png
-    alt: CourseKG
+    alt: CourseGraph
   actions:
     - theme: brand
       text: 开始
@@ -28,4 +28,3 @@ features:
     icon: 👀
     details: 完全类型化API, 自定义功能高度灵活
 ---
-

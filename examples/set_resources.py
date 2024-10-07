@@ -4,9 +4,9 @@
 # File Name: examples/set_resources.py
 # Description: 为实体挂载资源
 
-from coursekg.parser import get_parser
-from coursekg.resource import PPTX, ResourceMap
-from coursekg.llm import VLLM, MiniCPM, ExamplePrompt, MiniCPMPrompt
+from course_graph.parser import get_parser
+from course_graph.resource import PPTX, ResourceMap
+from course_graph.llm import VLLM, MiniCPM, ExamplePrompt, MiniCPMPrompt
 
 model = VLLM('model/Qwen/Qwen2-7B-Instruct')
 visual_model = MiniCPM()

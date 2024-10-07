@@ -4,9 +4,9 @@
 # File Name: examples/pdf_knowledgepoint.py
 # Description: 使用动态提示词示例抽取知识点图谱
 
-from coursekg.parser import PDFParser
-from coursekg.database import Neo4j
-from coursekg.llm import ExamplePrompt, VLLM, SentenceEmbeddingStrategy
+from course_graph.parser import PDFParser
+from course_graph.database import Neo4j
+from course_graph.llm import ExamplePrompt, VLLM, SentenceEmbeddingStrategy
 
 model = VLLM('model/Qwen/Qwen2-7B-Instruct')
 neo = Neo4j('http://10.4.3.67:7474', 'neo4j', 'neo4j')

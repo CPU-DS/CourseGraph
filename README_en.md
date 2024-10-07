@@ -4,7 +4,7 @@
 
 <div align="center">
 <h1>
-  CourseKG: Automatic Construction of Course Knowledge Graphs Using Large Models
+  CourseGraph: Automatic Construction of Course Knowledge Graphs Using Large Models
 </h1>
 </div>
 

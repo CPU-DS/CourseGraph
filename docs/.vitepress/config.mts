@@ -1,11 +1,11 @@
 import { defineConfig } from 'vitepress'
 
 export default defineConfig({
-  base: '/CourseKG/',
-  title: "CourseKG",
+  base: '/CourseGraph/',
+  title: "CourseGraph",
   titleTemplate: ':title',
   description: "使用大模型自动构建课程知识图谱",
-  head: [['link', { rel: 'icon', href: '/CourseKG/logo.png' }]],
+  head: [['link', { rel: 'icon', href: '/CourseGraph/logo.png' }]],
   themeConfig: {
     search: {
       provider: 'local',
@@ -59,7 +59,7 @@ export default defineConfig({
     ],
 
     editLink: {
-      pattern: 'https://github.com/wangtao2001/CourseKG/edit/dev/docs/:path',
+      pattern: 'https://github.com/wangtao2001/CourseGraph/edit/dev/docs/:path',
       text: '在GitHub编辑本页'
     },
 
@@ -69,7 +69,7 @@ export default defineConfig({
     },
 
     socialLinks: [
-      { icon: 'github', link: 'https://github.com/wangtao2001/CourseKG' },
+      { icon: 'github', link: 'https://github.com/wangtao2001/CourseGraph' },
 
       {
         icon: {

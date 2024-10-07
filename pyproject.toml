@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "coursekg"
+name = "course_graph"
 version = "0.0.1"
 description = "Automatic Construction of Course Knowledge Graphs Using Large Models"
 authors = ["wangtao <wangtao.cpu@gmail.com>"]

@@ -4,7 +4,7 @@
 
 <div align="center">
 <h1>
-  CourseKG: 使用大模型自动构建课程知识图谱
+  CourseGraph: 使用大模型自动构建课程知识图谱
 </h1>
 </div>
 
@@ -14,7 +14,7 @@
     </p>
 </h4>
 
-CourseKG 使用大模型，利用多种 prompt 优化技术, 自动从教材、书籍中抽取知识点, 构成以课程-章节-知识点为主题的知识图谱。为增加每个知识点的信息, CourseKG 可以为知识点链接相应的习题、扩展阅读材料等资源, 另外也可利用多模态大模型从 ppx、图片、视频中提取信息并与之相关联。
+CourseGraph 使用大模型，利用多种 prompt 优化技术, 自动从教材、书籍中抽取知识点, 构成以课程-章节-知识点为主题的知识图谱。为增加每个知识点的信息, CourseGraph 可以为知识点链接相应的习题、扩展阅读材料等资源, 另外也可利用多模态大模型从 pptx、图片、视频中提取信息并与之相关联。
 
 基本框架如下图所示：
 
@@ -37,10 +37,10 @@ CourseKG 使用大模型，利用多种 prompt 优化技术, 自动从教材、�
 首先请确保已存在 Anaconda(或Miniconda)、Rust 和 Cuda Driver(版本建议: 12.2)，然后 clone 本仓库并安装相应依赖
 
 ```bash
-git clone git@github.com:wangtao2001/CourseKG.git
-cd CourseKG
-conda create -n kg python=3.10
-conda activate kg
+git clone git@github.com:wangtao2001/CourseGraph.git
+cd CourseGraph
+conda create -n cg python=3.10
+conda activate cg
 pip install poetry
 poetry install
 cd rust_ext && maturin develop
@@ -52,7 +52,7 @@ cd rust_ext && maturin develop
 
 ## 文档
 
-你可以访问 [在线文档](https://wangtao2001.github.io/CourseKG/) (由于项目功能仍处于快速开发中，故在线文档暂时还没有准备好)。如果你希望自定义文档请依照以下步骤：
+你可以访问 [在线文档](https://wangtao2001.github.io/CourseGraph/) (由于项目功能仍处于快速开发中，故在线文档暂时还没有准备好)。如果你希望自定义文档请依照以下步骤：
 
 #### 依赖安装和预览
 
@@ -71,15 +71,15 @@ npm run docs:dev
 
 ## 贡献和引用
 
-欢迎提交 [PR](https://github.com/wangtao2001/CourseKG/pulls) 或 [Issues](https://github.com/wangtao2001/CourseKG/issues)，也欢迎参与任何形式的贡献
+欢迎提交 [PR](https://github.com/wangtao2001/CourseGraph/pulls) 或 [Issues](https://github.com/wangtao2001/CourseGraph/issues)，也欢迎参与任何形式的贡献
 
-如果觉得 CourseKG 项目有助于您的工作，请考虑如下引用:
+如果觉得 CourseGraph 项目有助于您的工作，请考虑如下引用:
 
 ```
- @misc{CourseKG,
+ @misc{CourseGraph,
        author = {Wang, Tao},
        year = {2024},
-       note = {https://github.com/wangtao2001/CourseKG},
-       title = {CourseKG: Automatic Construction of Course Knowledge Graphs Using Large Models}
+       note = {https://github.com/wangtao2001/CourseGraph},
+       title = {CourseGraph: Automatic Construction of Course Knowledge Graphs Using Large Models}
     }
 ```

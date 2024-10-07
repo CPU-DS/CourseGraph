@@ -4,9 +4,9 @@
 # File Name: examples/pdf_knowledgepoint.py
 # Description: 为pdf文档抽取知识点图谱
 
-from coursekg.parser import get_parser
-from coursekg.database import Neo4j
-from coursekg.llm import VLLM
+from course_graph.parser import get_parser
+from course_graph.database import Neo4j
+from course_graph.llm import VLLM
 
 model = VLLM('model/Qwen/Qwen2-7B-Instruct')
 neo = Neo4j('http://10.4.3.67:7474', 'neo4j', 'neo4j')
