@@ -16,6 +16,7 @@ from .type import Database
 
 
 class ExamplePromptStrategy(ABC):
+
     def __init__(self):
         """ 提示词示例检索策略
         """
@@ -69,8 +70,12 @@ class ExamplePromptStrategy(ABC):
 
 class SentenceEmbeddingStrategy(ExamplePromptStrategy):
 
-    def __init__(self, embed_model_path: str, mongo_url: str = 'mongodb://localhost:27017/',
-                 faiss_path: str = 'course_graph/database/faiss_index', topk: int = 3, avoid_first: bool = False) -> None:
+    def __init__(self,
+                 embed_model_path: str,
+                 mongo_url: str = 'mongodb://localhost:27017/',
+                 faiss_path: str = 'course_graph/database/faiss_index',
+                 topk: int = 3,
+                 avoid_first: bool = False) -> None:
         """ 基于句嵌入相似度的示例检索策略
 
         Args:
@@ -87,10 +92,10 @@ class SentenceEmbeddingStrategy(ExamplePromptStrategy):
             mongo=mongo.get_collection('prompt_example_ner'))
         self.db_re = Database(faiss=Faiss(
             os.path.join(faiss_path, 'faiss_index_re.bin')),
-            mongo=mongo.get_collection('prompt_example_re'))
+                              mongo=mongo.get_collection('prompt_example_re'))
         self.db_ae = Database(faiss=Faiss(
             os.path.join(faiss_path, 'faiss_index_ae.bin')),
-            mongo=mongo.get_collection('prompt_example_ae'))
+                              mongo=mongo.get_collection('prompt_example_ae'))
         self.embed_model = SentenceTransformer(embed_model_path)
         self.topk = topk
         self.avoid_first = avoid_first
@@ -153,12 +158,13 @@ class SentenceEmbeddingStrategy(ExamplePromptStrategy):
             list: 提示词示例列表
 
         """
-        if type_ == "ner":
-            db = self.db_ner
-        elif type_ == "re":
-            db = self.db_re
-        else:
-            db = self.db_ae
+        match type_:
+            case "ner":
+                db = self.db_ner
+            case "re":
+                db = self.db_re
+            case "ae":
+                db = self.db_ae
         if db.faiss.index is None:
             db.faiss.load()
         content_vec = self.embed_model.encode(content,

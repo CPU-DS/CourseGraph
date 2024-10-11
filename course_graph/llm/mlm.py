@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # Create Date: 2024/07/11
 # Author: wangtao <wangtao.cpu@gmail.com>
-# File Name: course_graph/llm/mllm.py
+# File Name: course_graph/llm/mlm.py
 # Description: 定义多模态大模型类
 
 from .config import VisualConfig
@@ -11,7 +11,7 @@ from abc import ABC, abstractmethod
 from .type import Model
 
 
-class MLLM(ABC):
+class MLM(ABC):
 
     def __init__(self, path: str,
                  config: VisualConfig = VisualConfig()) -> None:
@@ -40,7 +40,7 @@ class MLLM(ABC):
         raise NotImplementedError
 
 
-class MiniCPM(MLLM):
+class MiniCPM(MLM):
 
     def __init__(
         self,

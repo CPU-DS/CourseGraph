@@ -4,7 +4,7 @@
 # File Name: course_graph/parser/__init__.py
 # Description: 文档解析器接口
 
-from .pdf_parser import PDFParser
+from .pdf_parser import *
 from .docx_parser import DOCXParser
 from .base import BookMark, Document
 from .parser import Page, Parser

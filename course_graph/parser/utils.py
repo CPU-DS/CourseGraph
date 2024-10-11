@@ -5,13 +5,14 @@
 # Description: 工具函数
 
 from __future__ import annotations
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Union
 
 if TYPE_CHECKING:
-    from .base import Parser
+    from .docx_parser import DOCXParser
+    from .pdf_parser import PDFParser
 
 
-def get_parser(file_path: str) -> Parser:
+def get_parser(file_path: str) -> Union[DOCXParser, PDFParser]:
     """ 根据文档名称自动获取文档解析器
 
     Args:
@@ -24,10 +25,8 @@ def get_parser(file_path: str) -> Parser:
         Parser: 文档解析器
     """
     if file_path.endswith('.docx'):
-        from .docx_parser import DOCXParser
         return DOCXParser(file_path)
     elif file_path.endswith('.pdf'):
-        from .pdf_parser import PDFParser
         return PDFParser(file_path)
     else:
         raise ValueError('只支持 .docx 和 .pdf 格式')

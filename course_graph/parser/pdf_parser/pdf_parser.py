@@ -1,20 +1,20 @@
 # -*- coding: utf-8 -*-
 # Create Date: 2024/07/11
 # Author: wangtao <wangtao.cpu@gmail.com>
-# File Name: course_graph/parser/pdf_parser.py
+# File Name: course_graph/parser/pdf_parser/pdf_parser.py
 # Description: 定义pdf文档解析器
 
-from .base import BookMark
+from ..base import BookMark
+from .pdf_parser_mode import *
 import uuid
-from .parser import Parser, Page, Content, ContentType
+from ..parser import Parser, Page, Content, ContentType
 import fitz
 from paddleocr import PPStructure
 from PIL import Image
 import numpy as np
 import cv2
 import re
-from ..llm import MLLM, VisualPrompt, LLM, ParserPrompt, Model
-from typing import Literal
+from ...llm import MLM, VLUPrompt, LLM, ParserPrompt, Model
 from paddleocr.ppstructure.recovery.recovery_to_doc import sorted_layout_boxes
 import os
 import shutil
@@ -75,15 +75,10 @@ class PDFParser(Parser):
         """
         super().__init__(pdf_path)
         self._pdf = fitz.open(pdf_path)
-        self.__parser_mode: Literal['base', 'pp', 'vl',
-                                    'combination'] | None = None
 
-        self._parser_visual_model = None
-        self._parser_visual_prompt = None
-        self._parser_llm = None
+        self.parser_mode: PDFParserMode = BaseMode()
 
         self._pp = PPStructure(table=False, ocr=True, show_log=False)
-        self.set_parser_mode_pp_structure()  # 默认模式
         self.outline: list = outline if len(
             outline := self._pdf.get_toc()) != 0 else []
         # 可以使用 simple=False 获得更详细的信息，包含锚点等
@@ -114,43 +109,6 @@ class PDFParser(Parser):
                           tokenizer=tokenizer)
         return self
 
-    def set_parser_mode_base(self):
-        """ 使用基础模式解析
-        """
-        self.__parser_mode = 'base'
-
-    def set_parser_mode_pp_structure(self):
-        """ 使用飞桨的版面分析解析
-        """
-        self.__parser_mode = 'pp'
-
-    def set_parser_mode_visual_model(self, model: MLLM, prompt: VisualPrompt):
-        """ 使用多模态大模型解析, 实现参考: https://github.com/lazyFrogLOL/llmdocparser
-
-        Args:
-            model (MLLM): 多模态大模型
-            prompt (VisualPrompt): 大模型对应的提示词
-        """
-        self.__parser_mode = 'vl'
-        self._parser_visual_model = model
-        self._parser_visual_prompt = prompt.set_type_ocr()
-
-    def set_parser_mode_combination(self,
-                                    visual_model: MLLM,
-                                    visual_prompt: VisualPrompt,
-                                    llm: LLM | None = None):
-        """ 使用 OCR + 大模型综合解析 (推荐)
-
-        Args:
-            visual_model (MLLM): 多模态大模型
-            visual_prompt (VisualPrompt): 大模型对应的提示词
-            llm (LLM | None, optional): 使用大模型矫正OCR结果. Defaults to None.
-        """
-        self.__parser_mode = 'combination'
-        self._parser_visual_model = visual_model
-        self._parser_visual_prompt = visual_prompt.set_type_ocr()
-        self._parser_llm = llm
-
     def __enter__(self) -> 'PDFParser':
         return self
 
@@ -161,14 +119,14 @@ class PDFParser(Parser):
 
     def get_catalogue_index_by_visual_model(
             self,
-            visual_model: MLLM,
-            visual_prompt: VisualPrompt,
+            visual_model: MLM,
+            visual_prompt: VLUPrompt,
             rate: float = 0.1) -> tuple[int, int]:
         """ 通过多模态大模型寻找目录页, 返回目录页起始页和终止页页码 (从0开始编序)
 
         Args:
-            visual_model (MLLM): 多模态大模型
-            visual_prompt (VisualPrompt): 视觉提示词
+            visual_model (MLM): 多模态大模型
+            visual_prompt (VLUPrompt): 图文理解提示词
             rate (float, optional): 查询前 ratio 比例的页面. Defaults to 0.1 即 10%.
 
         Returns:
@@ -234,7 +192,7 @@ class PDFParser(Parser):
             lines (list): 标题和页码数组
             offset (int): 页码偏移
             llm (LLM): 大模型
-            parser_prompt (ParserPrompt, optional):  文档解析提示词类.. Defaults to ParserPrompt.
+            parser_prompt (ParserPrompt, optional):  文档解析提示词类. Defaults to ParserPrompt.
         """
         lines_without_index = [line[0] for line in lines]
         res = llm.chat(parser_prompt.get_outline_prompt(lines_without_index))
@@ -432,91 +390,97 @@ class PDFParser(Parser):
         Returns:
             Page: 文档页面
         """
-        if self.__parser_mode == 'pp':
-            pdf_page = self._pdf[page_index]
-            img = self._get_page_img(page_index, zoom=2)
-            blocks = self._page_structure(img)
-            contents: list[Content] = []
-            for block in blocks:
-                content = pdf_page.get_textbox(block['bbox'])
-                if block['type'] == 'text':
-                    content = _replace_linefeed(content)
-                    contents.append(
-                        Content(type=ContentType.Text, content=content))
-                elif block['type'] == 'title':
-                    contents.append(
-                        Content(type=ContentType.Title, content=content))
-        elif self.__parser_mode == 'base':
-            pdf_page = self._pdf[page_index]
-            contents = [
-                Content(type=ContentType.Text, content=pdf_page.get_text())
-            ]
-        elif self.__parser_mode == 'vl' or self.__parser_mode == 'combination':
-            zoom = 2
-            pdf_page = self._pdf[page_index]
-            img = self._get_page_img(page_index, zoom=zoom)
-            h, w, _ = img.shape
-            blocks = self._page_structure(img)
+        match self.parser_mode:
+            case PaddleMode():
+                pdf_page = self._pdf[page_index]
+                img = self._get_page_img(page_index, zoom=2)
+                blocks = self._page_structure(img)
+                contents: list[Content] = []
+                for block in blocks:
+                    content = pdf_page.get_textbox(block['bbox'])
+                    if block['type'] == 'text':
+                        content = _replace_linefeed(content)
+                        contents.append(
+                            Content(type=ContentType.Text, content=content))
+                    elif block['type'] == 'title':
+                        contents.append(
+                            Content(type=ContentType.Title, content=content))
+            case BaseMode():
+                pdf_page = self._pdf[page_index]
+                contents = [
+                    Content(type=ContentType.Text, content=pdf_page.get_text())
+                ]
+            case _:
+                zoom = 2
+                pdf_page = self._pdf[page_index]
+                img = self._get_page_img(page_index, zoom=zoom)
+                h, w, _ = img.shape
+                blocks = self._page_structure(img)
 
-            t = 20
-            # 切割子图, 向外扩充t个像素
-            cache_path = '.cache/pdf_cache'
-            if not os.path.exists(cache_path):
-                os.mkdir(cache_path)
-            contents: list[Content] = []
+                t = 20
+                # 切割子图, 向外扩充t个像素
+                cache_path = '.cache/pdf_cache'
+                if not os.path.exists(cache_path):
+                    os.mkdir(cache_path)
+                contents: list[Content] = []
 
-            for idx, block in enumerate(blocks):
-                type_ = block['type']
-                if type_ in ['header', 'footer', 'reference']:
-                    continue  # 页眉页脚注释部分不要
-                x1, y1, x2, y2 = block['bbox']
-                # 扩充裁剪区域
-                x1, y1, x2, y2 = max(0, x1 - t), max(0, y1 - t), min(
-                    w, x2 + t), min(h, y2 + t)  # 防止越界
-                if (x2 - x1) < 5 or (y2 - y1) < 5:
-                    continue  # 区域过小
-                if type_ == 'figure' and ((x2 - x1) < 150 or (y2 - y1) < 150):
-                    continue  # 图片过小
-                cropped_img = Image.fromarray(img).crop((x1, y1, x2, y2))
-                file_path = os.path.join(cache_path, f'{idx}_{type_}.png')
-                cropped_img.save(file_path)
+                for idx, block in enumerate(blocks):
+                    type_ = block['type']
+                    if type_ in ['header', 'footer', 'reference']:
+                        continue  # 页眉页脚注释部分不要
+                    x1, y1, x2, y2 = block['bbox']
+                    # 扩充裁剪区域
+                    x1, y1, x2, y2 = max(0, x1 - t), max(0, y1 - t), min(
+                        w, x2 + t), min(h, y2 + t)  # 防止越界
+                    if (x2 - x1) < 5 or (y2 - y1) < 5:
+                        continue  # 区域过小
+                    if type_ == 'figure' and ((x2 - x1) < 150 or
+                                              (y2 - y1) < 150):
+                        continue  # 图片过小
+                    cropped_img = Image.fromarray(img).crop((x1, y1, x2, y2))
+                    file_path = os.path.join(cache_path, f'{idx}_{type_}.png')
+                    cropped_img.save(file_path)
 
-                if self.__parser_mode == 'vl':
-                    res = self._parser_visual_model.chat(
-                        msgs=self._parser_visual_prompt.get_prompt(file_path),
-                        sys_prompt=self._parser_visual_prompt.get_sys_prompt())
+                    match self.parser_mode:
+                        case VisualMode(model, prompt):
+                            model: MLM
+                            prompt: VLUPrompt
+                            res = model.chat(
+                                msgs=prompt.get_prompt(file_path),
+                                sys_prompt=prompt.get_sys_prompt())
 
-                else:  # self.__parser_mode == 'combination'
-                    if type_ in ['title', 'text']:  # 直接读取或OCR + 大模型矫正
-                        bbox = [b / zoom for b in block['bbox']]
-                        res = pdf_page.get_textbox(bbox).replace(
-                            '\n', '')  # 直接读取可能存在不正确地换行
-                        # 有些pdf是图片型可能无法直接读取, 则使用OCR的结果
-                        if len(res) == 0:
-                            res = block['text']
-                        if self._parser_llm is not None:
-                            try:
-                                res = self._parser_llm.chat(
-                                    ParserPrompt.get_ocr_aided_prompt(res))
-                            finally:
-                                pass  # 这一步不是必须的
-                    else:
-                        res = self._parser_visual_model.chat(
-                            msgs=self._parser_visual_prompt.get_prompt(
-                                file_path),
-                            sys_prompt=self._parser_visual_prompt.
-                            get_sys_prompt())
-
-                if block['type'] == 'title':
-                    contents.append(
-                        Content(type=ContentType.Title, content=res))
-                else:  # 其余全部当作正文对待
-                    res = _replace_linefeed(res)
-                    contents.append(Content(type=ContentType.Text,
-                                            content=res))
-            shutil.rmtree(cache_path)
-        else:
-            contents = []
+                        case CombinationMode(visual_model, visual_prompt, llm):
+                            visual_model: MLM
+                            visual_prompt: VLUPrompt
+                            llm: LLM | None
+                            if type_ in ['title', 'text']:  # 直接读取或OCR + 大模型矫正
+                                bbox = [b / zoom for b in block['bbox']]
+                                res = pdf_page.get_textbox(bbox).replace(
+                                    '\n', '')  # 直接读取可能存在不正确地换行
+                                # 有些pdf是图片型可能无法直接读取, 则使用OCR的结果
+                                if len(res) == 0:
+                                    res = block['text']
+                                if llm is not None:
+                                    try:
+                                        res = llm.chat(
+                                            ParserPrompt.get_ocr_aided_prompt(
+                                                res))
+                                    finally:
+                                        pass  # 这一步不是必须的
+                            else:
+                                res = visual_model.chat(
+                                    msgs=visual_prompt.get_prompt(file_path),
+                                    sys_prompt=visual_prompt.get_sys_prompt())
+                        case _:
+                            res = ''
+                    if block['type'] == 'title':
+                        contents.append(
+                            Content(type=ContentType.Title, content=res))
+                    else:  # 其余全部当作正文对待
+                        res = _replace_linefeed(res)
+                        contents.append(
+                            Content(type=ContentType.Text, content=res))
+                shutil.rmtree(cache_path)
         return Page(page_index=page_index + 1, contents=contents)
 
     def get_pages(self) -> list[Page]:

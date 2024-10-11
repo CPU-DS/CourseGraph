@@ -8,7 +8,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pptx import Presentation
-from ..llm import MLLM, VisualPrompt
+from ..llm import MLM, VLUPrompt
 from .utils import pptx2imgs
 import shutil
 from tqdm import tqdm
@@ -126,13 +126,13 @@ class PPTX(Resource):
         idxs = [key for key, val in self.index_maps.items() if keyword in val]
         return _merge_index_slice(idxs, self.file_path)
 
-    def set_maps_by_visual_model(self, model: MLLM,
-                                 prompt: VisualPrompt) -> None:
+    def set_maps_by_visual_model(self, model: MLM,
+                                 prompt: VLUPrompt) -> None:
         """ 使用多模态大模型提取pptx主要内容
 
         Args:
             model (VisualLM): 多模态大模型
-            prompt (VisualPrompt): 相应提示词
+            prompt (VLUPrompt): 相应提示词
         """
         cache_path = '.cache/pptx_imgs_cache'
         imgs = pptx2imgs(self.file_path, cache_path)

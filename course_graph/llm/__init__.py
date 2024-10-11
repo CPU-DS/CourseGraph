@@ -6,8 +6,8 @@
 
 from .prompt import IEPrompt, ExamplePrompt, ParserPrompt
 from .llm import LLM, VLLM, Qwen, Ollama
-from .mllm import MiniCPM, MLLM
-from .visual_prompt import MiniCPMPrompt, Interaction, VisualPrompt
+from .mlm import MiniCPM, MLM
+from .vision_prompt import MiniCPMPrompt, Interaction, VLUPrompt
 from .prompt_strategy import ExamplePromptStrategy, SentenceEmbeddingStrategy
 from .config import VisualConfig, LLMConfig
 from .type import Model, Database

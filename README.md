@@ -67,7 +67,7 @@ npm run docs:dev
 
 #### 部署
 
-文档修改和部署请参考 VitePress文档
+文档修改和部署请参考 VitePress 文档
 
 ## 贡献和引用
 

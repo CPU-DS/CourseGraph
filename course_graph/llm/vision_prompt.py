@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # Create Date: 2024/07/11
 # Author: wangtao <wangtao.cpu@gmail.com>
-# File Name: course_graph/llm/visual_prompt.py
+# File Name: course_graph/llm/vision_prompt.py
 # Description: 定义多模态大模型提示词类
 
 from dataclasses import dataclass
@@ -19,16 +19,16 @@ class Interaction:
     answer: str
 
 
-class VisualPrompt(ABC):
+class VLUPrompt(ABC):
 
     def __init__(self) -> None:
-        """ 视觉提示词
+        """ 图文理解提示词
         """
         self.prompt: str = ''
         self.sys_prompt: str | None = None
 
     @abstractmethod
-    def set_type_ocr(self) -> 'VisualPrompt':
+    def set_type_ocr(self) -> 'VLUPrompt':
         """ OCR
 
         Raises:
@@ -36,7 +36,7 @@ class VisualPrompt(ABC):
         """
         raise NotImplementedError
 
-    def set_type_context_ie(self, message: str) -> 'VisualPrompt':
+    def set_type_context_ie(self, message: str) -> 'VLUPrompt':
         """ 带有上文信息的信息提取
 
         Args:
@@ -48,7 +48,7 @@ class VisualPrompt(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def set_type_ie(self) -> 'VisualPrompt':
+    def set_type_ie(self) -> 'VLUPrompt':
         """ 信息提取
 
         Raises:
@@ -57,7 +57,7 @@ class VisualPrompt(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def set_type_catalogue(self) -> 'VisualPrompt':
+    def set_type_catalogue(self) -> 'VLUPrompt':
         """ 目录识别
 
         Raises:
@@ -69,7 +69,7 @@ class VisualPrompt(ABC):
     def use_examples(
             self,
             example_dataset_path: str = 'dataset/image_example'
-    ) -> 'VisualPrompt':
+    ) -> 'VLUPrompt':
         """ 添加示例
 
         Args:
@@ -81,7 +81,7 @@ class VisualPrompt(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def add_history(self, history: Interaction) -> 'VisualPrompt':
+    def add_history(self, history: Interaction) -> 'VLUPrompt':
         """ 输入历史记录以进行多轮问答
 
         Args:
@@ -116,7 +116,7 @@ class VisualPrompt(ABC):
         return self.sys_prompt
 
 
-class MiniCPMPrompt(VisualPrompt):
+class MiniCPMPrompt(VLUPrompt):
 
     def __init__(self) -> None:
         """ MiniCPM提示词, 支持多轮对话, 多图对话和上下文学习

@@ -13,6 +13,7 @@ from collections import Counter
 from typing import TYPE_CHECKING
 import random
 import pickle
+import os
 
 if TYPE_CHECKING:
     from .parser import Parser
@@ -94,6 +95,22 @@ class Document:
     parser: 'Parser'
     knowledgepoints: list[KPEntity] = field(default_factory=list)
 
+    @classmethod
+    def from_parser(cls, parser: Parser) -> 'Document':
+        """ 使用 Parser 对象生成 Document 对象
+
+        Args:
+            cls (Parser): 解析器
+
+        Returns:
+            Document: 文档
+        """
+        cls(id='0:' + str(uuid.uuid4()),
+            name=os.path.basename(parser.file_path).split('.')[0],
+            file_path=parser.file_path,
+            bookmarks=parser.get_bookmarks(),
+            parser=parser)
+
     def dump(self, path: str) -> None:
         """ 序列化 Document 对象
 
@@ -129,7 +146,7 @@ class Document:
             return pickle.load(f)
 
     def flatten_bookmarks(self) -> list[BookMark]:
-        """ 将bookmark的树状结构扁平化，以便快速查找
+        """ 将 bookmark 的树状结构扁平化，以便快速查找
 
         Returns:
             list[BookMark]: 书签列表
