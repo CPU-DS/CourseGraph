@@ -38,6 +38,7 @@ ray = "2.35.0"
 verovio = "4.3.1"
 maturin = "1.7.4"
 patchelf = "0.17.2.1"
+docstring-parser = "^0.16"
 
 [build-system]
 requires = ["poetry-core"]

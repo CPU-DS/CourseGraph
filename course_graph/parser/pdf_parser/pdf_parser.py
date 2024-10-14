@@ -68,7 +68,7 @@ def get_list(text: str) -> list:
 class PDFParser(Parser):
 
     def __init__(self, pdf_path: str) -> None:
-        """ 解析pdf文档, 需要带有书签以判断层级
+        """ pdf文档解析器
 
         Args:
             pdf_path (str): pdf文档路径

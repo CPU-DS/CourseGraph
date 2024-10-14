@@ -34,7 +34,7 @@ CourseGraph 使用大模型，利用多种 prompt 优化技术, 自动从教材�
 
 ## 快速使用
 
-首先请确保已存在 Anaconda(或Miniconda)、Rust 和 Cuda Driver(版本建议: 12.2)，然后 clone 本仓库并安装相应依赖
+建议使用 conda 管理虚拟环境，使用 poetry 管理包
 
 ```bash
 git clone git@github.com:wangtao2001/CourseGraph.git
@@ -43,7 +43,6 @@ conda create -n cg python=3.10
 conda activate cg
 pip install poetry
 poetry install
-cd rust_ext && maturin develop
 ```
 
 > linux 下还需安装 libreoffice 以完成文档转换，以 Debian 系为例: `sudo apt install libreoffice`

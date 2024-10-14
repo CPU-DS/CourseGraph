@@ -44,18 +44,18 @@ class VisualMode(PDFParserMode):
 
 
 class CombinationMode(PDFParserMode):
-    """ 使用 OCR + 大模型综合解析 (推荐)
-
-        Args:
-            visual_model (MLM): 多模态大模型
-            visual_prompt (VLUPrompt): 大模型对应的提示词
-            llm (LLM | None, optional): 使用大模型矫正OCR结果. Defaults to None.
-    """
 
     def __init__(self,
                  visual_model: MLM,
                  visual_prompt: VLUPrompt,
                  llm: LLM | None = None):
+        """ 使用 OCR + 大模型综合解析 (推荐)
+
+        Args:
+            visual_model (MLM): 多模态大模型
+            visual_prompt (VLUPrompt): 大模型对应的提示词
+            llm (LLM | None, optional): 使用大模型矫正 OCR 结果. Defaults to None.
+        """
         self.visual_model = visual_model
         self.visual_prompt = visual_prompt.set_type_ocr()
         self.llm = llm

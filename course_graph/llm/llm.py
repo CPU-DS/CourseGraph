@@ -9,14 +9,15 @@ from openai.types.chat import ChatCompletionMessage, ChatCompletionMessageParam
 from openai import NOT_GIVEN
 from abc import ABC
 from .config import LLMConfig
-from typing import Callable
 import os
 import requests
 import subprocess
 import time
 import shlex
 import ollama
-from ..agent import Tool
+from ..agent import Tool, ToolCallable
+import inspect
+import docstring_parser
 
 
 class LLM(ABC):
@@ -34,7 +35,7 @@ class LLM(ABC):
         self.client: OpenAI | None = None
 
         self.tools: list = []
-        self.tool_functions: dict[str, Callable] = {}
+        self.tool_functions: dict[str, ToolCallable] = {}
         self.json: bool = False
         self.stop = None
         self.messages: list[ChatCompletionMessageParam] = [{
@@ -145,19 +146,81 @@ class LLM(ABC):
         })
 
     def add_tools(self, *tools: Tool) -> 'LLM':
-        """ 添加外部工具函数
+        """ 添加外部工具
         
         Args:
             *tools (Tool): 外部工具
+        
+        Raises:
+            ValueError: 传递 lambda 函数
 
         Returns:
             LLM: 大模型
         """
         for tool in tools:
             self.tools.append(tool["tool"])
-            self.tool_functions.update({
-                tool.get('function_name', tool["function"].__name__):
-                tool["function"]
+            function = tool["function"]
+            function_name = tool.get('function_name', function.__name__)
+            if function_name == '<lambda>':
+                raise ValueError(f"不支持 lambda 函数传递")
+            self.tool_functions[function_name] = function
+        return self
+
+    def add_tool_functions(self, *functions: ToolCallable) -> 'LLM':
+        """ 添加外部工具函数，并从函数文档中解析函数描述、参数类型、以及参数描述等信息 \n
+        支持的的风格: ReST, Google, Numpydoc-style and Epydoc \n
+        参考: https://github.com/rr-/docstring_parser \n
+        若使用了不支持的风格且需要函数描述等支持，请使用 add_tools 方法手动编写
+
+        Args:
+            *functions (ToolCallable): 外部工具函数, 返回值需要实现 __str__ 方法
+
+        Raises:
+            ValueError: 传递 lambda 函数
+
+        Returns:
+            LLM: 大模型
+        """
+        for function in functions:
+            function_name = function.__name__
+            if function_name == '<lambda>':
+                raise ValueError(f"不支持 lambda 函数传递")
+            docstring = inspect.getdoc(function)
+            res = docstring_parser.parse(docstring)
+
+            description = (res.short_description or '') + (
+                '\n' + res.long_description if res.long_description else '')
+
+            properties = {}
+            param_names = list(inspect.signature(function).parameters.keys())
+
+            for name in param_names:
+                # 参数名称从函数签名获取
+                for doc_param in res.params:
+                    if doc_param.arg_name == name:
+                        properties[name] = {
+                            **({
+                                'type': doc_param.type_name
+                            } if doc_param.type_name is not None else {}),
+                            **({
+                                'description': doc_param.description
+                            } if doc_param.description is not None else {})
+                        }
+                        break
+                else:
+                    # 无参数描述
+                    properties[name] = {}
+
+            self.add_tools({
+                'function': function,
+                'tool': {
+                    'type': 'function',
+                    'function': {
+                        'name': function_name,
+                        'description': description,
+                        'parameters': properties
+                    },
+                }
             })
         return self
 
@@ -179,7 +242,8 @@ class LLM(ABC):
                 function = item.function
                 tool_function = self.tool_functions.get(function.name)
                 if tool_function:
-                    tool_content = tool_function(**eval(function.arguments))
+                    tool_content = str(
+                        tool_function(**eval(function.arguments)))
                     self._add_message_tool_call(tool_content, item.id)
             assistant_output = self.chat_with_messages(content_only=False,
                                                        tool=True)

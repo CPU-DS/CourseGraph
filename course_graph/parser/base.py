@@ -96,7 +96,7 @@ class Document:
     knowledgepoints: list[KPEntity] = field(default_factory=list)
 
     @classmethod
-    def from_parser(cls, parser: Parser) -> 'Document':
+    def from_parser(cls, parser: 'Parser') -> 'Document':
         """ 使用 Parser 对象生成 Document 对象
 
         Args:

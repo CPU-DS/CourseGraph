@@ -4,4 +4,4 @@
 # File Name: course_graph/agent/__init__.py
 # Description: agent 相关
 
-from .tools import Tool
+from .tools import Tool, ToolCallable

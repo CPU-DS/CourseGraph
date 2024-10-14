@@ -6,14 +6,24 @@
 
 import requests
 import json
-from typing import TypedDict, Callable
+from typing import TypedDict, Callable, Protocol, TypeVar
 from openai.types.chat import ChatCompletionToolParam
 from typing_extensions import Required
 
 
+class StrableClass(Protocol):
+
+    def __str__(self) -> str:
+        ...
+
+
+Strable = TypeVar('Strable', bound=StrableClass)
+ToolCallable = Callable[[], Strable]
+
+
 class Tool(TypedDict, total=False):
     tool: Required[ChatCompletionToolParam]
-    function: Required[Callable]
+    function: Required[ToolCallable]
     function_name: str  # 需要与tool.function.name相同，作为function的索引
 
 
