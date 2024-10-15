@@ -100,16 +100,16 @@ class Document:
         """ 使用 Parser 对象生成 Document 对象
 
         Args:
-            cls (Parser): 解析器
+            parser (Parser): 解析器
 
         Returns:
             Document: 文档
         """
-        cls(id='0:' + str(uuid.uuid4()),
-            name=os.path.basename(parser.file_path).split('.')[0],
-            file_path=parser.file_path,
-            bookmarks=parser.get_bookmarks(),
-            parser=parser)
+        return cls(id='0:' + str(uuid.uuid4()),
+                   name=os.path.basename(parser.file_path).split('.')[0],
+                   file_path=parser.file_path,
+                   bookmarks=parser.get_bookmarks(),
+                   parser=parser)
 
     def dump(self, path: str) -> None:
         """ 序列化 Document 对象
