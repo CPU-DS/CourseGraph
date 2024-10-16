@@ -39,6 +39,7 @@ verovio = "4.3.1"
 maturin = "1.7.4"
 patchelf = "0.17.2.1"
 docstring-parser = "^0.16"
+addict = "^2.4.0"
 
 [build-system]
 requires = ["poetry-core"]

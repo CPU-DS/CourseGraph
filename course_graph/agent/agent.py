@@ -6,11 +6,11 @@
 
 from ..llm import LLM
 from .tool import Tool
+from .types import Response, Result, ContextVariables
 from openai.types.chat import ChatCompletionToolParam, ChatCompletionMessageParam
 import inspect
 import docstring_parser
 from typing import Callable
-from dataclasses import dataclass
 import copy
 import json
 
@@ -32,10 +32,11 @@ class Agent:
         """
         self.name = name
         self.llm = llm
-        self.llm.instruction = instruction
+        self.instruction = instruction
 
         self.tools: list[ChatCompletionToolParam] = []
         self.tool_functions: dict[str, Callable] = {}
+        self.use_context_variables: dict[str, str] = {}  # 使用了上下文变量的函数以及相应的形参名称
 
         if functions:
             self.add_tool_functions(*functions)
@@ -79,13 +80,13 @@ class Agent:
             if function_name == '<lambda>':
                 raise ValueError(f"不支持 lambda 函数传递")
             self.tool_functions[function_name] = function
+            if (r := tool.get('context_variables_parameter_name')) is not None:
+                self.use_context_variables[function_name] = r
         return self
 
     def add_tool_functions(self, *functions: Callable) -> 'Agent':
-        """ 添加外部工具函数，并从函数文档中解析函数描述、参数类型、以及参数描述等信息 \n
-        支持的的风格: ReST, Google, Numpydoc-style and Epydoc \n
-        参考: https://github.com/rr-/docstring_parser \n
-        若使用了不支持的风格且需要函数描述等支持，或者使用复杂参数，类型请使用 add_tools 方法手动编写
+        """ 添加外部工具函数，并从自动解析函数描述、参数类型、以及参数描述等信息 \n
+        若使用了不支持的文档风格或使用复杂参数，请调用 add_tools 方法手动编写函数描述
 
         Args:
             *functions (Callable): 外部工具函数
@@ -117,30 +118,58 @@ class Agent:
             description = (res.short_description or '') + (
                 '\n' + res.long_description if res.long_description else '')
 
-            properties = {}
-            required = []
-            param_names = list(inspect.signature(function).parameters.keys())
+            properties: dict[str, dict] = {}
+            required: list[str] = []
 
-            for name in param_names:
-                # 参数名称从函数签名获取
-                for doc_param in res.params:
-                    if doc_param.arg_name == name:
-                        properties[name] = {
-                            **({
-                                'type': type_map[doc_param.type_name]  # 出现不支持的类型会报错
-                            } if doc_param.type_name is not None else {}),
-                            **({
-                                'description': doc_param.description
-                            } if doc_param.description is not None else {}),
-                        }
-                        if not doc_param.is_optional:
-                            required.append(name)
-                        break
-                else:
-                    # 无参数描述
-                    properties[name] = {}
+            signature_parameters = inspect.signature(function).parameters
+            # 所有的形参名称
+            for name in list(signature_parameters.keys()):
+                properties[name] = {}
 
-            self.add_tools({
+            for arg_name, p in signature_parameters.items():
+                # 移除ContextVariables变量并且忽略默认值
+                if p.annotation == ContextVariables:
+                    del properties[arg_name]
+                    # 保存函数名对应的ContextVariables的形参名称
+                    # ContextVariables只允许有一个, 后者会覆盖前者
+                    self.use_context_variables[function_name] = arg_name
+                    continue
+                # 签名中的参数类型
+                if p.annotation != inspect._empty:
+                    properties[arg_name]['type'] = type_map.get(
+                        str(p.annotation).replace("<class '",
+                                                  '').replace("'>", ''), 'any')
+                # 签名中的默认值
+                if p.default == inspect._empty:
+                    required.append(arg_name)
+
+            for doc_parameters in res.params:
+                if doc_parameters.arg_name in properties:
+                    # 文档中的参数类型 (优先使用签名中的参数类型)
+                    if doc_parameters.type_name is not None and 'type' not in properties[
+                            doc_parameters.arg_name]:
+                        properties[
+                            doc_parameters.arg_name]['type'] = type_map.get(
+                                doc_parameters.type_name, 'any')
+                    # 文档中的参数描述
+                    if doc_parameters.description is not None:
+                        properties[doc_parameters.arg_name][
+                            'description'] = doc_parameters.description
+                    # 文档中的是否可选 (签名中提示required这里也不会丢掉)
+                    if not doc_parameters.is_optional and doc_parameters.arg_name not in required:
+                        required.append(doc_parameters.arg_name)
+
+            # 如果签名和文档中都未标注类型则可以使用默认值类型替代
+            for arg_name, p in signature_parameters.items():
+                if arg_name in properties:
+                    if p.default != inspect._empty and 'type' not in properties[
+                            arg_name]:
+                        properties[arg_name]['type'] = type_map.get(
+                            str(type(p.default)).replace("<class '",
+                                                         '').replace("'>", ''),
+                            'any')
+
+            self.add_tools({  # context_variables_parameter_name 已经处理过无需传递
                 'function': function,
                 'tool': {
                     'type': 'function',
@@ -158,23 +187,23 @@ class Agent:
         return self
 
 
-@dataclass
-class Response:
-    agent: Agent
-    content: str
-
-
-def run(agent: Agent, message: str) -> Response:
+def run(
+    agent: Agent,
+    message: str,
+    context_variables: ContextVariables = ContextVariables()
+) -> Response:
     """ 运行 Agent
 
     Args:
         agent: 智能体
         message (str): 用户输入
+        context_variables (str, ContextVariables): 上下文变量. Defaults to ContextVariables().
 
     Returns:
         str: Agent 最终输出
     """
     activate_agent = agent
+    activate_agent.llm.instruction = activate_agent.instruction
     assistant_output = activate_agent.llm.chat_with_messages(
         message,
         content_only=False,
@@ -184,26 +213,46 @@ def run(agent: Agent, message: str) -> Response:
         functions = assistant_output.tool_calls
         for item in functions:
             function = item.function
-            tool_function = activate_agent.tool_functions.get(function.name)
-            if tool_function:
-                tool_content = tool_function(**eval(function.arguments))
+            if (tool_function := activate_agent.tool_functions.get(
+                    function.name)) is not None:
+                args = json.loads(function.arguments)
+
+                # 自动注入上下文变量
+                if (var_name := activate_agent.use_context_variables.get(
+                        function.name)) is not None:
+                    args[var_name] = context_variables
+
+                tool_content = tool_function(**args)
                 match tool_content:
                     case Agent() as new_agent:
-                        if agent.llm is not new_agent.llm:
-                            new_agent.messages = copy.deepcopy(
-                                new_agent.messages)
-                        activate_agent = new_agent
-                        activate_agent.add_messages_tool_call(
-                            json.dumps({"assistant": activate_agent.name}),
-                            item.id)
-                    case str():
-                        activate_agent.add_messages_tool_call(
-                            tool_content, item.id)
+                        result = Result(agent=new_agent,
+                                        content=json.dumps(
+                                            {"assistant": new_agent.name}))
+                    case str() as content:
+                        result = Result(content=content)
+                    case ContextVariables() as new_variables:
+                        result = Result(context_variables=new_variables)
+                    case Result() as result:  # 上述三种返回值的组合类
+                        pass
                     case _:
-                        activate_agent.add_messages_tool_call(
-                            "Function call successful.", item.id)
+                        result = Result()
+
+                activate_agent.add_messages_tool_call(result.content, item.id)
+                if result.agent:
+                    if activate_agent.llm is not result.agent.llm:  # 底层不是共用模型的话就要拷贝历史消息
+                        result.agent.llm.messages = copy.deepcopy(
+                            activate_agent.messages)
+                    # 切换的 Agent 的初始化操作
+                    activate_agent = result.agent
+                    activate_agent.llm.instruction = activate_agent.instruction
+                # 更新上下文变量
+                context_variables.vars.update(result.context_variables.vars)
+
         assistant_output = activate_agent.llm.chat_with_messages(
             content_only=False,
             tools=activate_agent.tools,
             name=activate_agent.name)
-    return Response(agent=activate_agent, content=assistant_output.content)
+
+    return Response(agent=activate_agent,
+                    content=assistant_output.content,
+                    context_variables=context_variables)

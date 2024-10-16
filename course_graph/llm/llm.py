@@ -56,12 +56,10 @@ class LLM(ABC):
         """
         # functions 废弃
         # 参考: https://platform.openai.com/docs/api-reference/chat/create
+        messages = [{'role': 'system', 'content': self.instruction}] + messages
         return self.client.chat.completions.create(
             model=self.model,
-            messages=[{
-                'role': 'system',
-                'content': self.instruction
-            }] + messages,
+            messages=messages,
             top_p=self.config.top_p,
             temperature=self.config.temperature,
             presence_penalty=self.config.presence_penalty,
@@ -121,7 +119,32 @@ class LLM(ABC):
         return response.content if content_only else response
 
 
-class Qwen(LLM):
+class API(LLM):
+
+    def __init__(self,
+                 name: str,
+                 *,
+                 base_url: str,
+                 api_key: str,
+                 config: LLMConfig = LLMConfig()):
+        """ OpenAI 模型 API 服务
+
+        Args:
+            name (str): 模型名称
+            base_url (str): 地址
+            api_key (str): API key.
+            config (LLMConfig, optional): 大模型配置. Defaults to LLMConfig().
+        """
+        super().__init__(config=config)
+
+        self.model = name
+        self.client = OpenAI(
+            api_key=api_key,
+            base_url=base_url,
+        )
+
+
+class Qwen(API):
 
     def __init__(self,
                  name: str = 'qwen-max',
@@ -131,17 +154,15 @@ class Qwen(LLM):
         """ Qwen 系列模型 API 服务
 
         Args:
-            name (str): 模型名称
+            name (str, optional): 模型名称. Defaults to qwen-max.
             api_key (str, optional): API key. Defaults to os.getenv("DASHSCOPE_API_KEY").
             config (LLMConfig, optional): 大模型配置. Defaults to LLMConfig().
         """
-        super().__init__(config=config)
-
-        self.model = name
-        self.client = OpenAI(
+        super().__init__(
+            name=name,
+            base_url='https://dashscope.aliyuncs.com/compatible-mode/v1',
             api_key=api_key,
-            base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
-        )
+            config=config)
 
 
 class Serve:
