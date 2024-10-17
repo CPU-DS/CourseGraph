@@ -7,27 +7,34 @@
 from ..llm import LLM
 from .tool import Tool
 from .types import Response, Result, ContextVariables
-from openai.types.chat import ChatCompletionToolParam, ChatCompletionMessageParam
+from openai.types.chat import *
+from openai import NOT_GIVEN
 import inspect
 import docstring_parser
-from typing import Callable
+from typing import Callable, Any
 import copy
 import json
+from typing import Literal, get_type_hints
 
 
 class Agent:
 
-    def __init__(self,
-                 name: str,
-                 llm: LLM,
-                 functions: list[Callable] | None = None,
-                 instruction: str = 'You are a helpful assistant.') -> None:
+    def __init__(
+        self,
+        name: str,
+        llm: LLM,
+        functions: list[Callable] = None,
+        tool_choice: Literal['required', 'auto', 'none'] | str = None,
+        instruction: str
+        | Callable[[ContextVariables], str] = 'You are a helpful assistant.'
+    ) -> None:
         """ 智能体类
 
         Args:
             name (str): 名称
             llm (LLM): 大模型
             functions: (list[Callable], optional): 工具函数. Defaults to None.
+            tool_choice: (Literal['required', 'auto', 'none'] | str, optional). 强制使用工具函数, 选择模式或提供函数名称. Defaults to None.
             instruction (str, optional): 指令. Defaults to 'You are a helpful assistant.'.
         """
         self.name = name
@@ -41,15 +48,27 @@ class Agent:
         if functions:
             self.add_tool_functions(*functions)
 
+        if tool_choice is None:
+            self.tool_choice = NOT_GIVEN
+        elif tool_choice in ['required', 'auto', 'none']:
+            self.tool_choice = tool_choice
+        else:
+            self.tool_choice = {
+                "type": "function",
+                "function": {
+                    "name": tool_choice
+                }
+            }
+
     @property
-    def messages(self) -> list[ChatCompletionMessageParam]:
-        """ 历史记录
+    def messages(self):
+        """ 历史消息
         """
         return self.llm.messages
 
-    def add_messages_tool_call(self, tool_content: str,
-                               tool_call_id: str) -> None:
-        """ 向历史记录中添加工具调用的历史记录
+    def add_tool_call_message(self, tool_content: str,
+                              tool_call_id: str) -> None:
+        """ 向历史消息中添加工具调用的消息
 
         Args:
             tool_content (str): 工具调用结果
@@ -187,72 +206,110 @@ class Agent:
         return self
 
 
-def run(
-    agent: Agent,
-    message: str,
-    context_variables: ContextVariables = ContextVariables()
-) -> Response:
-    """ 运行 Agent
+class Client:
 
-    Args:
-        agent: 智能体
-        message (str): 用户输入
-        context_variables (str, ContextVariables): 上下文变量. Defaults to ContextVariables().
+    def __init__(self) -> None:
+        self.last_agent_messages_index = -1
 
-    Returns:
-        str: Agent 最终输出
-    """
-    activate_agent = agent
-    activate_agent.llm.instruction = activate_agent.instruction
-    assistant_output = activate_agent.llm.chat_with_messages(
-        message,
-        content_only=False,
-        tools=activate_agent.tools,
-        name=activate_agent.name)
-    while assistant_output.tool_calls:  # None 或者空数组
-        functions = assistant_output.tool_calls
-        for item in functions:
-            function = item.function
-            if (tool_function := activate_agent.tool_functions.get(
-                    function.name)) is not None:
-                args = json.loads(function.arguments)
+    def __call__(self,
+                 agent: Agent,
+                 message: str = None,
+                 context_variables: ContextVariables = ContextVariables(),
+                 call_back: Callable[[list], Any] = None):
+        """ 运行 Agent
 
-                # 自动注入上下文变量
-                if (var_name := activate_agent.use_context_variables.get(
-                        function.name)) is not None:
-                    args[var_name] = context_variables
+        Args:
+            agent: 智能体
+            message (str, optional): 用户输入. Defaults to None.
+            context_variables (ContextVariables, optional): 上下文变量. Defaults to ContextVariables().
+            call_back: (Callable, optional): 每次 Agent 切换时调用此回调，传入该 Agent 该轮对话产生的消息. Defaults to None.
 
-                tool_content = tool_function(**args)
-                match tool_content:
-                    case Agent() as new_agent:
-                        result = Result(agent=new_agent,
-                                        content=json.dumps(
-                                            {"assistant": new_agent.name}))
-                    case str() as content:
-                        result = Result(content=content)
-                    case ContextVariables() as new_variables:
-                        result = Result(context_variables=new_variables)
-                    case Result() as result:  # 上述三种返回值的组合类
-                        pass
-                    case _:
-                        result = Result()
+        Returns:
+            Response: Agent 最终输出
+        """
 
-                activate_agent.add_messages_tool_call(result.content, item.id)
-                if result.agent:
-                    if activate_agent.llm is not result.agent.llm:  # 底层不是共用模型的话就要拷贝历史消息
-                        result.agent.llm.messages = copy.deepcopy(
-                            activate_agent.messages)
-                    # 切换的 Agent 的初始化操作
-                    activate_agent = result.agent
-                    activate_agent.llm.instruction = activate_agent.instruction
-                # 更新上下文变量
-                context_variables.vars.update(result.context_variables.vars)
+        def run_call_back() -> None:
+            """ 回调函数，传入属于本次 Agent 的信息
+            """
+            if call_back:
+                call_back(
+                    activate_agent.messages[self.last_agent_messages_index +
+                                            1:])
+                self.last_agent_messages_index = len(
+                    activate_agent.messages) - 1
 
+        activate_agent = agent
+        match activate_agent.instruction:
+            case str() as instruction:
+                pass
+            case _:
+                instruction = activate_agent.instruction(context_variables)
+        activate_agent.llm.instruction = instruction
         assistant_output = activate_agent.llm.chat_with_messages(
+            message,
             content_only=False,
+            tool_choice=activate_agent.tool_choice,
             tools=activate_agent.tools,
             name=activate_agent.name)
+        while assistant_output.tool_calls:  # None 或者空数组
+            functions = assistant_output.tool_calls
+            for item in functions:
+                function = item.function
+                if (tool_function := activate_agent.tool_functions.get(
+                        function.name)) is not None:
+                    args = json.loads(function.arguments)
 
-    return Response(agent=activate_agent,
-                    content=assistant_output.content,
-                    context_variables=context_variables)
+                    # 自动注入上下文变量
+                    if (var_name := activate_agent.use_context_variables.get(
+                            function.name)) is not None:
+                        args[var_name] = context_variables
+
+                    tool_content = tool_function(**args)
+                    match tool_content:
+                        case Agent() as new_agent:
+                            result = Result(agent=new_agent,
+                                            content=json.dumps(
+                                                {"assistant": new_agent.name}))
+                        case str() as content:
+                            result = Result(content=content)
+                        case ContextVariables() as new_variables:
+                            result = Result(context_variables=new_variables)
+                        case Result() as result:  # 上述三种返回值的组合类
+                            pass
+                        case _:
+                            result = Result()
+
+                    activate_agent.add_tool_call_message(
+                        result.content, item.id)
+                    # 切换 Agent
+                    if result.agent and result.agent != activate_agent:
+                        run_call_back()
+                        self.last_agent_messages_index = len(
+                            activate_agent.messages) - 1
+                        # 底层不是共用模型的话就要拷贝历史消息
+                        if activate_agent.llm is not result.agent.llm:
+                            result.agent.llm.messages = copy.deepcopy(
+                                activate_agent.messages)
+                        # 切换的 Agent 的初始化操作
+                        activate_agent = result.agent
+                        match activate_agent.instruction:
+                            case str() as instruction:
+                                pass
+                            case _:
+                                instruction = activate_agent.instruction(
+                                    context_variables)
+                        activate_agent.llm.instruction = instruction
+                    # 更新上下文变量
+                    context_variables.vars.update(
+                        result.context_variables.vars)
+
+            assistant_output = activate_agent.llm.chat_with_messages(
+                content_only=False,
+                tool_choice=activate_agent.tool_choice,
+                tools=activate_agent.tools,
+                name=activate_agent.name)
+
+        run_call_back()
+        return Response(agent=activate_agent,
+                        content=assistant_output.content,
+                        context_variables=context_variables)

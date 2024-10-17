@@ -5,17 +5,17 @@
 # Description: 智能体编排
 
 from course_graph.llm import Qwen
-from course_graph.agent import Agent, run, Result
+from course_graph.agent import Agent, Client, Result
 from pprint import pprint
 
 
-def weather(location: str):
+def weather(locations: str):
     """ 根据用户提供的地点查询当前天气。
     Args:
-        location (str): 地点
+        locations (str): 地点
     """
     return Result(agent=core_agent,
-                  content=f" {location} 当前的天气是多云, 温度22-27摄氏度。")
+                  content=f" {locations} 当前的天气是多云, 温度22-27摄氏度。")
 
 
 def location():
@@ -24,7 +24,7 @@ def location():
     return "您当前所处的位置是北京市。"
 
 
-def schedule_details_api():
+def schedule_details():
     """ 查询用户当前的日程信息。
     """
     return Result(agent=core_agent, content=f"今天有一场考试, 时间是晚上9-10点。")
@@ -74,14 +74,15 @@ weather_agent = Agent(name='weather agent',
                       instruction='你是一个负责天气查询的智能体。')
 schedule_agent = Agent(name='schedule agent',
                        llm=model,
-                       functions=[schedule_details_api],
+                       functions=[schedule_details],
                        instruction='你是一个负责用户日程信息查询的智能体。')
 alarm_clock_agent = Agent(name='alarm clock agent',
                           llm=model,
                           functions=[add_alarm_clock],
                           instruction='你是一个负责帮用户定闹钟的智能体。')
 
-resp = run(
+client = Client()
+resp = client(
     agent=core_agent,
     message='帮我查询一下我这里的天气, 并查询一下我的日程信息。如果日程中有考试的话, 请帮我定一个闹钟, 时间是考试开始前的一个小时。')
 print(resp.content)

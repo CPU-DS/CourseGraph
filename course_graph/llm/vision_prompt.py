@@ -82,7 +82,7 @@ class VLUPrompt(ABC):
 
     @abstractmethod
     def add_history(self, history: Interaction) -> 'VLUPrompt':
-        """ 输入历史记录以进行多轮问答
+        """ 输入历史消息以进行多轮问答
 
         Args:
             history (Interaction): 一条问答记录
@@ -190,7 +190,7 @@ class MiniCPMPrompt(VLUPrompt):
         return self
 
     def add_history(self, history: Interaction) -> 'MiniCPMPrompt':
-        """ 输入历史记录以进行多轮问答
+        """ 输入历史消息以进行多轮问答
 
         Args:
             history (Interaction): 一条问答记录

@@ -4,8 +4,8 @@
 # File Name: coucourse_graphrsekg/llm/llm.py
 # Description: 定义兼容 openAI API 的大模型类
 
-from openai import OpenAI
-from openai.types.chat import ChatCompletionMessage, ChatCompletionMessageParam, ChatCompletionToolParam
+import openai
+from openai.types.chat import *
 from openai import NOT_GIVEN, NotGiven
 from abc import ABC
 from .config import LLMConfig
@@ -20,9 +20,9 @@ import ollama
 class LLM(ABC):
 
     def __init__(
-        self,
-        instruction: str = 'You are a helpful assistant.',
-        config: LLMConfig = LLMConfig()
+            self,
+            instruction: str = 'You are a helpful assistant.',
+            config: LLMConfig = LLMConfig()
     ) -> None:
         """ 大模型抽象类
 
@@ -34,7 +34,7 @@ class LLM(ABC):
         self.config = config
 
         self.model: str | None = None  # 需要在子类中额外初始化
-        self.client: OpenAI | None = None
+        self.client: openai.OpenAI | None = None
 
         self.json: bool = False
         self.stop = None
@@ -42,14 +42,17 @@ class LLM(ABC):
         self.messages: list[ChatCompletionMessageParam] = []  # 不包括instruction
 
     def _chat(
-        self, messages: list[dict],
-        tools: list[ChatCompletionToolParam] | NotGiven
+            self,
+            messages: list[dict],
+            tools: list[ChatCompletionToolParam] | NotGiven = NOT_GIVEN,
+            tool_choice: ChatCompletionToolChoiceOptionParam | NotGiven = NOT_GIVEN
     ) -> ChatCompletionMessage:
-        """ 基于message中保存的历史记录进行对话
+        """ 基于message中保存的历史消息进行对话
 
         Args:
-            messages (list): 历史记录
-            tools (list[ChatCompletionToolParam] | NotGiven): 外部tools.
+            messages (list): 历史消息
+            tools (list[ChatCompletionToolParam] | NotGiven, optional): 外部tools. Defaults to NOT_GIVEN.
+            tool_choice: (ChatCompletionToolChoiceOptionParam | NotGiven, optional): 强制使用外部工具. Defaults to NOT_GIVEN.
 
         Returns:
             ChatCompletionMessage: 模型返回结果
@@ -66,6 +69,7 @@ class LLM(ABC):
             frequency_penalty=self.config.frequency_penalty,
             max_tokens=self.config.max_tokens,
             tools=tools,
+            tool_choice=tool_choice,
             response_format={
                 'type': 'json_object'
             } if self.json else {
@@ -85,19 +89,16 @@ class LLM(ABC):
         Returns:
             str | ChatCompletionMessage: 模型输出
         """
-        response = self._chat(messages=[{
-            'role': 'user',
-            'content': message
-        }],
-                              tools=NOT_GIVEN)
+        response = self._chat(messages=[{'role': 'user', 'content': message}])
         return response.content
 
     def chat_with_messages(
-        self,
-        message: str | None = None,
-        name: str | None = None,
-        content_only: bool = True,
-        tools: list[ChatCompletionToolParam] | NotGiven = NOT_GIVEN
+            self,
+            message: str = None,
+            name: str = None,
+            content_only: bool = True,
+            tools: list[ChatCompletionToolParam] | NotGiven = NOT_GIVEN,
+            tool_choice: ChatCompletionToolChoiceOptionParam | NotGiven = NOT_GIVEN
     ) -> str | ChatCompletionMessage:
         """ 模型的多轮对话
 
@@ -106,12 +107,17 @@ class LLM(ABC):
             name (str): 名称信息
             content_only (bool, optional): 只返回模型的文本输出. Defaults to True.
             tools (list[ChatCompletionToolParam] | NotGiven): 外部tools. Defaults to NOT_GIVEN.
+            tool_choice (ChatCompletionToolChoiceOptionParam | NotGiven): 强制使用外部工具. Defaults to NOT_GIVEN.
         Returns:
             str | ChatCompletionMessage: 模型输出
         """
+        if tool_choice is None:
+            tool_choice = NOT_GIVEN
         if message is not None:
             self.messages.append({'role': 'user', 'content': message})
-        response = self._chat(self.messages, tools=tools)
+        response = self._chat(self.messages,
+                              tools=tools,
+                              tool_choice=tool_choice)
         resp = response.model_dump()
         if name is not None:
             resp['name'] = name
@@ -119,32 +125,32 @@ class LLM(ABC):
         return response.content if content_only else response
 
 
-class API(LLM):
+class OpenAI(LLM):
 
     def __init__(self,
                  name: str,
                  *,
-                 base_url: str,
-                 api_key: str,
+                 base_url: str = None,
+                 api_key: str = None,
                  config: LLMConfig = LLMConfig()):
         """ OpenAI 模型 API 服务
 
         Args:
             name (str): 模型名称
-            base_url (str): 地址
-            api_key (str): API key.
+            base_url (str, optional): 地址. Defaults to None.
+            api_key (str, optional): API key. Defaults to None.
             config (LLMConfig, optional): 大模型配置. Defaults to LLMConfig().
         """
         super().__init__(config=config)
 
         self.model = name
-        self.client = OpenAI(
+        self.client = openai.OpenAI(
             api_key=api_key,
             base_url=base_url,
         )
 
 
-class Qwen(API):
+class Qwen(OpenAI):
 
     def __init__(self,
                  name: str = 'qwen-max',
@@ -269,8 +275,8 @@ class VLLM(LLM, Serve):
                        timeout=60,
                        test_url=f'http://{self.host}:{self.port}/health')
 
-        self.client = OpenAI(api_key='EMPTY',
-                             base_url=f'http://{self.host}:{self.port}/v1')
+        self.client = openai.OpenAI(
+            api_key='EMPTY', base_url=f'http://{self.host}:{self.port}/v1')
 
 
 class Ollama(LLM, Serve):
@@ -296,7 +302,7 @@ class Ollama(LLM, Serve):
                        command_list=['ollama', 'serve'],
                        timeout=60,
                        test_url=f'http://{self.host}:{self.port}')
-        self.client = OpenAI(
+        self.client = openai.OpenAI(
             api_key='EMPTY',
             base_url=f'http://{self.host}:{self.port}/v1',
         )

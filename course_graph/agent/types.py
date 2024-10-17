@@ -4,7 +4,6 @@
 # File Name: course_graph/agent/types.py
 # Description: 定义各种中间类
 
-from addict import Dict
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Optional
 
@@ -14,7 +13,7 @@ if TYPE_CHECKING:
 
 @dataclass
 class ContextVariables:
-    vars: Dict = field(default_factory=Dict)
+    vars: dict = field(default_factory=dict)
 
 
 @dataclass
