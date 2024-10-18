@@ -14,7 +14,7 @@ import docstring_parser
 from typing import Callable, Any
 import copy
 import json
-from typing import Literal, get_type_hints
+from typing import Literal
 
 
 class Agent:
@@ -44,6 +44,7 @@ class Agent:
         self.tools: list[ChatCompletionToolParam] = []
         self.tool_functions: dict[str, Callable] = {}
         self.use_context_variables: dict[str, str] = {}  # 使用了上下文变量的函数以及相应的形参名称
+        self.use_agent_variables: dict[str, str] = {}  # 使用了Agent变量的函数以及相应的形参名称
 
         if functions:
             self.add_tool_functions(*functions)
@@ -101,6 +102,8 @@ class Agent:
             self.tool_functions[function_name] = function
             if (r := tool.get('context_variables_parameter_name')) is not None:
                 self.use_context_variables[function_name] = r
+            if (r := tool.get('context_agent_parameter_name')) is not None:
+                self.use_agent_variables[function_name] = r
         return self
 
     def add_tool_functions(self, *functions: Callable) -> 'Agent':
@@ -152,6 +155,11 @@ class Agent:
                     # 保存函数名对应的ContextVariables的形参名称
                     # ContextVariables只允许有一个, 后者会覆盖前者
                     self.use_context_variables[function_name] = arg_name
+                    continue
+                # 和ContextVariables机制相同
+                if p.annotation == Agent:
+                    del properties[arg_name]
+                    self.use_agent_variables[function_name] = arg_name
                     continue
                 # 签名中的参数类型
                 if p.annotation != inspect._empty:
@@ -206,22 +214,28 @@ class Agent:
         return self
 
 
-class Client:
+class Controller:
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        context_variables: ContextVariables = ContextVariables()) -> None:
+        """ Agent 运行控制
+
+        Args:
+            context_variables (ContextVariables, optional): 上下文变量. Defaults to ContextVariables().
+        """
         self.last_agent_messages_index = -1
+        self.context_variables = context_variables
 
-    def __call__(self,
-                 agent: Agent,
-                 message: str = None,
-                 context_variables: ContextVariables = ContextVariables(),
-                 call_back: Callable[[list], Any] = None):
+    def run(self,
+            agent: Agent,
+            message: str = None,
+            call_back: Callable[[list], Any] = None):
         """ 运行 Agent
 
         Args:
             agent: 智能体
             message (str, optional): 用户输入. Defaults to None.
-            context_variables (ContextVariables, optional): 上下文变量. Defaults to ContextVariables().
             call_back: (Callable, optional): 每次 Agent 切换时调用此回调，传入该 Agent 该轮对话产生的消息. Defaults to None.
 
         Returns:
@@ -243,7 +257,8 @@ class Client:
             case str() as instruction:
                 pass
             case _:
-                instruction = activate_agent.instruction(context_variables)
+                instruction = activate_agent.instruction(
+                    self.context_variables)
         activate_agent.llm.instruction = instruction
         assistant_output = activate_agent.llm.chat_with_messages(
             message,
@@ -262,7 +277,12 @@ class Client:
                     # 自动注入上下文变量
                     if (var_name := activate_agent.use_context_variables.get(
                             function.name)) is not None:
-                        args[var_name] = context_variables
+                        args[var_name] = self.context_variables
+
+                    # 自动注入当前Agent
+                    if (var_name := activate_agent.use_agent_variables.get(
+                            function.name)) is not None:
+                        args[var_name] = activate_agent
 
                     tool_content = tool_function(**args)
                     match tool_content:
@@ -297,10 +317,10 @@ class Client:
                                 pass
                             case _:
                                 instruction = activate_agent.instruction(
-                                    context_variables)
+                                    self.context_variables)
                         activate_agent.llm.instruction = instruction
                     # 更新上下文变量
-                    context_variables.vars.update(
+                    self.context_variables.vars.update(
                         result.context_variables.vars)
 
             assistant_output = activate_agent.llm.chat_with_messages(
@@ -312,4 +332,4 @@ class Client:
         run_call_back()
         return Response(agent=activate_agent,
                         content=assistant_output.content,
-                        context_variables=context_variables)
+                        context_variables=self.context_variables)

@@ -5,5 +5,5 @@
 # Description: agent 相关
 
 from .tool import Tool
-from .agent import Agent, Client
+from .agent import Agent, Controller
 from .types import Response, Result, ContextVariables

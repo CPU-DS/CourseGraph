@@ -5,7 +5,7 @@
 # Description: 智能体编排：中断对话，用户介入
 
 from course_graph.llm import Qwen
-from course_graph.agent import Agent, Client, Result
+from course_graph.agent import Agent, Controller
 
 
 def transfer_to_ceo():
@@ -60,7 +60,7 @@ code_review = Agent(
     name='code review',
     llm=model,
     functions=[transfer_to_ceo],
-    instruction='你是一家互联网公司的代码审查员，负责审查程序员的代码是否能够完成产品经理的需求.如果能够通过审查，请将控制交给CEO。')
+    instruction='你是一家互联网公司的代码审查员，负责审查程序员的代码是否能够完成产品经理的需求。如果能够通过审查，请将控制交给CEO。')
 
 
 def pretty_print(messages: list):
@@ -70,8 +70,10 @@ def pretty_print(messages: list):
         )
 
 
-client = Client()
-resp = client(agent=ceo, message='帮我写一个游戏', call_back=pretty_print)
+controller = Controller()
+resp = controller.run(agent=ceo, message='帮我写一个贪吃蛇游戏。', call_back=pretty_print)
 while True:
     user_input = input('User:')
-    resp = client(agent=resp.agent, message=user_input, call_back=pretty_print)
+    resp = controller.run(agent=resp.agent,
+                          message=user_input,
+                          call_back=pretty_print)

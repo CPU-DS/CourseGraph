@@ -5,7 +5,7 @@
 # Description: 智能体编排
 
 from course_graph.llm import Qwen
-from course_graph.agent import Agent, Client, Result
+from course_graph.agent import Agent, Controller, Result
 from pprint import pprint
 
 
@@ -81,9 +81,9 @@ alarm_clock_agent = Agent(name='alarm clock agent',
                           functions=[add_alarm_clock],
                           instruction='你是一个负责帮用户定闹钟的智能体。')
 
-client = Client()
-resp = client(
+controller = Controller()
+resp = controller.run(
     agent=core_agent,
     message='帮我查询一下我这里的天气, 并查询一下我的日程信息。如果日程中有考试的话, 请帮我定一个闹钟, 时间是考试开始前的一个小时。')
-print(resp.content)
+pprint(resp.content)
 pprint(resp.agent.messages)
