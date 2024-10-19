@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # Create Date: 2024/09/20
 # Author: wangtao <wangtao.cpu@gmail.com>
-# File Name: coucourse_graphrsekg/llm/llm.py
+# File Name: course_graph/llm/llm.py
 # Description: 定义兼容 openAI API 的大模型类
 
 import openai
@@ -20,9 +20,9 @@ import ollama
 class LLM(ABC):
 
     def __init__(
-            self,
-            instruction: str = 'You are a helpful assistant.',
-            config: LLMConfig = LLMConfig()
+        self,
+        instruction: str = 'You are a helpful assistant.',
+        config: LLMConfig = LLMConfig()
     ) -> None:
         """ 大模型抽象类
 
@@ -42,10 +42,10 @@ class LLM(ABC):
         self.messages: list[ChatCompletionMessageParam] = []  # 不包括instruction
 
     def _chat(
-            self,
-            messages: list[dict],
-            tools: list[ChatCompletionToolParam] | NotGiven = NOT_GIVEN,
-            tool_choice: ChatCompletionToolChoiceOptionParam | NotGiven = NOT_GIVEN
+        self,
+        messages: list[dict],
+        tools: list[ChatCompletionToolParam] | NotGiven = NOT_GIVEN,
+        tool_choice: ChatCompletionToolChoiceOptionParam | NotGiven = NOT_GIVEN
     ) -> ChatCompletionMessage:
         """ 基于message中保存的历史消息进行对话
 
@@ -93,12 +93,12 @@ class LLM(ABC):
         return response.content
 
     def chat_with_messages(
-            self,
-            message: str = None,
-            name: str = None,
-            content_only: bool = True,
-            tools: list[ChatCompletionToolParam] | NotGiven = NOT_GIVEN,
-            tool_choice: ChatCompletionToolChoiceOptionParam | NotGiven = NOT_GIVEN
+        self,
+        message: str = None,
+        name: str = None,
+        content_only: bool = True,
+        tools: list[ChatCompletionToolParam] = None,
+        tool_choice: ChatCompletionToolChoiceOptionParam = None
     ) -> str | ChatCompletionMessage:
         """ 模型的多轮对话
 
@@ -113,6 +113,8 @@ class LLM(ABC):
         """
         if tool_choice is None:
             tool_choice = NOT_GIVEN
+        if tools is None or len(tools) == 0:
+            tools = NOT_GIVEN
         if message is not None:
             self.messages.append({'role': 'user', 'content': message})
         response = self._chat(self.messages,

@@ -81,9 +81,8 @@ alarm_clock_agent = Agent(name='alarm clock agent',
                           functions=[add_alarm_clock],
                           instruction='你是一个负责帮用户定闹钟的智能体。')
 
-controller = Controller()
+controller = Controller(agent=core_agent)
 resp = controller.run(
-    agent=core_agent,
     message='帮我查询一下我这里的天气, 并查询一下我的日程信息。如果日程中有考试的话, 请帮我定一个闹钟, 时间是考试开始前的一个小时。')
-pprint(resp.content)
-pprint(resp.agent.messages)
+pprint(resp)
+pprint(controller.messages)

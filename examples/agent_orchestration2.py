@@ -43,7 +43,7 @@ ceo = Agent(
 )
 
 product_manager = Agent(
-    name='product manager',
+    name='product_manager',
     llm=model,
     functions=[transfer_to_coder],
     instruction=
@@ -57,23 +57,19 @@ coder = Agent(
     instruction='你是一家互联网公司的程序员，负责将产品经理的需求用代码实现出来。当你完成后请将控制权代码审查验证你的代码。')
 
 code_review = Agent(
-    name='code review',
+    name='code_review',
     llm=model,
     functions=[transfer_to_ceo],
     instruction='你是一家互联网公司的代码审查员，负责审查程序员的代码是否能够完成产品经理的需求。如果能够通过审查，请将控制交给CEO。')
 
 
-def pretty_print(messages: list):
-    for item in messages:
-        print(
-            f'Role: {item["role"]}\tName: {item.get("name", "")}\tContent: {item["content"]}'
-        )
+def pretty_print(message):
+    print(
+        f'Role: {message["role"]}\tName: {message.get("name", "")}\tContent: {message["content"]}'
+    )
 
 
-controller = Controller()
-resp = controller.run(agent=ceo, message='帮我写一个贪吃蛇游戏。', call_back=pretty_print)
+controller = Controller(agent=ceo, messages_observer=pretty_print)
+controller.run(message='帮我写一个贪吃蛇游戏。')
 while True:
-    user_input = input('User:')
-    resp = controller.run(agent=resp.agent,
-                          message=user_input,
-                          call_back=pretty_print)
+    controller.run(message=input('You:'))

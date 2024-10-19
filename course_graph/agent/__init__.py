@@ -6,4 +6,4 @@
 
 from .tool import Tool
 from .agent import Agent, Controller
-from .types import Response, Result, ContextVariables
+from .types import Result, ContextVariables
