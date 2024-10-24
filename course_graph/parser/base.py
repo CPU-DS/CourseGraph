@@ -5,7 +5,7 @@
 # Description: 定义文档、书签以及抽取知识图谱相关类和方法
 
 from dataclasses import dataclass, field
-from ..llm import LLM, IEPrompt, ExamplePrompt
+from ..llm import LLM, ExtractPrompt, ExamplePrompt
 import uuid
 from loguru import logger
 from .config import Config
@@ -18,11 +18,6 @@ import os
 if TYPE_CHECKING:
     from .parser import Parser
     from ..resource import ResourceMap, Resource, Slice
-
-logger.remove(0)
-logger.add('log/parser.log',
-           format="KG {time:YYYY-MM-DD HH:mm:ss} | {level} | {message}",
-           mode="a")
 
 
 @dataclass
@@ -164,7 +159,7 @@ class Document:
 
     def set_knowledgepoints_by_llm(self,
                                    llm: LLM,
-                                   prompt: IEPrompt = ExamplePrompt(),
+                                   prompt: ExtractPrompt = ExamplePrompt(),
                                    self_consistency: bool = False,
                                    samples: int = 5,
                                    top: float = 0.5) -> None:
@@ -199,7 +194,7 @@ class Document:
                 retry = 0
                 while True:
                     resp = llm.chat(prompt.get_ner_prompt(content))
-                    entities_name: list[str] = prompt.post_process(resp)
+                    entities_name = prompt.post_process(resp)
                     if len(entities_name) <= 8 or retry >= 3:
                         break
                     retry += 1
@@ -212,8 +207,6 @@ class Document:
                     resp = llm.chat(prompt.get_ner_prompt(content))
                     logger.info(f'第{idx}次采样: ' + resp)
                     entities_name = prompt.post_process(resp)
-                    if isinstance(entities_name, dict):  # 解析失败或者没有产生结果
-                        continue
                     logger.info(f'获取知识点实体: ' + str(entities_name))
                     all_entities_name.extend(entities_name)
                 counter = Counter(all_entities_name)
@@ -235,23 +228,18 @@ class Document:
             logger.success(f'最终获取知识点实体: ' + str(entities_name))
             # 属性抽取
             attrs = prompt.post_process(
-                llm.chat(prompt.get_ae_prompt(
-                    content, entities_name)))  # {'entity': {'attr': ''}}
+                llm.chat(prompt.get_ae_prompt(content, entities_name))) or {}
             logger.success(f'获取知识点属性: ' + str(attrs))
-            if not isinstance(attrs, dict):
-                pass
-            else:
-                for name, attr in attrs.items():
-                    # 在实体列表中找到名称匹配的实体
-                    entity = next((e for e in entities if e.name == name),
-                                  None)
-                    if entity:
-                        # 设置相应的属性值
-                        for attr_name, value in attr.items():
-                            if attr_name not in entity.attributes:
-                                entity.attributes[attr_name] = [value]
-                            else:
-                                entity.attributes[attr_name].append(value)
+            for name, attr in attrs.items():
+                # 在实体列表中找到名称匹配的实体
+                entity = next((e for e in entities if e.name == name), None)
+                if entity:
+                    # 设置相应的属性值
+                    for attr_name, value in attr.items():
+                        if attr_name not in entity.attributes:
+                            entity.attributes[attr_name] = [value]
+                        else:
+                            entity.attributes[attr_name].append(value)
             # 关系抽取
             if len(entities_name) <= 1:
                 pass

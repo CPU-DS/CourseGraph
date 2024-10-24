@@ -163,7 +163,7 @@ class SentenceEmbeddingStrategy(ExamplePromptStrategy):
                 db = self.db_ner
             case "re":
                 db = self.db_re
-            case "ae":
+            case _:
                 db = self.db_ae
         if db.faiss.index is None:
             db.faiss.load()

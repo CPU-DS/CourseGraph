@@ -5,6 +5,7 @@ description = "Automatic Construction of Course Knowledge Graphs Using Large Mod
 authors = ["wangtao <wangtao.cpu@gmail.com>"]
 license = "Apache 2.0"
 readme = "README.md"
+homepage = "https://github.com/wangtao2001/CourseGraph"
 
 [tool.poetry.dependencies]
 python = "^3.10"
@@ -39,7 +40,6 @@ verovio = "4.3.1"
 maturin = "1.7.4"
 patchelf = "0.17.2.1"
 docstring-parser = "^0.16"
-addict = "^2.4.0"
 
 [build-system]
 requires = ["poetry-core"]

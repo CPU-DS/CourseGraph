@@ -15,8 +15,9 @@ strategy = SentenceEmbeddingStrategy(
 
 with PDFParser('assets/深度学习入门：基于Python的理论与实现.pdf') as parser:
     document = parser.get_document()
+    example_prompt = ExamplePrompt(strategy)
     document.set_knowledgepoints_by_llm(model,
-                                        ExamplePrompt(strategy),
+                                        example_prompt,
                                         self_consistency=True,
                                         samples=6,
                                         top=0.8)

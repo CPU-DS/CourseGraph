@@ -6,7 +6,6 @@
 
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Optional, Any, Union, TypeVar, Generic, Callable
-from openai.types.chat import ChatCompletionMessageParam
 
 if TYPE_CHECKING:
     from .agent import Agent
@@ -48,7 +47,7 @@ class ContextVariables:
 @dataclass
 class Result:
     agent: Optional['Agent'] = None
-    content: str = 'Function call successful.'
+    content: str = 'Function call successfully.'
     context_variables: ContextVariables = ContextVariables()
 
 

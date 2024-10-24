@@ -45,7 +45,9 @@ class LLM(ABC):
         self,
         messages: list[dict],
         tools: list[ChatCompletionToolParam] | NotGiven = NOT_GIVEN,
-        tool_choice: ChatCompletionToolChoiceOptionParam | NotGiven = NOT_GIVEN
+        tool_choice: ChatCompletionToolChoiceOptionParam
+        | NotGiven = NOT_GIVEN,
+        parallel_tool_calls: bool | NotGiven = NOT_GIVEN
     ) -> ChatCompletionMessage:
         """ 基于message中保存的历史消息进行对话
 
@@ -53,6 +55,7 @@ class LLM(ABC):
             messages (list): 历史消息
             tools (list[ChatCompletionToolParam] | NotGiven, optional): 外部tools. Defaults to NOT_GIVEN.
             tool_choice: (ChatCompletionToolChoiceOptionParam | NotGiven, optional): 强制使用外部工具. Defaults to NOT_GIVEN.
+            parallel_tool_calls: (bool | NotGiven, optional): 允许工具并行调用. Defaults to NOT_GIVEN.
 
         Returns:
             ChatCompletionMessage: 模型返回结果
@@ -69,6 +72,7 @@ class LLM(ABC):
             frequency_penalty=self.config.frequency_penalty,
             max_tokens=self.config.max_tokens,
             tools=tools,
+            parallel_tool_calls=parallel_tool_calls,
             tool_choice=tool_choice,
             response_format={
                 'type': 'json_object'
@@ -93,13 +97,13 @@ class LLM(ABC):
         return response.content
 
     def chat_with_messages(
-        self,
-        message: str = None,
-        name: str = None,
-        content_only: bool = True,
-        tools: list[ChatCompletionToolParam] = None,
-        tool_choice: ChatCompletionToolChoiceOptionParam = None
-    ) -> str | ChatCompletionMessage:
+            self,
+            message: str = None,
+            name: str = None,
+            content_only: bool = True,
+            tools: list[ChatCompletionToolParam] = None,
+            tool_choice: ChatCompletionToolChoiceOptionParam = None,
+            parallel_tool_calls: bool = False) -> str | ChatCompletionMessage:
         """ 模型的多轮对话
 
         Args:
@@ -108,6 +112,7 @@ class LLM(ABC):
             content_only (bool, optional): 只返回模型的文本输出. Defaults to True.
             tools (list[ChatCompletionToolParam] | NotGiven): 外部tools. Defaults to NOT_GIVEN.
             tool_choice (ChatCompletionToolChoiceOptionParam | NotGiven): 强制使用外部工具. Defaults to NOT_GIVEN.
+            parallel_tool_calls: (bool, optional): 允许工具并行调用. Defaults to False.
         Returns:
             str | ChatCompletionMessage: 模型输出
         """
@@ -115,9 +120,12 @@ class LLM(ABC):
             tool_choice = NOT_GIVEN
         if tools is None or len(tools) == 0:
             tools = NOT_GIVEN
+            tool_choice = NOT_GIVEN
+            parallel_tool_calls = NOT_GIVEN
         if message is not None:
             self.messages.append({'role': 'user', 'content': message})
         response = self._chat(self.messages,
+                              parallel_tool_calls=parallel_tool_calls,
                               tools=tools,
                               tool_choice=tool_choice)
         resp = response.model_dump()
@@ -222,29 +230,36 @@ class VLLM(LLM, Serve):
                  path: str,
                  *,
                  config: LLMConfig = LLMConfig(),
-                 starting_command: str = None):
+                 host: str = 'localhost',
+                 port: int = 9017,
+                 starting_command: str = None,
+                 timeout: int = 60):
         """ 使用VLLM加载模型
 
         Args:
             path (str): 模型名称或路径
             config (LLMConfig, optional): 大模型配置. Defaults to LLMConfig().
+            timeout (int, optional): 启动服务超时时间. Defaults to 60.
+            host (str, optional): 服务地址. Defaults to 'localhost'.
+            port (int, optional): 服务端口. Defaults to 9017.
             starting_command (str, optional): VLLM启动命令 (适合于需要自定义template的情况), 也可以使用默认命令, LLMConfig中的配置会自动加入. Defaults to None.
         """
         LLM.__init__(self, config=config)
 
+        self.host = host
+        self.port = port
+
         self.model = path
         if starting_command is None:
             command_list = shlex.split(f"""vllm serve {self.model}\
-                                            --host localhost\
-                                            --port 9017\
+                                            --host {self.host}\
+                                            --port {self.port}\
                                             --gpu-memory-utilization {str(self.config.gpu_memory_utilization)}\
                                             --tensor-parallel-size {str(self.config.tensor_parallel_size)}\
                                             --max-model-len {str(self.config.max_model_len)}\
                                             --enable-auto-tool-choice\
                                             --tool-call-parser hermes\
                                             --disable-log-requests""")
-            self.host = 'localhost'
-            self.port = '9017'
         else:
             command_list = shlex.split(starting_command)
             if "--gpu-memory-utilization" not in command_list:
@@ -265,16 +280,16 @@ class VLLM(LLM, Serve):
                 idx = command_list.index('--host')
                 self.host = command_list[idx + 1]
             except ValueError:
-                self.host = '0.0.0.0'
+                self.host = host
             try:
                 idx = command_list.index('--port')
                 self.port = command_list[idx + 1]
             except ValueError:
-                self.port = '8000'
+                self.port = port
 
         Serve.__init__(self,
                        command_list=command_list,
-                       timeout=60,
+                       timeout=timeout,
                        test_url=f'http://{self.host}:{self.port}/health')
 
         self.client = openai.OpenAI(
@@ -283,11 +298,20 @@ class VLLM(LLM, Serve):
 
 class Ollama(LLM, Serve):
 
-    def __init__(self, name: str, *, config: LLMConfig = LLMConfig()):
+    def __init__(self,
+                 name: str,
+                 *,
+                 config: LLMConfig = LLMConfig(),
+                 host: str = 'localhost',
+                 port: int = 9017,
+                 timeout: int = 60):
         """ ollama模型服务
 
         Args:
             name (str): 模型名称
+            timeout (int, optional): 启动服务超时时间. Defaults to 60.
+            host (str, optional): 服务地址. Defaults to 'localhost'.
+            port (int, optional): 服务端口. Defaults to 9017.
             config (LLMConfig, optional): 大模型配置. Defaults to LLMConfig().
         """
         LLM.__init__(self, config=config)
@@ -297,12 +321,12 @@ class Ollama(LLM, Serve):
         if name not in available_models and name:
             ollama.pull(name)
 
-        self.host = 'localhost'
-        self.port = 11434
+        self.host = host
+        self.port = port
 
         Serve.__init__(self,
                        command_list=['ollama', 'serve'],
-                       timeout=60,
+                       timeout=timeout,
                        test_url=f'http://{self.host}:{self.port}')
         self.client = openai.OpenAI(
             api_key='EMPTY',

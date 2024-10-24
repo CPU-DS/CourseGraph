@@ -5,11 +5,9 @@
 # Description: 工具函数
 
 from __future__ import annotations
-from typing import TYPE_CHECKING, Union
-
-if TYPE_CHECKING:
-    from .docx_parser import DOCXParser
-    from .pdf_parser import PDFParser
+from typing import Union
+from .docx_parser import DOCXParser
+from .pdf_parser import PDFParser
 
 
 def get_parser(file_path: str) -> Union[DOCXParser, PDFParser]:

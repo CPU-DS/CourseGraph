@@ -14,6 +14,7 @@ from typing import Callable, Any
 import copy
 import json
 from typing import Literal
+from collections import deque
 
 
 class Agent:
@@ -24,12 +25,16 @@ class Agent:
         llm: LLM,
         functions: list[Callable] = None,
         tool_choice: Literal['required', 'auto', 'none'] | str = None,
+        parallel_tool_calls: bool = False,
         instruction: str
         | Callable[[ContextVariables], str] = 'You are a helpful assistant.'
     ) -> None:
         """ 智能体类
 
-        Args: name (str): 名称 llm (LLM): 大模型 functions: (list[Callable], optional): 工具函数. Defaults to None.
+        Args: name (str): 名称 
+        llm (LLM): 大模型 
+        functions: (list[Callable], optional): 工具函数. Defaults to None.
+        parallel_tool_calls: (bool, optional): 允许工具并行调用. Defaults to False.
         tool_choice: (Literal['required', 'auto', 'none'] | str, optional). 强制使用工具函数, 选择模式或提供函数名称. Defaults to None.
         instruction (str | Callable[[ContextVariables], str], optional): 指令. Defaults to 'You are a helpful assistant.'.
         """
@@ -39,6 +44,7 @@ class Agent:
 
         self.tools: list[ChatCompletionToolParam] = []
         self.tool_functions: dict[str, Callable] = {}
+        self.parallel_tool_calls = parallel_tool_calls
         self.use_context_variables: dict[str, str] = {}  # 使用了上下文变量的函数以及相应的形参名称
         self.use_agent_variables: dict[str, str] = {}  # 使用了Agent变量的函数以及相应的形参名称
 
@@ -280,6 +286,7 @@ class Controller:
         assistant_output = self.activate_agent.llm.chat_with_messages(
             message,
             content_only=False,
+            parallel_tool_calls=self.activate_agent.parallel_tool_calls,
             tool_choice=self.activate_agent.tool_choice,
             tools=self.activate_agent.tools,
             name=self.activate_agent.name)
@@ -322,7 +329,6 @@ class Controller:
                     self.activate_agent.add_tool_call_message(
                         result.content, item.id)
                     self.messages.append(self.activate_agent.messages[-1])
-                    # 切换 Agent
                     if result.agent is not None:
                         self.activate_agent = result.agent
                     # 更新上下文变量
@@ -331,6 +337,7 @@ class Controller:
             assistant_output = self.activate_agent.llm.chat_with_messages(
                 content_only=False,
                 tool_choice=self.activate_agent.tool_choice,
+                parallel_tool_calls=self.activate_agent.parallel_tool_calls,
                 tools=self.activate_agent.tools,
                 name=self.activate_agent.name)
             self.messages.append(self.activate_agent.messages[-1])

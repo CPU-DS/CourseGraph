@@ -47,7 +47,7 @@ poetry install
 
 > linux 下还需安装 libreoffice 以完成文档转换，以 Debian 系为例: `sudo apt install libreoffice`
 
-然后执行 `examples` 目录下的示例文件
+然后执行 `examples/get_knowledge_graph.py` 即可
 
 ## 文档
 

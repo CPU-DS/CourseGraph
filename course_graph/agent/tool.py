@@ -4,8 +4,6 @@
 # File Name: course_graph/agent/tool.py
 # Description: 提供常用的工具函数
 
-import requests
-import json
 from typing import TypedDict, Callable
 from openai.types.chat import ChatCompletionToolParam
 from typing_extensions import Required

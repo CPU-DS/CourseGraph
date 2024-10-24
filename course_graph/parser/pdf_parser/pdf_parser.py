@@ -14,7 +14,7 @@ from PIL import Image
 import numpy as np
 import cv2
 import re
-from ...llm import MLM, VLUPrompt, LLM, ParserPrompt, Model
+from ...llm import MLM, VLUPrompt, LLM, ParserPrompt
 from paddleocr.ppstructure.recovery.recovery_to_doc import sorted_layout_boxes
 import os
 import shutil
@@ -67,16 +67,19 @@ def get_list(text: str) -> list:
 
 class PDFParser(Parser):
 
-    def __init__(self, pdf_path: str) -> None:
+    def __init__(
+        self, pdf_path: str,
+        parser_mode: PDFParserMode = PaddleMode()) -> None:
         """ pdf文档解析器
 
         Args:
             pdf_path (str): pdf文档路径
+            parser_mode (PDFParserMode, optional): pdf文档路径. Defaults to PaddleMode().
         """
         super().__init__(pdf_path)
         self._pdf = fitz.open(pdf_path)
 
-        self.parser_mode: PDFParserMode = BaseMode()
+        self.parser_mode = parser_mode
 
         self._pp = PPStructure(table=False, ocr=True, show_log=False)
         self.outline: list = outline if len(
@@ -85,29 +88,29 @@ class PDFParser(Parser):
         # 这里如果不自带书签则需要手动制定目录页，读取文字再使用大模型解析
         self._got = None
 
-    def set_ocr_engine_got(self,
-                           model_path: str = 'stepfun-ai/GOT-OCR2_0'
-                           ) -> 'PDFParser':
-        """ 使用GOT模型作为OCR引擎, 默认使用paddle OCR
-            reference: https://github.com/Ucas-HaoranWei/GOT-OCR2.0
+    # def set_ocr_engine_got(self,
+    #                        model_path: str = 'stepfun-ai/GOT-OCR2_0'
+    #                        ) -> 'PDFParser':
+    #     """ 使用GOT模型作为OCR引擎, 默认使用paddle OCR
+    #         reference: https://github.com/Ucas-HaoranWei/GOT-OCR2.0
 
-        Args:
-            model_path (str, optional): 模型名称或路径. Defaults to 'stepfun-ai/GOT-OCR2_0'.
+    #     Args:
+    #         model_path (str, optional): 模型名称或路径. Defaults to 'stepfun-ai/GOT-OCR2_0'.
 
-        Returns:
-            PDFParser: PDFParser
-        """
-        tokenizer = AutoTokenizer.from_pretrained(model_path,
-                                                  trust_remote_code=True)
-        self._got = Model(model=AutoModel.from_pretrained(
-            model_path,
-            trust_remote_code=True,
-            low_cpu_mem_usage=True,
-            device_map='cuda',
-            use_safetensors=True,
-            pad_token_id=tokenizer.eos_token_id).eval().cuda(),
-                          tokenizer=tokenizer)
-        return self
+    #     Returns:
+    #         PDFParser: PDFParser
+    #     """
+    #     tokenizer = AutoTokenizer.from_pretrained(model_path,
+    #                                               trust_remote_code=True)
+    #     # self._got = Model(model=AutoModel.from_pretrained(
+    #     #     model_path,
+    #     #     trust_remote_code=True,
+    #     #     low_cpu_mem_usage=True,
+    #     #     device_map='cuda',
+    #     #     use_safetensors=True,
+    #     #     pad_token_id=tokenizer.eos_token_id).eval().cuda(),
+    #     #                   tokenizer=tokenizer)
+    #     return self
 
     def __enter__(self) -> 'PDFParser':
         return self
@@ -315,8 +318,8 @@ class PDFParser(Parser):
         # 后续这个地方可以并行执行
         for index in range(bookmark.page_index, bookmark.page_end + 1):
 
-            # 起始页内容定位
             page_contents = self.get_page(index).contents
+            # 起始页内容定位
             if index == bookmark.page_index:
                 idx = 0
                 for i, content in enumerate(page_contents):
@@ -397,7 +400,9 @@ class PDFParser(Parser):
                 blocks = self._page_structure(img)
                 contents: list[Content] = []
                 for block in blocks:
-                    content = pdf_page.get_textbox(block['bbox'])
+                    content = block['text']
+                    if len(content) == 0:
+                        continue
                     if block['type'] == 'text':
                         content = _replace_linefeed(content)
                         contents.append(
@@ -445,8 +450,9 @@ class PDFParser(Parser):
                         case VisualMode(model, prompt):
                             model: MLM
                             prompt: VLUPrompt
+                            prompt.set_type_ie()
                             res = model.chat(
-                                msgs=prompt.get_prompt(file_path),
+                                msgs=prompt.get_msgs(file_path),
                                 sys_prompt=prompt.get_sys_prompt())
 
                         case CombinationMode(visual_model, visual_prompt, llm):
@@ -469,7 +475,7 @@ class PDFParser(Parser):
                                         pass  # 这一步不是必须的
                             else:
                                 res = visual_model.chat(
-                                    msgs=visual_prompt.get_prompt(file_path),
+                                    msgs=visual_prompt.get_msgs(file_path),
                                     sys_prompt=visual_prompt.get_sys_prompt())
                         case _:
                             res = ''

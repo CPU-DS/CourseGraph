@@ -12,20 +12,13 @@ import json
 import random
 
 
-@dataclass
-class Interaction:
-    image_paths: str | list[str]
-    question: str
-    answer: str
-
-
 class VLUPrompt(ABC):
 
     def __init__(self) -> None:
         """ 图文理解提示词
         """
         self.prompt: str = ''
-        self.sys_prompt: str | None = None
+        self.sys_prompt: str = 'You are a helpful assistant.'
 
     @abstractmethod
     def set_type_ocr(self) -> 'VLUPrompt':
@@ -36,6 +29,7 @@ class VLUPrompt(ABC):
         """
         raise NotImplementedError
 
+    @abstractmethod
     def set_type_context_ie(self, message: str) -> 'VLUPrompt':
         """ 带有上文信息的信息提取
 
@@ -81,11 +75,11 @@ class VLUPrompt(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def add_history(self, history: Interaction) -> 'VLUPrompt':
+    def add_message(self, message: dict) -> 'VLUPrompt':
         """ 输入历史消息以进行多轮问答
 
         Args:
-            history (Interaction): 一条问答记录
+            message (dict): 一条问答记录
         
         Raises:
             NotImplementedError: 子类需要实现该方法
@@ -93,7 +87,7 @@ class VLUPrompt(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_prompt(self, image_path: str | list[str]) -> list:
+    def get_msgs(self, image_path: str | list[str]) -> list:
         """ 获取提示词
 
         Args:
@@ -122,7 +116,7 @@ class MiniCPMPrompt(VLUPrompt):
         """ MiniCPM提示词, 支持多轮对话, 多图对话和上下文学习
         """
         super().__init__()
-        self.interactions: list[Interaction] = []
+        self.messages: list = []
         self.type_ = ''
 
     def set_type_ocr(self) -> 'MiniCPMPrompt':
@@ -177,28 +171,30 @@ class MiniCPMPrompt(VLUPrompt):
         Args:
             example_dataset_path (str, optional): 使用多模态模型上下文学习源数据地址文件夹. Defaults to 'dataset/image_example'.
         """
-        self.interactions = []
+        self.messages = []
         with open(os.path.join(example_dataset_path, 'example.json')) as f:
             examples = json.load(f)
             for line in examples:
                 if line['type'] == self.type_:
-                    self.interactions.append(
-                        Interaction(line['image'], self.prompt,
-                                    line['output']))
-        if len(self.interactions) > 5:
-            self.interactions = random.sample(self.interactions, 5)
+                    self.messages.append({
+                        'image_path': line['image'],
+                        'question': self.prompt,
+                        'answer': line['output']
+                    })
+        if len(self.messages) > 5:
+            self.messages = random.sample(self.messages, 5)
         return self
 
-    def add_history(self, history: Interaction) -> 'MiniCPMPrompt':
+    def add_message(self, history: dict) -> 'MiniCPMPrompt':
         """ 输入历史消息以进行多轮问答
 
         Args:
             history (Interaction): 一条问答记录
         """
-        self.interactions.append(history)
+        self.messages.append(history)
         return self
 
-    def get_prompt(self, image_path: str | list[str]) -> list:
+    def get_msgs(self, image_path: str | list[str]) -> list:
         """ 获取提示词
 
         Args:
@@ -221,14 +217,14 @@ class MiniCPMPrompt(VLUPrompt):
             return content
 
         msgs = []
-        for example in self.interactions:
+        for example in self.messages:
             msgs.append({
                 'role':
                 'user',
                 'content':
-                get_content(example.image_paths, example.question)
+                get_content(example['image_paths'], example['question'])
             })
-            msgs.append({'role': 'assistant', 'content': [example.answer]})
+            msgs.append({'role': 'assistant', 'content': [example['answer']]})
 
         msgs.append({
             'role': 'user',
