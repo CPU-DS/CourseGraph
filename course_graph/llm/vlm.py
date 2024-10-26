@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # Create Date: 2024/07/11
 # Author: wangtao <wangtao.cpu@gmail.com>
-# File Name: course_graph/llm/mlm.py
+# File Name: course_graph/llm/vlm.py
 # Description: 定义多模态大模型类
 
 from .config import VisualConfig
@@ -9,7 +9,7 @@ import torch
 from modelscope import AutoModel, AutoTokenizer
 
 
-class MLM:
+class VisualModel(object):
 
     def __init__(self, path: str,
                  config: VisualConfig = VisualConfig()) -> None:

@@ -22,14 +22,14 @@ def get_list_from_string(text: str) -> list:
     ...
 
 
-def replace_linefeed(sentence: str, ignore_end: bool, replace: str) -> str:
-    """ 移除句子的换行符
+def post_process(detections: list[tuple[str, tuple[float, ...]]],
+                 iou_threshold: float) -> list[tuple[str, tuple[float, ...]]]:
+    """ 检测结果后处理
 
     Args:
-        sentence (str): 句子
-        ignore_end (bool): 忽略句末的换行符
-        replace (str): 换行符替换对象
+        detections (list[tuple[str, tuple[float, ...]]]): 检测结果
+        iou_threshold (float): iou 阈值
 
     Returns:
-        str: 新句
+        list[tuple[str, tuple[float, ...]]]: 处理后检测结果
     """

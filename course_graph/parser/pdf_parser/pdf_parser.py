@@ -5,112 +5,50 @@
 # Description: 定义pdf文档解析器
 
 from ..base import BookMark
-from .pdf_parser_mode import *
+from .structure_model import *
+from .ocr_model import *
 import uuid
 from ..parser import Parser, Page, Content, ContentType
 import fitz
-from paddleocr import PPStructure
 from PIL import Image
 import numpy as np
 import cv2
 import re
-from ...llm import MLM, VLUPrompt, LLM, ParserPrompt
-from paddleocr.ppstructure.recovery.recovery_to_doc import sorted_layout_boxes
+from ...llm import VisualModel, VisualPrompt, LLM, ParserPrompt
 import os
 import shutil
-import ast
-from modelscope import AutoModel, AutoTokenizer
-
-
-def _replace_linefeed(sentence: str, ignore_end=True, replace='') -> str:
-    """ 移除句子的换行符
-
-    Args:
-        sentence (str): 句子
-        ignore_end (bool, optional): 忽略句末的换行符. Defaults to True.
-        replace (str, optional): 换行符替换对象. Defaults to ''.
-
-    Returns:
-        str: 新句
-    """
-    if ignore_end:
-        sentence_endings = r'[。！？.!?]'
-        pattern = r'(?<!' + sentence_endings + r')\n'
-    else:
-        pattern = r'\n'
-    sentence = re.sub(pattern, replace, sentence)
-    return sentence
-
-
-def get_list(text: str) -> list:
-    """ 括号匹配找到列表
-
-    Args:
-        text (str): 文本
-
-    Returns:
-        list: 列表
-    """
-    list_string = ''
-    stack = 0
-    for s in text:
-        if s == '[':
-            stack += 1
-        if stack > 0:
-            list_string += s
-        if s == ']':
-            stack -= 1
-            if stack == 0:
-                break
-    return ast.literal_eval(list_string)
+from course_graph_ext import get_list_from_string
 
 
 class PDFParser(Parser):
 
-    def __init__(
-        self, pdf_path: str,
-        parser_mode: PDFParserMode = PaddleMode()) -> None:
+    def __init__(self,
+                 pdf_path: str,
+                 ocr_model: OCRModel = PaddleOCR(),
+                 structure_model: StructureModel = PaddleStructure(),
+                 visual_model_and_prompt: tuple[VisualModel,
+                                                VisualPrompt] = (None, None),
+                 llm: LLM = None) -> None:
         """ pdf文档解析器
 
         Args:
             pdf_path (str): pdf文档路径
-            parser_mode (PDFParserMode, optional): pdf文档路径. Defaults to PaddleMode().
+            ocr_model (OCRModel, optional): OCR 模型. Defaults to PaddleOCR().
+            structure_model (StructureModel, optional): 布局分析模型. Defaults to Paddle().
+            visual_model_and_prompt ( tuple[VisualModel, VisualPrompt], optional): 视觉模型和提示词. Default to (None, None).
+            llm ( LLM, optional): 语言模型. Default to None.
         """
         super().__init__(pdf_path)
         self._pdf = fitz.open(pdf_path)
 
-        self.parser_mode = parser_mode
+        self.structure_model = structure_model
+        self.ocr_model = ocr_model
 
-        self._pp = PPStructure(table=False, ocr=True, show_log=False)
-        self.outline: list = outline if len(
-            outline := self._pdf.get_toc()) != 0 else []
-        # 可以使用 simple=False 获得更详细的信息，包含锚点等
-        # 这里如果不自带书签则需要手动制定目录页，读取文字再使用大模型解析
-        self._got = None
-
-    # def set_ocr_engine_got(self,
-    #                        model_path: str = 'stepfun-ai/GOT-OCR2_0'
-    #                        ) -> 'PDFParser':
-    #     """ 使用GOT模型作为OCR引擎, 默认使用paddle OCR
-    #         reference: https://github.com/Ucas-HaoranWei/GOT-OCR2.0
-
-    #     Args:
-    #         model_path (str, optional): 模型名称或路径. Defaults to 'stepfun-ai/GOT-OCR2_0'.
-
-    #     Returns:
-    #         PDFParser: PDFParser
-    #     """
-    #     tokenizer = AutoTokenizer.from_pretrained(model_path,
-    #                                               trust_remote_code=True)
-    #     # self._got = Model(model=AutoModel.from_pretrained(
-    #     #     model_path,
-    #     #     trust_remote_code=True,
-    #     #     low_cpu_mem_usage=True,
-    #     #     device_map='cuda',
-    #     #     use_safetensors=True,
-    #     #     pad_token_id=tokenizer.eos_token_id).eval().cuda(),
-    #     #                   tokenizer=tokenizer)
-    #     return self
+        self.outline: list[list] = [[item[0], item[1], item[2]]
+                                    for item in self._pdf.get_toc(simple=False)
+                                    ]
+        self.visual_model, self.visual_prompt = visual_model_and_prompt
+        self.llm = llm
 
     def __enter__(self) -> 'PDFParser':
         return self
@@ -122,14 +60,14 @@ class PDFParser(Parser):
 
     def get_catalogue_index_by_visual_model(
             self,
-            visual_model: MLM,
-            visual_prompt: VLUPrompt,
+            visual_model: VisualModel,
+            visual_prompt: VisualPrompt,
             rate: float = 0.1) -> tuple[int, int]:
         """ 通过多模态大模型寻找目录页, 返回目录页起始页和终止页页码 (从0开始编序)
 
         Args:
-            visual_model (MLM): 多模态大模型
-            visual_prompt (VLUPrompt): 图文理解提示词
+            visual_model (VisualModel): 多模态大模型
+            visual_prompt (VisualPrompt): 图文理解提示词
             rate (float, optional): 查询前 ratio 比例的页面. Defaults to 0.1 即 10%.
 
         Returns:
@@ -144,7 +82,7 @@ class PDFParser(Parser):
             img = self._get_page_img(index, zoom=2)
             file_path = os.path.join(cache_path, f'{index}.png')
             Image.fromarray(img).save(file_path)
-            res = visual_model.chat(msgs=visual_prompt.get_prompt(file_path),
+            res = visual_model.chat(msgs=visual_prompt.get_msgs(file_path),
                                     sys_prompt=visual_prompt.get_sys_prompt())
             if res == '是' or res == '是。' or res == '是.':
                 catalogue.append(index)
@@ -199,9 +137,9 @@ class PDFParser(Parser):
         """
         lines_without_index = [line[0] for line in lines]
         res = llm.chat(parser_prompt.get_outline_prompt(lines_without_index))
-        r2 = get_list(res)
+        r2 = get_list_from_string(res)
 
-        outline = []
+        outline: list = []
         for i in range(len(r2)):
             level = int(re.findall(r'\d+', r2[i][1])[0])
             if str(lines[i][1]).isdigit():
@@ -233,12 +171,12 @@ class PDFParser(Parser):
             text = page.get_text()
             if len(text) == 0:  # 图片型pdf则使用OCR
                 text = '\n'.join([
-                    item['text'] for item in self._page_structure(
+                    item['text'] for item in self.structure_model(
                         self._get_page_img(index, zoom=2))
                 ])
             res = llm.chat(parser_prompt.get_directory_prompt(text)).replace(
                 "，", ",")
-            lines.extend(get_list(res))
+            lines.extend(get_list_from_string(res))
         self._set_outline(lines, offset, llm, parser_prompt)
 
     def set_outline_auto(self,
@@ -253,7 +191,7 @@ class PDFParser(Parser):
         titles = []
         for index in range(self._pdf.page_count):
             img = self._get_page_img(index, zoom=1)
-            res = self._page_structure(img)
+            res = self.structure_model(img)
             titles.extend([[block['text'], index] for block in res
                            if block['type'] == 'title'])
         self._set_outline(titles, 0, llm, parser_prompt)
@@ -364,26 +302,6 @@ class PDFParser(Parser):
         img = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
         return img
 
-    def _page_structure(self, img) -> list[dict]:
-        """ 使用PP-Structure进行版面分析
-
-        Args:
-            img (_type_): 图像对象
-
-        Returns:
-            list[dict]: 识别后的结果
-        """
-        result = self._pp(img)
-        h, w, _ = img.shape
-        res = sorted_layout_boxes(result, w)
-        return [
-            {
-                'type': item['type'],  # 区域类型
-                'bbox': item['bbox'],  # 区域边界坐标
-                'text': ''.join([r['text'] for r in item['res']])  # 文字OCR结果
-            } for item in res
-        ]
-
     def get_page(self, page_index: int) -> Page:
         """ 获取文档页面
 
@@ -393,100 +311,74 @@ class PDFParser(Parser):
         Returns:
             Page: 文档页面
         """
-        match self.parser_mode:
-            case PaddleMode():
-                pdf_page = self._pdf[page_index]
-                img = self._get_page_img(page_index, zoom=2)
-                blocks = self._page_structure(img)
-                contents: list[Content] = []
-                for block in blocks:
-                    content = block['text']
-                    if len(content) == 0:
-                        continue
-                    if block['type'] == 'text':
-                        content = _replace_linefeed(content)
-                        contents.append(
-                            Content(type=ContentType.Text, content=content))
-                    elif block['type'] == 'title':
-                        contents.append(
-                            Content(type=ContentType.Title, content=content))
-            case BaseMode():
-                pdf_page = self._pdf[page_index]
-                contents = [
-                    Content(type=ContentType.Text, content=pdf_page.get_text())
-                ]
-            case _:
-                zoom = 2
-                pdf_page = self._pdf[page_index]
-                img = self._get_page_img(page_index, zoom=zoom)
-                h, w, _ = img.shape
-                blocks = self._page_structure(img)
+        zoom = 2
+        pdf_page = self._pdf[page_index]
+        img = self._get_page_img(page_index, zoom=zoom)
+        h, w, _ = img.shape
+        blocks = self.structure_model(img)
 
-                t = 20
-                # 切割子图, 向外扩充t个像素
-                cache_path = '.cache/pdf_cache'
-                if not os.path.exists(cache_path):
-                    os.mkdir(cache_path)
-                contents: list[Content] = []
+        t = 20
+        # 切割子图, 向外扩充t个像素
+        cache_path = '.cache/pdf_cache'
+        if not os.path.exists(cache_path):
+            os.mkdir(cache_path)
 
-                for idx, block in enumerate(blocks):
-                    type_ = block['type']
-                    if type_ in ['header', 'footer', 'reference']:
-                        continue  # 页眉页脚注释部分不要
-                    x1, y1, x2, y2 = block['bbox']
-                    # 扩充裁剪区域
-                    x1, y1, x2, y2 = max(0, x1 - t), max(0, y1 - t), min(
-                        w, x2 + t), min(h, y2 + t)  # 防止越界
-                    if (x2 - x1) < 5 or (y2 - y1) < 5:
-                        continue  # 区域过小
-                    if type_ == 'figure' and ((x2 - x1) < 150 or
-                                              (y2 - y1) < 150):
-                        continue  # 图片过小
-                    cropped_img = Image.fromarray(img).crop((x1, y1, x2, y2))
-                    file_path = os.path.join(cache_path, f'{idx}_{type_}.png')
-                    cropped_img.save(file_path)
+        def save_block(_idx, _block) -> None | str:
+            x1, y1, x2, y2 = _block['bbox']
+            # 扩充裁剪区域
+            x1, y1, x2, y2 = max(0, x1 - t), max(0,
+                                                 y1 - t), min(w, x2 + t), min(
+                                                     h, y2 + t)  # 防止越界
+            if (x2 - x1) < 5 or (y2 - y1) < 5:
+                return  # 区域过小
+            if type_ == 'figure' and ((x2 - x1) < 150 or (y2 - y1) < 150):
+                return  # 图片过小
+            cropped_img = Image.fromarray(img).crop((x1, y1, x2, y2))
+            path = os.path.join(cache_path, f'{_idx}_{type_}.png')
+            cropped_img.save(path)
+            return path
 
-                    match self.parser_mode:
-                        case VisualMode(model, prompt):
-                            model: MLM
-                            prompt: VLUPrompt
-                            prompt.set_type_ie()
-                            res = model.chat(
-                                msgs=prompt.get_msgs(file_path),
-                                sys_prompt=prompt.get_sys_prompt())
+        for idx, block in enumerate(blocks):
+            type_ = block['type']
 
-                        case CombinationMode(visual_model, visual_prompt, llm):
-                            visual_model: MLM
-                            visual_prompt: VLUPrompt
-                            llm: LLM | None
-                            if type_ in ['title', 'text']:  # 直接读取或OCR + 大模型矫正
-                                bbox = [b / zoom for b in block['bbox']]
-                                res = pdf_page.get_textbox(bbox).replace(
-                                    '\n', '')  # 直接读取可能存在不正确地换行
-                                # 有些pdf是图片型可能无法直接读取, 则使用OCR的结果
-                                if len(res) == 0:
-                                    res = block['text']
-                                if llm is not None:
-                                    try:
-                                        res = llm.chat(
-                                            ParserPrompt.get_ocr_aided_prompt(
-                                                res))
-                                    finally:
-                                        pass  # 这一步不是必须的
-                            else:
-                                res = visual_model.chat(
-                                    msgs=visual_prompt.get_msgs(file_path),
-                                    sys_prompt=visual_prompt.get_sys_prompt())
-                        case _:
-                            res = ''
-                    if block['type'] == 'title':
-                        contents.append(
-                            Content(type=ContentType.Title, content=res))
-                    else:  # 其余全部当作正文对待
-                        res = _replace_linefeed(res)
-                        contents.append(
-                            Content(type=ContentType.Text, content=res))
-                shutil.rmtree(cache_path)
+            if type_ in ['header', 'footer', 'reference']:
+                continue
+
+            elif type_ in ['title', 'text']:
+                bbox = [b / zoom for b in block['bbox']]
+                if block.get('text', None) is not None:
+                    pass
+                elif res := pdf_page.get_textbox(bbox).replace('\n', ''):
+                    # 有些pdf是图片型可能无法直接读取, 则使用OCR的结果
+                    block['text'] = res
+                else:
+                    if file_path := save_block(idx, block):
+                        res = self.ocr_model(file_path)
+                        if self.llm is not None:
+                            try:
+                                res = self.llm.chat(
+                                    ParserPrompt.get_ocr_aided_prompt(res))
+                            finally:
+                                pass  # 这一步不是必须的
+                        block['text'] = res
+
+            elif self.visual_model is not None:
+                if file_path := save_block(idx, block) is not None:
+                    self.visual_prompt.set_type_ocr()
+                    block['text'] = self.visual_model.chat(
+                        msgs=self.visual_prompt.get_msgs(file_path),
+                        sys_prompt=self.visual_prompt.get_sys_prompt())
+        shutil.rmtree(cache_path)
+
+        contents: list[Content] = []
+        for block in blocks:
+            if content := block.get('text', None):  # 空字符串或None
+                if block['type'] == 'title':
+                    contents.append(
+                        Content(type=ContentType.Title, content=content))
+                else:  # 其余全部当作正文对待
+                    contents.append(
+                        Content(type=ContentType.Text, content=content))
         return Page(page_index=page_index + 1, contents=contents)
 
     def get_pages(self) -> list[Page]:

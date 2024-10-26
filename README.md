@@ -16,11 +16,6 @@
 
 CourseGraph 使用大模型，利用多种 prompt 优化技术, 自动从教材、书籍中抽取知识点, 构成以课程-章节-知识点为主题的知识图谱。为增加每个知识点的信息, CourseGraph 可以为知识点链接相应的习题、扩展阅读材料等资源, 另外也可利用多模态大模型从 pptx、图片、视频中提取信息并与之相关联。
 
-基本框架如下图所示：
-
-<p align="center">
-<img src="docs/assets/framework.png" alt="" width="600">
-<p align="center">
 
 ## 局限性
 
@@ -42,12 +37,18 @@ cd CourseGraph
 conda create -n cg python=3.10
 conda activate cg
 pip install poetry
+poetry config virtualenvs.create false
 poetry install
+cd rust_ext && maturin develop
 ```
 
 > linux 下还需安装 libreoffice 以完成文档转换，以 Debian 系为例: `sudo apt install libreoffice`
 
-然后执行 `examples/get_knowledge_graph.py` 即可
+然后执行示例
+
+```bash
+python examples/get_knowledge_graph.py
+```
 
 ## 文档
 

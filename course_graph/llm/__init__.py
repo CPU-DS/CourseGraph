@@ -6,8 +6,8 @@
 
 from .prompt import ExtractPrompt, ExamplePrompt, ParserPrompt
 from .llm import LLM, VLLM, Qwen, Ollama, OpenAI
-from .mlm import MLM
-from .vision_prompt import MiniCPMPrompt, VLUPrompt
+from .visual_prompt import MiniCPMPrompt, VisualPrompt
 from .prompt_strategy import ExamplePromptStrategy, SentenceEmbeddingStrategy
 from .config import VisualConfig, LLMConfig
 from .type import Database
+from .vlm import VisualModel

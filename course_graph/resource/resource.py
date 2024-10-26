@@ -8,7 +8,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pptx import Presentation
-from ..llm import MLM, VLUPrompt
+from ..llm import VisualModel, VisualPrompt
 from .utils import pptx2imgs
 import shutil
 from tqdm import tqdm
@@ -126,13 +126,13 @@ class PPTX(Resource):
         idxs = [key for key, val in self.index_maps.items() if keyword in val]
         return _merge_index_slice(idxs, self.file_path)
 
-    def set_maps_by_visual_model(self, model: MLM,
-                                 prompt: VLUPrompt) -> None:
+    def set_maps_by_visual_model(self, model: VisualModel,
+                                 prompt: VisualPrompt) -> None:
         """ 使用多模态大模型提取pptx主要内容
 
         Args:
             model (VisualLM): 多模态大模型
-            prompt (VLUPrompt): 相应提示词
+            prompt (VisualPrompt): 相应提示词
         """
         cache_path = '.cache/pptx_imgs_cache'
         imgs = pptx2imgs(self.file_path, cache_path)
@@ -143,7 +143,8 @@ class PPTX(Resource):
                 res = model.chat(prompt.get_msgs(img), prompt.get_sys_prompt())
             else:
                 prompt.set_type_context_ie(res)  # 之前的回答作为上文信息，可以更好理解本张图片
-                res = model.chat(prompt.get_msgs([imgs[idx - 1], img]), prompt.get_sys_prompt())
+                res = model.chat(prompt.get_msgs([imgs[idx - 1], img]),
+                                 prompt.get_sys_prompt())
             # 页数从1开始
             self.index_maps[idx + 1] = res
         # 删除缓存文件夹

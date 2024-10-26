@@ -6,10 +6,10 @@
 
 from course_graph.parser import get_parser
 from course_graph.resource import PPTX, ResourceMap
-from course_graph.llm import VLLM, MLM, ExamplePrompt, MiniCPMPrompt
+from course_graph.llm import VLLM, VisualModel, ExamplePrompt, MiniCPMPrompt
 
 model = VLLM(path='model/Qwen/Qwen2-7B-Instruct')
-visual_model = MLM(path='model/openbmb/MiniCPM-V-2_6')
+visual_model = VisualModel(path='model/openbmb/MiniCPM-V-2_6')
 visual_prompt = MiniCPMPrompt()
 
 parser = get_parser('assets/探索数据的奥秘.docx')

@@ -6,7 +6,6 @@
 
 from loguru import logger
 import sys
-from glob import glob
 import time
 
 

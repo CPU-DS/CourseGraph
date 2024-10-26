@@ -48,8 +48,6 @@ pub fn get_list_from_string(text: &str) -> PyResult<Vec<String>> {
         if s == ']' {
             stack -= 1;
             if stack == 0 {
-                // Here, you would parse the list_string to a Vec
-                // For simplicity, let's assume it's a list of strings
                 result = vec![list_string.to_string()];
                 break;
             }
@@ -57,17 +55,4 @@ pub fn get_list_from_string(text: &str) -> PyResult<Vec<String>> {
     }
 
     Ok(result)
-}
-
-#[pyfunction]
-pub fn replace_linefeed(sentence: &str, ignore_end: bool, replace: &str) -> PyResult<String> {
-    let sentence_endings = r"[。！？.!?]";
-    let pattern = if ignore_end {
-        format!(r"(?<!{})\n", sentence_endings)
-    } else {
-        r"\n".to_string()
-    };
-
-    let re = Regex::new(&pattern).unwrap();
-    Ok(re.replace_all(sentence, replace).into_owned())
 }

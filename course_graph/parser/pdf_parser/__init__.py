@@ -5,4 +5,5 @@
 # Description: PDF文档解析器接口
 
 from .pdf_parser import PDFParser
-from .pdf_parser import VisualMode, BaseMode, PaddleMode, CombinationMode
+from .structure_model import PaddleStructure, StructureModel, LayoutYOLO
+from .ocr_model import OCRModel, PaddleOCR, GOT

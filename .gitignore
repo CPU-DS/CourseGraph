@@ -52,5 +52,4 @@ course_graph/database/faiss_index
 libreoffice_convert.log
 
 rust_ext/target
-rust_ext
 .github/workflows
