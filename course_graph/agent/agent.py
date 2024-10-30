@@ -234,8 +234,8 @@ class Controller:
             messages_observer (Callable[[dict], Any], optional): messages 改变时调用此回调, 传入最新的 message. Defaults to None.
             context_variables (ContextVariables, optional): 上下文变量. Defaults to ContextVariables().
         """
-        self.activate_agent = agent
         self.context_variables = context_variables
+        self.activate_agent = agent
         self.messages: ObservableArray[
             ChatCompletionMessageParam] = ObservableArray()
         if messages_observer is not None:
@@ -247,17 +247,27 @@ class Controller:
         """
         return self._activate_agent
 
-    @activate_agent.setter
-    def activate_agent(self, new_agent: Agent):
+    def change_activate_agent(self,
+                              new_agent: Agent,
+                              messages: bool = True) -> None:
+        """ 手动切换当前 Agent
+
+        Args:
+            new_agent (Agent): 新 Agent
+            messages (str, optional): 是否保留历史消息. Defaults to True.
+        """
+
         # 防止 controller 初始化时没有 _activate_agent
         if hasattr(self, '_activate_agent'):
             # 底层不是共用模型的话就要拷贝历史消息
-            if self._activate_agent.llm is not new_agent.llm:
+            if self._activate_agent.llm is not new_agent.llm and messages:
                 new_agent.messages = copy.deepcopy(
                     self.activate_agent.messages)
                 self._activate_agent.messages = []
         # 切换agent 并初始化 instruction
         self._activate_agent = new_agent
+        if not messages:
+            self._activate_agent.messages = []
         match self.activate_agent.instruction:
             case str() as instruction:
                 pass
@@ -265,6 +275,10 @@ class Controller:
                 instruction = self.activate_agent.instruction(
                     self.context_variables)
         self._activate_agent.llm.instruction = instruction
+
+    @activate_agent.setter
+    def activate_agent(self, new_agent: Agent):
+        self.change_activate_agent(new_agent=new_agent)
 
     def run(self, message: str = None) -> str:
         """ 运行 Agent
@@ -330,7 +344,7 @@ class Controller:
                         result.content, item.id)
                     self.messages.append(self.activate_agent.messages[-1])
                     if result.agent is not None:
-                        self.activate_agent = result.agent
+                        self.change_activate_agent(result.agent, messages=result.message)
                     # 更新上下文变量
                     self.context_variables.update(result.context_variables)
 
