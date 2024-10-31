@@ -299,7 +299,7 @@ class Document:
                 logger.info('子章节: ' + bookmark.title)
                 if bookmark.title in config.ignore_page:
                     continue
-                contents = self.parser.get_content(bookmark)
+                contents = self.parser.get_contents(bookmark)
                 text_contents = '\n'.join(
                     [content.content for content in contents])
                 # 防止生成全空白

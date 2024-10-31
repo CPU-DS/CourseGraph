@@ -2,7 +2,7 @@
 # Create Date: 2024/09/21
 # Author: wangtao <wangtao.cpu@gmail.com>
 # File Name: course_graph/agent/tool.py
-# Description: 提供常用的工具函数
+# Description: 定义工具类型
 
 from typing import TypedDict, Callable
 from openai.types.chat import ChatCompletionToolParam

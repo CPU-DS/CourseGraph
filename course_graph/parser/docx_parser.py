@@ -58,7 +58,7 @@ class DOCXParser(Parser):
         stack.reverse()
         return stack
 
-    def get_content(self, bookmark: BookMark) -> list[Content]:
+    def get_contents(self, bookmark: BookMark) -> list[Content]:
         contents: list[Content] = []
         start = False
         for phar in self.__docx.paragraphs:

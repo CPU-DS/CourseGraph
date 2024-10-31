@@ -275,7 +275,7 @@ class PDFParser(Parser):
 
         return stack
 
-    def get_content(self, bookmark: BookMark) -> list[Content]:
+    def get_contents(self, bookmark: BookMark) -> list[Content]:
         """  获取书签下的所有内容
 
         Args:
@@ -311,7 +311,7 @@ class PDFParser(Parser):
 
                 for i, content in enumerate(page_contents):
                     if condition(content):
-                        idx = i + 1  # 不会包含 title
+                        idx = i
                         break
 
                 page_contents = page_contents[idx:]
@@ -328,7 +328,7 @@ class PDFParser(Parser):
                                                  content.bbox[1] > y)
                 for i, content in enumerate(page_contents):
                     if condition(content):
-                        idx = i  # 不会包含 title
+                        idx = i
                         break
                 page_contents = page_contents[:idx]
 

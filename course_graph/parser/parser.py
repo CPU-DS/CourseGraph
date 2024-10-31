@@ -77,7 +77,7 @@ class Parser(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_content(self, bookmark: BookMark) -> list[Content]:
+    def get_contents(self, bookmark: BookMark) -> list[Content]:
         """  获取书签下的所有内容
 
         Args:

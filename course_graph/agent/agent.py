@@ -6,13 +6,11 @@
 
 from ..llm import LLM
 from .tool import Tool
-from .types import Result, ContextVariables
+from .types import ContextVariables
 from openai.types.chat import *
 import inspect
 import docstring_parser
-from typing import Callable, Any
-import copy
-import json
+from typing import Callable, TypeAlias
 from typing import Literal
 from openai import NOT_GIVEN, NotGiven
 
@@ -20,15 +18,13 @@ from openai import NOT_GIVEN, NotGiven
 class Agent:
 
     def __init__(
-        self,
-        name: str,
-        llm: LLM,
-        functions: list[Callable] = None,
-        tool_choice: Literal['required', 'auto', 'none']
-        | NotGiven = NOT_GIVEN,
-        parallel_tool_calls: bool | NotGiven = NOT_GIVEN,
-        instruction: str
-        | Callable[[ContextVariables], str] = 'You are a helpful assistant.'
+            self,
+            name: str,
+            llm: LLM,
+            functions: list[Callable] = None,
+            tool_choice: str | NotGiven | Literal['required', 'auto', 'none'] = NOT_GIVEN,
+            parallel_tool_calls: bool | NotGiven = NOT_GIVEN,
+            instruction: str | Callable[[ContextVariables], str] = 'You are a helpful assistant.'
     ) -> None:
         """ 智能体类
 
@@ -52,9 +48,7 @@ class Agent:
         if functions:
             self.add_tool_functions(*functions)
 
-        if tool_choice != NOT_GIVEN and tool_choice not in [
-                'required', 'auto', 'none'
-        ]:
+        if tool_choice != NOT_GIVEN and tool_choice not in ['required', 'auto', 'none']:
             self.tool_choice = {
                 "type": "function",
                 "function": {
@@ -92,7 +86,7 @@ class Agent:
         # 保存历史记录
         resp = response.model_dump()
         resp['name'] = self.name
-        self.messages.append(resp)
+        self.messages.append(resp)  # 比 add_assistant_message 信息更详细
 
         return response
 
@@ -183,8 +177,7 @@ class Agent:
             docstring = inspect.getdoc(function)
             res = docstring_parser.parse(docstring)
 
-            description = (res.short_description or '') + (
-                '\n' + res.long_description if res.long_description else '')
+            description = (res.short_description or '') + ('\n' + res.long_description if res.long_description else '')
 
             properties: dict[str, dict] = {}
             required: list[str] = []
@@ -210,8 +203,7 @@ class Agent:
                 # 签名中的参数类型
                 if p.annotation != inspect._empty:
                     properties[arg_name]['type'] = type_map.get(
-                        str(p.annotation).replace("<class '",
-                                                  '').replace("'>", ''), 'any')
+                        str(p.annotation).replace("<class '", '').replace("'>", ''), 'any')
                 # 签名中的默认值
                 if p.default == inspect._empty:
                     required.append(arg_name)
@@ -219,15 +211,11 @@ class Agent:
             for doc_parameters in res.params:
                 if doc_parameters.arg_name in properties:
                     # 文档中的参数类型 (优先使用签名中的参数类型)
-                    if doc_parameters.type_name is not None and 'type' not in properties[
-                            doc_parameters.arg_name]:
-                        properties[
-                            doc_parameters.arg_name]['type'] = type_map.get(
-                                doc_parameters.type_name, 'any')
+                    if doc_parameters.type_name is not None and 'type' not in properties[doc_parameters.arg_name]:
+                        properties[doc_parameters.arg_name]['type'] = type_map.get(doc_parameters.type_name, 'any')
                     # 文档中的参数描述
                     if doc_parameters.description is not None:
-                        properties[doc_parameters.arg_name][
-                            'description'] = doc_parameters.description
+                        properties[doc_parameters.arg_name]['description'] = doc_parameters.description
                     # 文档中的是否可选 (签名中提示required这里也不会丢掉)
                     if not doc_parameters.is_optional and doc_parameters.arg_name not in required:
                         required.append(doc_parameters.arg_name)
@@ -235,12 +223,9 @@ class Agent:
             # 如果签名和文档中都未标注类型则可以使用默认值类型替代
             for arg_name, p in signature_parameters.items():
                 if arg_name in properties:
-                    if p.default != inspect._empty and 'type' not in properties[
-                            arg_name]:
+                    if p.default != inspect._empty and 'type' not in properties[arg_name]:
                         properties[arg_name]['type'] = type_map.get(
-                            str(type(p.default)).replace("<class '",
-                                                         '').replace("'>", ''),
-                            'any')
+                            str(type(p.default)).replace("<class '",'').replace("'>", ''),'any')
 
             self.add_tools({
                 'function': function,
@@ -258,110 +243,3 @@ class Agent:
                 }
             })
         return self
-
-
-class Controller:
-
-    def __init__(
-        self,
-        agent: Agent,
-        observer: Callable[[dict], Any] = None,
-        context_variables: ContextVariables = ContextVariables()
-    ) -> None:
-        """ Agent 运行控制
-
-        Args:
-            agent: 初始智能体
-            observer (Callable[[dict], Any], optional): messages 改变时调用此回调, 传入最新的 message. Defaults to None.
-            context_variables (ContextVariables, optional): 上下文变量. Defaults to ContextVariables().
-        """
-        self.context_variables = context_variables
-
-        self.activate_agent = agent
-        self.init_agent_instruction()
-
-        self.observer = observer
-
-    def change_activate_agent(self,
-                              new_agent: Agent,
-                              messages: bool = True) -> None:
-        """ 手动切换当前 Agent
-
-        Args:
-            new_agent (Agent): 新 Agent
-            messages (str, optional): 是否保留历史消息. Defaults to True.
-        """
-
-        if messages:
-            new_agent.messages.extend(
-                copy.deepcopy(self.activate_agent.messages))
-        self.activate_agent = new_agent
-        self.init_agent_instruction()
-
-    def init_agent_instruction(self):
-        match self.activate_agent.instruction:
-            case str() as instruction:
-                pass
-            case _:
-                instruction = self.activate_agent.instruction(
-                    self.context_variables)
-        self.activate_agent.llm.instruction = instruction
-
-    def run(self, message: str = None) -> str:
-        """ 运行 Agent
-
-        Args:
-            message (str, optional): 用户输入. Defaults to None.
-
-        Returns:
-            str: Agent 最终输出
-        """
-        if message is None:
-            self.activate_agent.add_assistant_message(self.activate_agent.name)
-        assistant_output = self.activate_agent.chat(message)
-        while assistant_output.tool_calls:  # None 或者空数组
-            functions = assistant_output.tool_calls
-            for item in functions:
-                function = item.function
-                if (tool_function := self.activate_agent.tool_functions.get(
-                        function.name)) is not None:
-                    args = json.loads(function.arguments)
-
-                    # 自动注入上下文变量
-                    if (var_name :=
-                            self.activate_agent.use_context_variables.get(
-                                function.name)) is not None:
-                        args[var_name] = self.context_variables
-
-                    # 自动注入当前Agent
-                    if (var_name :=
-                            self.activate_agent.use_agent_variables.get(
-                                function.name)) is not None:
-                        args[var_name] = self.activate_agent
-
-                    tool_content = tool_function(**args)
-                    match tool_content:
-                        case Agent() as new_agent:
-                            result = Result(agent=new_agent,
-                                            content=json.dumps(
-                                                {'assistant': new_agent.name}))
-                        case str() as content:
-                            result = Result(content=content)
-                        case ContextVariables() as new_variables:
-                            result = Result(context_variables=new_variables)
-                        case Result() as result:  # 上述三种返回值的组合类
-                            pass
-                        case _:
-                            result = Result()
-
-                    self.activate_agent.add_tool_call_message(
-                        result.content, item.id)
-                    if result.agent is not None:
-                        self.change_activate_agent(result.agent,
-                                                   messages=result.message)
-                    # 更新上下文变量
-                    self.context_variables.update(result.context_variables)
-
-            assistant_output = self.activate_agent.chat()
-
-        return assistant_output.content
