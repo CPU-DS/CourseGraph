@@ -6,9 +6,12 @@
 
 from course_graph.parser import PDFParser
 from course_graph.database import Neo4j
-from course_graph.llm import VLLM
+from course_graph.llm import Qwen
+from course_graph import setup_logger
 
-model = VLLM('model/Qwen/Qwen2-7B-Instruct')
+setup_logger(console=True, file=False)
+
+model = Qwen()
 neo = Neo4j('http://10.4.3.67:7474', 'neo4j', 'neo4j')
 
 with PDFParser('assets/深度学习入门：基于Python的理论与实现.pdf') as parser:

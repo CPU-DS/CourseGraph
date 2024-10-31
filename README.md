@@ -25,11 +25,15 @@ CourseGraph 使用大模型，利用多种 prompt 优化技术, 自动从教材�
 ## 未来发展方向
 
 - 改进提示词工程，并尝试使用 Agent 完成相关工作
-- 基于图谱的问答 ( KBQA 或 Graph-RAG )
+- 基于图谱的问答 (KBQA 或 Graph-RAG)
 
 ## 快速使用
 
-前置依赖: conda 和 rust 环境
+#### 安装依赖
+
+本项目使用 Conda 管理虚拟环境，使用 Poetry 管理 Python 包，另外还使用 Rust + PyO3 编写了部分 Python 扩展
+
+请确保已安装 Anaconda (或Minionda) 和 Rust，然后执行：
 
 ```bash
 git clone git@github.com:wangtao2001/CourseGraph.git
@@ -44,7 +48,17 @@ cd rust_ext && maturin develop && cd ..
 
 > linux 下还需安装 libreoffice 以完成文档转换，以 Debian 系为例: `sudo apt install libreoffice`
 
-然后执行示例
+然后定位到文件 `examples/get_knowledge_graph.py` 中
+
+#### 配置 API Key
+
+默认使用阿里云通义千问API，需要 [获取API Key](https://help.aliyun.com/zh/model-studio/developer-reference/get-api-key?spm=a2c4g.11186623.0.0.1be847bbvv6p4o) 并 [配置到环境变量](https://help.aliyun.com/zh/model-studio/developer-reference/configure-api-key-through-environment-variables?spm=a2c4g.11186623.0.0.1be87980J3g9io) 中
+
+#### 修改图数据库信息
+
+图数据库使用 Neo4j，需要提供连接地址和账号密码，如未安装请参考 [Neo4j 文档](https://neo4j.com/docs/operations-manual/current/installation/)
+
+#### 执行
 
 ```bash
 python examples/get_knowledge_graph.py
@@ -56,24 +70,24 @@ python examples/get_knowledge_graph.py
 
 #### 依赖安装和预览
 
-文档使用 [VitePress](https://vitepress.dev/) 构建, 需安装 Node.js 18 及以上版本
+文档使用 [VitePress](https://vitepress.dev/) 构建, 需安装 Node.js 18 及以上版本，然后执行：
 
 ```bash
 npm i
 npm run docs:dev
 ```
 
-浏览器打开 [http://localhost:5173/](http://localhost:5173/) 即可进行预览
+使用浏览器打开 [http://localhost:5173/](http://localhost:5173/) 即可进行预览
 
 #### 部署
 
-文档修改和部署请参考 VitePress 文档
+在线文档使用 Github Actions + Github Pages 部署，描述文件在 `.github/workflows/docs.yaml`
 
 ## 贡献和引用
 
 欢迎提交 [PR](https://github.com/wangtao2001/CourseGraph/pulls) 或 [Issues](https://github.com/wangtao2001/CourseGraph/issues)，也欢迎参与任何形式的贡献
 
-如果觉得 CourseGraph 项目有助于您的工作，请考虑如下引用:
+如果觉得 CourseGraph 项目有助于你的工作，请考虑如下引用:
 
 ```
  @misc{CourseGraph,
