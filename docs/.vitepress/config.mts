@@ -21,8 +21,8 @@ export default defineConfig({
           { text: '大模型', link: '/tutorials/llm' },
           { text: 'example管理', link: '/tutorials/example' },
           { text: '数据库', link: '/tutorials/kb' },
-          { text: 'Rust扩展', link: '/tutorials/other/rust' },
-          { text: '文档目标检测', link: '/tutorials/other/dob' }]
+          { text: 'Agent', link: '/tutorials/agent' },
+          { text: 'Rust扩展', link: '/tutorials/other/rust' }]
       },
       { text: 'API 参考', link: '/api-reference' }
     ],
@@ -47,10 +47,10 @@ export default defineConfig({
           { text: '大模型', link: '/tutorials/llm' },
           { text: 'example管理', link: '/tutorials/example' },
           { text: '数据库', link: '/tutorials/kb' },
+          { text: 'Agent', link: '/tutorials/agent' },
           {
             text: '其他', items: [
               { text: 'Rust扩展', link: '/tutorials/other/rust' },
-              { text: '文档目标检测', link: '/tutorials/other/dob' },
             ]
           }
         ], collapsed: false

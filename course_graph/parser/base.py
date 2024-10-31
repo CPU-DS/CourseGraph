@@ -39,22 +39,28 @@ class KPRelation:
 
 
 @dataclass
+class PageIndex:
+    index: int
+    anchor: tuple[float, float]  # 等价于 bbox 中的 x1,y1
+
+
+@dataclass
 class BookMark:
     """ 书签
     """
     id: str
     title: str
-    page_index: int
-    page_end: int
+    page_start: PageIndex
+    page_end: PageIndex
     level: int
     subs: list['BookMark'] | list[KPEntity]
     resource: list['Resource']
 
-    def set_page_end(self, page_end: int) -> None:
+    def set_page_end(self, page_end: PageIndex) -> None:
         """ 设置书签的结束页, 和直接修改 BookMark 对象的 page_end 属性不同, 该方法会考虑到书签嵌套的情况
 
         Args:
-            page_end (int): 结束页码
+            page_end (int): 结束页
         """
         self.page_end = page_end
         if self.subs and isinstance(self.subs[-1], BookMark):
@@ -88,7 +94,7 @@ class Document:
     file_path: str
     bookmarks: list[BookMark]
     parser: 'Parser'
-    knowledgepoints: list[KPEntity] = field(default_factory=list)
+    knowledgepoints: list[KPEntity] = field(default_factory=list)  # 全局共享状态
 
     @classmethod
     def from_parser(cls, parser: 'Parser') -> 'Document':
@@ -123,22 +129,17 @@ class Document:
         del state['parser']
         return state
 
-    def __setstate__(self, state):
-        """ 自定义反序列化方法
-        """
-        self.__dict__.update(state)
-        from .utils import get_parser
-        self.parser = get_parser(self.file_path)
-
     @staticmethod
-    def load(path: str) -> 'Document':
+    def load(path: str, parser: 'Parser') -> 'Document':
         """ 反序列化 Document 对象，不包含parser属性
 
         Args:
             path: 文件路径
         """
         with open(path, 'rb') as f:
-            return pickle.load(f)
+            document: Document = pickle.load(f)
+            document.parser = parser
+            return document
 
     def flatten_bookmarks(self) -> list[BookMark]:
         """ 将 bookmark 的树状结构扁平化，以便快速查找
@@ -157,12 +158,14 @@ class Document:
         get_bookmark(self.bookmarks)
         return res
 
-    def set_knowledgepoints_by_llm(self,
-                                   llm: LLM,
-                                   prompt: ExtractPrompt = ExamplePrompt(),
-                                   self_consistency: bool = False,
-                                   samples: int = 5,
-                                   top: float = 0.5) -> None:
+    def set_knowledgepoints_by_llm(
+        self,
+        llm: LLM,
+        prompt: ExtractPrompt = ExamplePrompt(),
+        self_consistency: bool = False,
+        samples: int = 5,
+        top: float = 0.5,
+        config: Config = Config()) -> None:
         """ 使用 LLM 抽取知识点存储到 BookMark 中
 
         Args:
@@ -171,6 +174,7 @@ class Document:
             self_consistency (bool, optional): 是否采用自我一致性策略 (需要更多的模型推理次数). Defaults to False.
             samples (int, optional): 采用自我一致性策略的采样次数. Defaults to 5.
             top (float, optional): 采用自我一致性策略时，出现次数超过 top * samples 时才会被采纳，范围为 [0, 1]. Defaults to 0.5.
+            config (Config, optional): 配置. Defaults to Config().
         """
 
         def get_knowledgepoints(content: str,
@@ -193,7 +197,9 @@ class Document:
                 # 默认策略：生成数量过多则重试，否则随机选择5个
                 retry = 0
                 while True:
-                    resp = llm.chat(prompt.get_ner_prompt(content))
+                    prompt_, instruction = prompt.get_ner_prompt(content)
+                    llm.instruction = instruction
+                    resp = llm.chat(prompt_)
                     entities_name = prompt.post_process(resp)
                     if len(entities_name) <= 8 or retry >= 3:
                         break
@@ -204,7 +210,9 @@ class Document:
                 # 自我一致性验证
                 all_entities_name: list[str] = []
                 for idx in range(samples):
-                    resp = llm.chat(prompt.get_ner_prompt(content))
+                    prompt_, instruction = prompt.get_ner_prompt(content)
+                    llm.instruction = instruction
+                    resp = llm.chat(prompt_)
                     logger.info(f'第{idx}次采样: ' + resp)
                     entities_name = prompt.post_process(resp)
                     logger.info(f'获取知识点实体: ' + str(entities_name))
@@ -226,27 +234,42 @@ class Document:
                     self.knowledgepoints.append(kp)
                     entities.append(kp)
             logger.success(f'最终获取知识点实体: ' + str(entities_name))
+
             # 属性抽取
-            attrs = prompt.post_process(
-                llm.chat(prompt.get_ae_prompt(content, entities_name))) or {}
-            logger.success(f'获取知识点属性: ' + str(attrs))
-            for name, attr in attrs.items():
-                # 在实体列表中找到名称匹配的实体
-                entity = next((e for e in entities if e.name == name), None)
-                if entity:
-                    # 设置相应的属性值
-                    for attr_name, value in attr.items():
-                        if attr_name not in entity.attributes:
-                            entity.attributes[attr_name] = [value]
-                        else:
-                            entity.attributes[attr_name].append(value)
+            if len(entities_name) == 0:
+                pass
+            else:
+                prompt_, instruction = prompt.get_ae_prompt(
+                    content, entities_name)
+                llm.instruction = instruction
+                resp = llm.chat(prompt_)
+                attrs = prompt.post_process(resp) if len(
+                    entities_name) != 0 else {}
+                logger.success(f'获取知识点属性: ' + str(attrs))
+
+                for name, attr in attrs.items():
+                    # 在实体列表中找到名称匹配的实体
+                    entity = next((e for e in entities if e.name == name),
+                                  None)
+                    if entity:
+                        # 设置相应的属性值
+                        for attr_name, value in attr.items():
+                            if attr_name not in entity.attributes:
+                                entity.attributes[attr_name] = [value]
+                            else:
+                                entity.attributes[attr_name].append(value)
+
             # 关系抽取
             if len(entities_name) <= 1:
                 pass
             else:
-                relations = prompt.post_process(
-                    llm.chat(prompt.get_re_prompt(content, entities_name)))
+                prompt_, instruction = prompt.get_re_prompt(
+                    content, entities_name)
+                llm.instruction = instruction
+                resp = llm.chat(prompt_)
+                relations = prompt.post_process(resp)
                 logger.success(f'获取关系三元组: ' + str(relations))
+
                 for rela in relations:  # list[{'head':'', 'relation':'', 'tail':''}]
                     head, tail = None, None
                     for entity in entities:
@@ -274,6 +297,8 @@ class Document:
         for bookmark in self.flatten_bookmarks():
             if not bookmark.subs:  # 表示最后一级书签 subs为空数组需要设置知识点
                 logger.info('子章节: ' + bookmark.title)
+                if bookmark.title in config.ignore_page:
+                    continue
                 contents = self.parser.get_content(bookmark)
                 text_contents = '\n'.join(
                     [content.content for content in contents])
@@ -282,7 +307,7 @@ class Document:
                 if len(text_contents) == 0:
                     bookmark.subs = []
                     continue
-                logger.success('子章节内容: ' + text_contents)
+                logger.success('子章节内容: \n' + text_contents)
                 entities: list[KPEntity] = get_knowledgepoints(
                     text_contents,
                     self_consistency=self_consistency,
@@ -296,7 +321,10 @@ class Document:
                 if len(value_list) == 1:
                     entity.attributes[attr] = value_list[0]
                 else:
-                    resp = prompt.get_best_attr(entity.name, attr, value_list)
+                    prompt_, instruction = prompt.get_best_attr_prompt(
+                        entity.name, attr, value_list)
+                    llm.instruction = instruction
+                    resp = llm.chat(prompt_)
                     try:
                         idx = int(resp.strip())  # 防止前后空格
                         entity.attributes[attr] = value_list[idx]
@@ -309,11 +337,8 @@ class Document:
 
         # 实体共指消解
 
-    def to_cyphers(self, config: Config = Config()) -> list[str]:
+    def to_cyphers(self) -> list[str]:
         """ 将整体的关联关系转换为 cypher CREATE 语句
-
-        Args:
-            config (Config, optional): 配置. Defaults to Config().
 
         Returns:
             list[str]: 多条 cypher 语句
@@ -338,12 +363,10 @@ class Document:
         def bookmarks_to_cypher(bookmarks: list[BookMark], parent_id: str):
             cyphers: list[str] = []
             for bookmark in bookmarks:
-                if bookmark.title in config.ignore_page:
-                    continue
                 # 创建章节实体
                 res = [str(resource) for resource in bookmark.resource]
                 cyphers.append(
-                    f'CREATE (:Chapter {{id: "{bookmark.id}", name: "{bookmark.title}", page_start: {bookmark.page_index}, page_end: {bookmark.page_end}, resource: {res}}})'
+                    f'CREATE (:Chapter {{id: "{bookmark.id}", name: "{bookmark.title}", page_start: {bookmark.page_start.index}, page_end: {bookmark.page_end.index}, resource: {res}}})'
                 )
                 # 创建章节和上级章节 (书籍) 关联, 所以不写类别
                 cyphers.append(

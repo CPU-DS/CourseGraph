@@ -22,8 +22,9 @@ def get_list_from_string(text: str) -> list:
     ...
 
 
-def post_process(detections: list[tuple[str, tuple[float, ...]]],
-                 iou_threshold: float) -> list[tuple[str, tuple[float, ...]]]:
+def structure_post_process(
+        detections: list[tuple[str, tuple[float, ...]]],
+        iou_threshold: float) -> list[tuple[str, tuple[float, ...]]]:
     """ 检测结果后处理
 
     Args:

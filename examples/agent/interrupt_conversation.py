@@ -69,7 +69,7 @@ def pretty_print(message):
     )
 
 
-controller = Controller(agent=ceo, messages_observer=pretty_print)
+controller = Controller(agent=ceo, observer=pretty_print)
 controller.run(message='帮我写一个贪吃蛇游戏。')
 while True:
     controller.run(message=input('You:'))

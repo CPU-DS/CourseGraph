@@ -26,54 +26,48 @@ class ExtractPrompt(ABC):
         pass
 
     @abstractmethod
-    def get_ner_prompt(self, content: str) -> str:
+    def get_ner_prompt(self, content: str) -> tuple[str, str]:
         """ 获取实体抽取提示词
 
         Args:
             content (str): 待抽取的文本内容
 
-        Raises:
-            NotImplementedError: 子类需要实现该方法
-
         Returns:
-            str: 组合后的提示词
+            tuple[str, str]: 组合后的提示词, 指令
         """
         raise NotImplementedError
 
     @abstractmethod
-    def get_re_prompt(self, content: str, entities: list[str]) -> str:
+    def get_re_prompt(self, content: str,
+                      entities: list[str]) -> tuple[str, str]:
         """ 获取关系抽取的提示词
 
         Args:
             content (str): 待抽取的文本内容
             entities: (list[str]): 实体列表
 
-        Raises:
-            NotImplementedError: 子类需要实现该方法
-
         Returns:
-            str: 组合后的提示词
+            tuple[str, str]: 组合后的提示词, 指令
         """
         raise NotImplementedError
 
     @abstractmethod
-    def get_ae_prompt(self, content: str, entities: list[str]) -> str:
+    def get_ae_prompt(self, content: str,
+                      entities: list[str]) -> tuple[str, str]:
         """ 获取属性抽取的提示词
 
         Args:
             content (str): 待抽取的文本内容
             entities: (list[str]): 实体列表
 
-        Raises:
-            NotImplementedError: 子类需要实现该方法
-
         Returns:
-            str: 组合后的提示词
+            tuple[str, str]: 组合后的提示词, 指令
         """
         raise NotImplementedError
 
     @abstractmethod
-    def get_best_attr(self, entity: str, attr: str, values: list[str]) -> str:
+    def get_best_attr_prompt(self, entity: str, attr: str,
+                             values: list[str]) -> tuple[str, str]:
         """ 要求模型为实体的属性选择一个最佳的值
 
         Args:
@@ -81,11 +75,8 @@ class ExtractPrompt(ABC):
             attr (str): 属性
             values (list[str]): 属性值列表为
 
-        Raises:
-            NotImplementedError: 子类需要实现该方法
-
         Returns:
-            str: 组合后的提示词
+            tuple[str, str]: 组合后的提示词, 指令
         """
         raise NotImplementedError
 
@@ -96,8 +87,6 @@ class ExtractPrompt(ABC):
         Args:
             response (str): 模型输出
 
-        Raises:
-            NotImplementedError: 子类需要实现该方法
 
         Returns:
             list | dict: 格式输出
@@ -114,18 +103,9 @@ class ExamplePrompt(ExtractPrompt):
             strategy (ExamplePromptStrategy, optional): 动态检索提示词策略. Defaults to None.
         """
         super().__init__()
-
         self.strategy = strategy
 
-    def get_ner_prompt(self, content: str) -> str:
-        """ 获取实体抽取提示词
-
-        Args:
-            content (str): 待抽取的文本内容
-
-        Returns:
-            str: 组合后的提示词
-        """
+    def get_ner_prompt(self, content: str) -> tuple[str, str]:
         if self.strategy is None:
             examples = [
                 {
@@ -151,23 +131,16 @@ class ExamplePrompt(ExtractPrompt):
             examples = self.strategy.get_ner_example(content)
         prompt = {
             "instruction":
-            "你是专门进行实体抽取的专家。请对input的内容进行总结根据总结从中抽取出符合schema类型的实体。最后请给出你的总结和抽取到的实体列表，返回的格式为 ```json\n[\"entity1\", \"entity2\"]\n```",
+            "请对input的内容进行总结根据总结从中抽取出符合schema类型的实体。最后请给出你的总结和抽取到的实体列表，返回的格式为 ```json\n[\"entity1\", \"entity2\"]\n```",
             "schema": entities,
             "examples": examples,
             "input": content
         }
-        return json.dumps(prompt, indent=4, ensure_ascii=False)
+        return json.dumps(prompt, indent=4,
+                          ensure_ascii=False), "你是专门进行实体抽取的专家"
 
-    def get_re_prompt(self, content: str, entities: list[str]) -> str:
-        """ 获取关系抽取的提示词
-
-        Args:
-            content (str): 待抽取的文本内容
-            entities: (list[str]): 实体列表
-
-        Returns:
-            str: 组合后的提示词
-        """
+    def get_re_prompt(self, content: str,
+                      entities: list[str]) -> tuple[str, str]:
         if self.strategy is None:
             examples = [
                 {
@@ -193,23 +166,16 @@ class ExamplePrompt(ExtractPrompt):
             examples = self.strategy.get_re_example(content)
         prompt = {
             "instruction":
-            "你是专门进行关系判别的专家，请对输入的实体列表根据已有文本片段判断两两之间的关系，如果两两之间无关系或关系不在所指定的关系范围relations中，则不返回。头尾实体不应该相同。返回的格式为 ```json\n[{\"head\": \"\", \"relation\": \"\", \"tail\": \"\"}]\n```",
+            "请对输入的实体列表根据已有文本片段判断两两之间的关系，如果两两之间无关系或关系不在所指定的关系范围relations中，则不返回。头尾实体不应该相同。返回的格式为 ```json\n[{\"head\": \"\", \"relation\": \"\", \"tail\": \"\"}]\n```",
             "relations": relations,
             "examples": examples,
             "input": f"实体列表为: {entities}, 文本片段为: '{content}'"
         }
-        return json.dumps(prompt, indent=4, ensure_ascii=False)
+        return json.dumps(prompt, indent=4,
+                          ensure_ascii=False), "你是专门进行关系判别的专家"
 
-    def get_ae_prompt(self, content: str, entities: list[str]) -> str:
-        """ 获取属性抽取的提示词
-
-        Args:
-            content (str): 待抽取的文本内容
-            entities: (list[str]): 实体列表
-
-        Returns:
-            str: 组合后的提示词
-        """
+    def get_ae_prompt(self, content: str,
+                      entities: list[str]) -> tuple[str, str]:
         if self.strategy is None:
             examples = [{
                 "input":
@@ -223,27 +189,19 @@ class ExamplePrompt(ExtractPrompt):
             examples = self.strategy.get_ae_example(content)
         prompt = {
             "instruction":
-            "你是专门进行属性抽取的专家，请对输入的实体列表根据已有文本片段各自抽取他们的属性值。属性范围只能来源于提供的attributes，属性值无需完全重复原文，可以是你根据原文进行的总结，如果实体没有能够总结的属性值则不返回。返回格式为 ```json\n{\"entity1\": {\"attribute1\":\"value\"}}\n```",
+            "请对输入的实体列表根据已有文本片段各自抽取他们的属性值。属性范围只能来源于提供的attributes，属性值无需完全重复原文，可以是你根据原文进行的总结，如果实体没有能够总结的属性值则不返回。返回格式为 ```json\n{\"entity1\": {\"attribute1\":\"value\"}}\n```",
             "attributes": attributes,
             "examples": examples,
             "input": f"实体列表为: {entities}, 文本片段为: '{content}'"
         }
-        return json.dumps(prompt, indent=4, ensure_ascii=False)
+        return json.dumps(prompt, indent=4,
+                          ensure_ascii=False), "你是专门进行属性抽取的专家"
 
-    def get_best_attr(self, entity: str, attr: str, values: list[str]) -> str:
-        """ 要求模型为实体的属性选择一个最佳的值
-
-        Args:
-            entity (str): 实体名称
-            attr (str): 属性
-            values (list[str]): 属性值列表为
-
-        Returns:
-            str: 组合后的提示词
-        """
+    def get_best_attr_prompt(self, entity: str, attr: str,
+                             values: list[str]) -> tuple[str, str]:
         prompt = {
             "instruction":
-            "你是专门进行属性判别的专家，请从实体的属性对应的值列表中选择一个最佳的值，返回其下标。下标从0开始。只需要返回一个数字即可。",
+            "请从实体的属性对应的值列表中选择一个最佳的值，返回其下标。下标从0开始。只需要返回一个数字即可。",
             "examples": [{
                 "input": """实体为: 'Numpy', 属性为: '定义', 属性值列表为: [
                 'NumPy提供了许多用于操作多维数组的便捷方法，常与Python一起用于数据分析和科学计算。', 
@@ -255,7 +213,8 @@ class ExamplePrompt(ExtractPrompt):
             "input":
             f"实体为: '{entity}', 属性为: '{attr}', 属性值列表为: {values}"
         }
-        return json.dumps(prompt, indent=4, ensure_ascii=False)
+        return json.dumps(prompt, indent=4,
+                          ensure_ascii=False), "你是专门进行属性判别的专家"
 
     def post_process(self, response: str) -> list | dict:
         """ 将模型返回处理成列表或字典格式

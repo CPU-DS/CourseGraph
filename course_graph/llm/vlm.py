@@ -2,18 +2,18 @@
 # Create Date: 2024/07/11
 # Author: wangtao <wangtao.cpu@gmail.com>
 # File Name: course_graph/llm/vlm.py
-# Description: 定义多模态大模型类
+# Description: 定义图文理解模型类
 
 from .config import VisualConfig
 import torch
 from modelscope import AutoModel, AutoTokenizer
 
 
-class VisualModel(object):
+class VLM:
 
     def __init__(self, path: str,
                  config: VisualConfig = VisualConfig()) -> None:
-        """ 多模态大模型
+        """ 图文理解模型
 
         Args:
             path (str, optional): 模型名称或路径
@@ -25,23 +25,20 @@ class VisualModel(object):
         self.tokenizer = AutoTokenizer.from_pretrained(path,
                                                        trust_remote_code=True)
         self.config = config
+        self.instruction = 'You are a helpful assistant.'
 
-    def chat(self,
-             msgs: list,
-             sys_prompt: str = 'You are a helpful assistant.') -> str:
+    def chat(self, msgs: list[dict]) -> str:
         """ 图片问答
 
         Args:
             msgs (list): 输入内容
-            sys_prompt (str, optional): 系统提示词. Defaults to 'You are a helpful assistant.'.
 
         Returns:
             str: 模型输出
         """
-
         return self.model.chat(image=None,
                                msgs=msgs,
                                tokenizer=self.tokenizer,
                                sampling=True,
                                temperature=self.config.temperature,
-                               sys_prompt=sys_prompt)
+                               sys_prompt=self.instruction)

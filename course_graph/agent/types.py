@@ -49,21 +49,4 @@ class Result:
     agent: Optional['Agent'] = None
     content: str = 'Function call successfully.'
     context_variables: ContextVariables = ContextVariables()
-
-
-class ObservableArray(Generic[T], list):
-
-    def __init__(self, seq=()):
-        super().__init__(seq)
-        self.append_observers: list[Callable] = []
-
-    def append(self, __object: Any) -> None:
-        for observer in self.append_observers:
-            observer(__object)
-        super().append(__object)
-
-    def extend(self, __iterable):
-        for __object in __iterable:
-            for observer in self.append_observers:
-                observer(__object)
-        super().extend(__iterable)
+    message: bool = True

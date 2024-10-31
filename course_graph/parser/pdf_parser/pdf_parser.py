@@ -4,7 +4,7 @@
 # File Name: course_graph/parser/pdf_parser/pdf_parser.py
 # Description: 定义pdf文档解析器
 
-from ..base import BookMark
+from ..base import BookMark, PageIndex
 from .structure_model import *
 from .ocr_model import *
 import uuid
@@ -14,7 +14,7 @@ from PIL import Image
 import numpy as np
 import cv2
 import re
-from ...llm import VisualModel, VisualPrompt, LLM, ParserPrompt
+from ...llm import VLM, MultiImagePrompt, LLM, ParserPrompt
 import os
 import shutil
 from course_graph_ext import get_list_from_string
@@ -22,20 +22,23 @@ from course_graph_ext import get_list_from_string
 
 class PDFParser(Parser):
 
-    def __init__(self,
-                 pdf_path: str,
-                 ocr_model: OCRModel = PaddleOCR(),
-                 structure_model: StructureModel = PaddleStructure(),
-                 visual_model_and_prompt: tuple[VisualModel,
-                                                VisualPrompt] = (None, None),
-                 llm: LLM = None) -> None:
+    def __init__(
+        self,
+        pdf_path: str,
+        ocr_model: OCRModel = PaddleOCR(),
+        structure_model: StructureModel = PaddleStructure(),
+        vlm: VLM = None,
+        vl_prompt: MultiImagePrompt = MultiImagePrompt(),
+        llm: LLM = None,
+    ) -> None:
         """ pdf文档解析器
 
         Args:
             pdf_path (str): pdf文档路径
             ocr_model (OCRModel, optional): OCR 模型. Defaults to PaddleOCR().
             structure_model (StructureModel, optional): 布局分析模型. Defaults to Paddle().
-            visual_model_and_prompt ( tuple[VisualModel, VisualPrompt], optional): 视觉模型和提示词. Default to (None, None).
+            vlm ( VLM, optional): 视觉模型. Default to None.
+            vl_prompt (MultiImagePrompt, optional): 提示词. Defaults to MultiImagePrompt().
             llm ( LLM, optional): 语言模型. Default to None.
         """
         super().__init__(pdf_path)
@@ -44,11 +47,42 @@ class PDFParser(Parser):
         self.structure_model = structure_model
         self.ocr_model = ocr_model
 
-        self.outline: list[list] = [[item[0], item[1], item[2]]
-                                    for item in self._pdf.get_toc(simple=False)
-                                    ]
-        self.visual_model, self.visual_prompt = visual_model_and_prompt
+        self.outline: list[list] = self._get_outline()
+        self.vlm = vlm
+        self.vl_prompt = vl_prompt
         self.llm = llm
+
+        self.cache_path = '.cache/pdf_cache'
+        if not os.path.exists(self.cache_path):
+            os.mkdir(self.cache_path)
+
+    def _get_outline(self) -> list[list]:
+        """ 从 pdf 中读取大纲层级
+
+        Returns:
+            list[list]: 大纲层级
+        """
+        outline = []
+        for item in self._pdf.get_toc(simple=False):
+            h = self._pdf[item[2] - 1].get_pixmap().height  # 宽高一律采用像素层面
+            match item[3]['kind']:
+                case 4:
+                    try:
+                        xref = item[3]['xref']
+                        t_xref = int(
+                            self._pdf.xref_get_key(xref, 'A')[1].split()[0])
+                        fitH = int(
+                            self._pdf.xref_get_key(t_xref,
+                                                   'D')[1][1:-1].split()[-1])
+                        outline.append([*item[:3], (-1, max(h - fitH, 0))])
+                    except:
+                        outline.append([*item[:3], (-1, -1)])  # 解析出错
+                case 1:
+                    outline.append(
+                        [*item[:3], (item[3]['to'].x, item[3]['to'].y)])
+                case _:
+                    pass  # 其他类型指向的都是外部资源
+        return outline
 
     def __enter__(self) -> 'PDFParser':
         return self
@@ -56,24 +90,24 @@ class PDFParser(Parser):
     def close(self) -> None:
         """ 关闭文档
         """
+        shutil.rmtree(self.cache_path)
         self._pdf.close()
 
-    def get_catalogue_index_by_visual_model(
+    def get_catalogue_index_by_vlm(
             self,
-            visual_model: VisualModel,
-            visual_prompt: VisualPrompt,
+            vlm: VLM,
+            vl_prompt: MultiImagePrompt = MultiImagePrompt(),
             rate: float = 0.1) -> tuple[int, int]:
-        """ 通过多模态大模型寻找目录页, 返回目录页起始页和终止页页码 (从0开始编序)
+        """ 通过图文理解模型寻找目录页, 返回目录页起始页和终止页页码 (从0开始编序)
 
         Args:
-            visual_model (VisualModel): 多模态大模型
-            visual_prompt (VisualPrompt): 图文理解提示词
+            vlm (VLM): 图文理解模型
+            vl_prompt (MultiImagePrompt, optional): 图文理解提示词. Defaults to MultiImagePrompt().
             rate (float, optional): 查询前 ratio 比例的页面. Defaults to 0.1 即 10%.
 
         Returns:
             tuple[int, int]: 目录页起始页和终止页页码
         """
-        visual_prompt.set_type_catalogue()
         cache_path = '.cache/pdf_cache'
         if not os.path.exists(cache_path):
             os.mkdir(cache_path)
@@ -82,9 +116,10 @@ class PDFParser(Parser):
             img = self._get_page_img(index, zoom=2)
             file_path = os.path.join(cache_path, f'{index}.png')
             Image.fromarray(img).save(file_path)
-            res = visual_model.chat(msgs=visual_prompt.get_msgs(file_path),
-                                    sys_prompt=visual_prompt.get_sys_prompt())
-            if res == '是' or res == '是。' or res == '是.':
+            prompt_, instruction = vl_prompt.get_catalogue_prompt(file_path)
+            vlm.instruction = instruction
+            res = vlm.chat(prompt_)
+            if res.startswith('是'):
                 catalogue.append(index)
         shutil.rmtree(cache_path)
 
@@ -204,21 +239,18 @@ class PDFParser(Parser):
         """
         stack: list[BookMark] = []
         bookmarks: list[BookMark] = []
-        if len(self.outline) == 0:
-            raise ValueError('请先通过 set_outline 方法手动设置大纲')
         for item in self.outline:
-            level, title, page = item
+            level, title, page, anchor = item
             page -= 1  # 从0开始
             level -= 1  # 从0开始
             bookmarks.append(
-                BookMark(
-                    id='1:' + str(uuid.uuid4()) + f':{level}',
-                    title=title,
-                    page_index=page,
-                    page_end=0,  # 结束页码需要由下一个书签确定
-                    level=level,
-                    subs=[],
-                    resource=[]))
+                BookMark(id='1:' + str(uuid.uuid4()) + f':{level}',
+                         title=title,
+                         page_start=PageIndex(index=page, anchor=anchor),
+                         page_end=PageIndex(index=0, anchor=(0, 0)),
+                         level=level,
+                         subs=[],
+                         resource=[]))
 
         for bookmark in reversed(bookmarks):
             level = bookmark.level
@@ -234,11 +266,12 @@ class PDFParser(Parser):
         def set_page_end(bks: list[BookMark]):
             for idx in range(len(bks)):
                 if idx != len(bks) - 1:
-                    bks[idx].set_page_end(bks[idx + 1].page_index)
+                    bks[idx].set_page_end(bks[idx + 1].page_start)
                 set_page_end(bks[idx].subs)
 
         set_page_end(stack)
-        stack[-1].set_page_end(self._pdf.page_count - 1)
+        stack[-1].set_page_end(
+            PageIndex(index=self._pdf.page_count - 1, anchor=(-1, -1)))
 
         return stack
 
@@ -251,33 +284,54 @@ class PDFParser(Parser):
         Returns:
             list[Content]: 内容列表
         """
+
+        def remove_blanks(s):
+            return re.sub(re.compile(r'\s+'), '', s)
+
         # 获取书签对应的页面内容
         contents: list[Content] = []
         # 后续这个地方可以并行执行
-        for index in range(bookmark.page_index, bookmark.page_end + 1):
+        for index in range(bookmark.page_start.index,
+                           bookmark.page_end.index + 1):
 
             page_contents = self.get_page(index).contents
-            # 起始页内容定位
-            if index == bookmark.page_index:
+
+            if index == bookmark.page_start.index:
                 idx = 0
+                x, y = bookmark.page_start.anchor
+                title = remove_blanks(bookmark.title)
+
+                if x == -1 and y == -1:  # 使用内容定位
+                    condition = lambda content: (content.type == ContentType.
+                                                 Title and remove_blanks(
+                                                     content.content) in title)
+                else:  # 使用 anchor 定位
+                    condition = lambda content: (content.bbox[0] > x and
+                                                 content.bbox[1] > y)
+
                 for i, content in enumerate(page_contents):
-                    blank_pattern = re.compile(r'\s+')  # 可能会包含一些空白字符这里去掉
-                    content_new = re.sub(blank_pattern, '', content.content)
-                    title_new = re.sub(blank_pattern, '', bookmark.title)
-                    if content.type == ContentType.Title and (
-                            content_new == title_new
-                            or content_new in title_new):
-                        idx = i + 1
+                    if condition(content):
+                        idx = i + 1  # 不会包含 title
                         break
+
                 page_contents = page_contents[idx:]
-            # 终止页内容定位
-            if index == bookmark.page_end:
+
+            if index == bookmark.page_end.index:
                 idx = len(page_contents)
+                x, y = bookmark.page_start.anchor
+
+                if x == -1 and y == -1:  # 使用内容定位
+                    condition = lambda content: (content.type == ContentType.
+                                                 Title)
+                else:  # 使用 anchor 定位
+                    condition = lambda content: (content.bbox[0] > x and
+                                                 content.bbox[1] > y)
                 for i, content in enumerate(page_contents):
-                    if content.type == ContentType.Title:  # 直到遇到下一个标题为止，这里的逻辑可能存在问题~
-                        idx = i
+                    if condition(content):
+                        idx = i  # 不会包含 title
                         break
                 page_contents = page_contents[:idx]
+
             contents.extend(page_contents)
         return contents
 
@@ -317,11 +371,7 @@ class PDFParser(Parser):
         h, w, _ = img.shape
         blocks = self.structure_model(img)
 
-        t = 20
-        # 切割子图, 向外扩充t个像素
-        cache_path = '.cache/pdf_cache'
-        if not os.path.exists(cache_path):
-            os.mkdir(cache_path)
+        t = 20  # 切割子图, 向外扩充t个像素
 
         def save_block(_idx, _block) -> None | str:
             x1, y1, x2, y2 = _block['bbox']
@@ -334,7 +384,8 @@ class PDFParser(Parser):
             if type_ == 'figure' and ((x2 - x1) < 150 or (y2 - y1) < 150):
                 return  # 图片过小
             cropped_img = Image.fromarray(img).crop((x1, y1, x2, y2))
-            path = os.path.join(cache_path, f'{_idx}_{type_}.png')
+            path = os.path.join(self.cache_path,
+                                f'{str(uuid.uuid4())}_{_idx}_{type_}.png')
             cropped_img.save(path)
             return path
 
@@ -346,9 +397,10 @@ class PDFParser(Parser):
 
             elif type_ in ['title', 'text']:
                 bbox = [b / zoom for b in block['bbox']]
+                res = pdf_page.get_textbox(bbox).replace('\n', '')
                 if block.get('text', None) is not None:
                     pass
-                elif res := pdf_page.get_textbox(bbox).replace('\n', ''):
+                elif len(res) != 0 and not bool(re.search(r'[\uFFFD]', res)):
                     # 有些pdf是图片型可能无法直接读取, 则使用OCR的结果
                     block['text'] = res
                 else:
@@ -362,23 +414,22 @@ class PDFParser(Parser):
                                 pass  # 这一步不是必须的
                         block['text'] = res
 
-            elif self.visual_model is not None:
+            elif self.vlm is not None:
                 if file_path := save_block(idx, block) is not None:
-                    self.visual_prompt.set_type_ocr()
-                    block['text'] = self.visual_model.chat(
-                        msgs=self.visual_prompt.get_msgs(file_path),
-                        sys_prompt=self.visual_prompt.get_sys_prompt())
-        shutil.rmtree(cache_path)
+                    block['text'] = self.vlm.chat(
+                        *self.vl_prompt.get_ocr_prompt(file_path))
 
         contents: list[Content] = []
         for block in blocks:
             if content := block.get('text', None):  # 空字符串或None
+                content = Content(
+                    type=ContentType.Text,
+                    content=content,
+                    bbox=tuple([b / zoom for b in block['bbox']]),  # 还原为原始大小坐标
+                    origin_type=block['type'])
                 if block['type'] == 'title':
-                    contents.append(
-                        Content(type=ContentType.Title, content=content))
-                else:  # 其余全部当作正文对待
-                    contents.append(
-                        Content(type=ContentType.Text, content=content))
+                    content.type = ContentType.Title  # 除了title其余全部当作正文对待
+                contents.append(content)
         return Page(page_index=page_index + 1, contents=contents)
 
     def get_pages(self) -> list[Page]:

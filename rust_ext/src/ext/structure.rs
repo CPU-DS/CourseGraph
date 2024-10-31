@@ -26,10 +26,11 @@ fn is_contained(box1: (f32, f32, f32, f32), box2: (f32, f32, f32, f32)) -> bool 
 }
 
 #[pyfunction]
-pub fn post_process(
+pub fn structure_post_process(
     detections: Vec<(String, (f32, f32, f32, f32))>,
     iou_threshold: f32,
 ) -> PyResult<Vec<(String, (f32, f32, f32, f32))>> {
+    // 先转换为 mut
     let mut detections = detections;
     let mut filtered_detections = Vec::new();
 
@@ -58,7 +59,7 @@ pub fn post_process(
         }
 
         for item in to_remove {
-            detections.retain(|x| x != &item); // 使用引用
+            detections.retain(|x| x != &item);
         }
 
         if keep {

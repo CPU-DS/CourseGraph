@@ -2,21 +2,25 @@
   {
     "image": "dataset/image_example/image/text.png",
     "type": "ocr",
+    "input": "",
     "output": "这里把-$\\theta$命名为偏置$b$，但是请注意，偏置和权重$w_1$、$w_2$的作用是不一样的。具体地说，$w_1$和$w_2$是控制输入信号的重要性的参数，而偏置是调整神经元被激活的容易程度(输出信号为1的程度)的参数。比如，若$b$为-0.1，则只要输人信号的加权总和超过0.1，神经元就会被激活。但是如果$b$为-20.0，则输人信号的加权总和必须超过20.0，神经元才会被激活。像这样偏置的值决定了神经元被激活的容易程度。另外,这里我们将$w_1$和$w_2$称为权重，将b称为偏置，但是根据上下文，有时也会将$b$、$w_1$、$w_2$这些参数统称为权重。"
   },
   {
     "image": "dataset/image_example/image/image.png",
     "type": "ocr",
+    "input": "",
     "output": "图片显示了一个阶跃函数的图形。图表的横轴（x轴）从-6延伸0时，y值为0；当x大于0但小于等于2时，y值保持不变；当x大于2但小于等于4时，y值为1；当x大于4时，y值又回到0。"
   },
   {
     "image": "dataset/image_example/image/code.png",
     "type": "ocr",
+    "input": "",
     "output": "'```\ndef relu(x):\n\treturn np.maximum(0, x)```"
   },
   {
     "image": "dataset/image_example/image/formula.png",
     "type": "ocr",
+    "input": "",
     "output": "$$\nh(x)=\\left\\{\\begin{array}{ll}\nx & (x>0) \\\n0 & (x \\leqslant 0)\n\\end{array}\\right.$$"
   }
 ]

@@ -39,20 +39,19 @@ class LLM(ABC):
         self.json: bool = False
         self.stop = None
         self.instruction = instruction
-        self.messages: list[ChatCompletionMessageParam] = []  # 不包括instruction
 
-    def _chat(
+    def chat_completion(
         self,
-        messages: list[dict],
+        messages: list[ChatCompletionMessageParam],
         tools: list[ChatCompletionToolParam] | NotGiven = NOT_GIVEN,
         tool_choice: ChatCompletionToolChoiceOptionParam
         | NotGiven = NOT_GIVEN,
         parallel_tool_calls: bool | NotGiven = NOT_GIVEN
     ) -> ChatCompletionMessage:
-        """ 基于message中保存的历史消息进行对话
+        """ 基于message中保存的历史消息进行对话, 请在外部保存历史记录, LLM 对象不负责保存
 
         Args:
-            messages (list): 历史消息
+            messages (list[ChatCompletionMessageParam]): 历史消息
             tools (list[ChatCompletionToolParam] | NotGiven, optional): 外部tools. Defaults to NOT_GIVEN.
             tool_choice: (ChatCompletionToolChoiceOptionParam | NotGiven, optional): 强制使用外部工具. Defaults to NOT_GIVEN.
             parallel_tool_calls: (bool | NotGiven, optional): 允许工具并行调用. Defaults to NOT_GIVEN.
@@ -93,46 +92,8 @@ class LLM(ABC):
         Returns:
             str | ChatCompletionMessage: 模型输出
         """
-        response = self._chat(messages=[{'role': 'user', 'content': message}])
+        response = self.chat_completion(messages=[{'role': 'user', 'content': message}])
         return response.content
-
-    def chat_with_messages(
-            self,
-            message: str = None,
-            name: str = None,
-            content_only: bool = True,
-            tools: list[ChatCompletionToolParam] = None,
-            tool_choice: ChatCompletionToolChoiceOptionParam = None,
-            parallel_tool_calls: bool = False) -> str | ChatCompletionMessage:
-        """ 模型的多轮对话
-
-        Args:
-            message (str): 用户输入
-            name (str): 名称信息
-            content_only (bool, optional): 只返回模型的文本输出. Defaults to True.
-            tools (list[ChatCompletionToolParam] | NotGiven): 外部tools. Defaults to NOT_GIVEN.
-            tool_choice (ChatCompletionToolChoiceOptionParam | NotGiven): 强制使用外部工具. Defaults to NOT_GIVEN.
-            parallel_tool_calls: (bool, optional): 允许工具并行调用. Defaults to False.
-        Returns:
-            str | ChatCompletionMessage: 模型输出
-        """
-        if tool_choice is None:
-            tool_choice = NOT_GIVEN
-        if tools is None or len(tools) == 0:
-            tools = NOT_GIVEN
-            tool_choice = NOT_GIVEN
-            parallel_tool_calls = NOT_GIVEN
-        if message is not None:
-            self.messages.append({'role': 'user', 'content': message})
-        response = self._chat(self.messages,
-                              parallel_tool_calls=parallel_tool_calls,
-                              tools=tools,
-                              tool_choice=tool_choice)
-        resp = response.model_dump()
-        if name is not None:
-            resp['name'] = name
-        self.messages.append(resp)
-        return response.content if content_only else response
 
 
 class OpenAI(LLM):

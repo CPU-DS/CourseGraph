@@ -24,8 +24,10 @@ class ContentType(Enum):
 class Content:
     """ 内容
     """
-    type: ContentType
-    content: str
+    type: ContentType  # 只有title两类
+    origin_type: str  # 和 bbox 同为目标检测结果
+    content: str  # 文本
+    bbox: tuple[float]
 
 
 @dataclass

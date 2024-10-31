@@ -29,7 +29,7 @@ CourseGraph 使用大模型，利用多种 prompt 优化技术, 自动从教材�
 
 ## 快速使用
 
-建议使用 conda 管理虚拟环境，使用 poetry 管理包
+前置依赖: conda 和 rust 环境
 
 ```bash
 git clone git@github.com:wangtao2001/CourseGraph.git
@@ -39,7 +39,7 @@ conda activate cg
 pip install poetry
 poetry config virtualenvs.create false
 poetry install
-cd rust_ext && maturin develop
+cd rust_ext && maturin develop && cd ..
 ```
 
 > linux 下还需安装 libreoffice 以完成文档转换，以 Debian 系为例: `sudo apt install libreoffice`

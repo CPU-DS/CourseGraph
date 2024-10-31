@@ -4,7 +4,7 @@
 # File Name: course_graph/parser/docx_parser.py
 # Description: 定义docx文档解析器
 
-from .base import BookMark
+from .base import BookMark, PageIndex
 from .parser import Parser, Content, ContentType
 import docx
 import uuid
@@ -40,8 +40,9 @@ class DOCXParser(Parser):
                     BookMark(
                         id='1:' + str(uuid.uuid4()) + f':{level}',
                         title=title,
-                        page_index=0,  # 无需设置起始页码和结束页码
-                        page_end=0,
+                        page_start=PageIndex(index=0,
+                                             anchor=(0, 0)),  # 无需设置起始页码和结束页码
+                        page_end=PageIndex(index=0, anchor=(0, 0)),
                         level=level,
                         subs=[],
                         resource=[]))
