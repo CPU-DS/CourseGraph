@@ -5,6 +5,7 @@
 # Description: 大模型接口
 
 from .prompt import ExtractPrompt, ExamplePrompt, ParserPrompt
+from .ontology import ontology
 from .llm import LLM, VLLM, Qwen, Ollama, OpenAI
 from .vl_prompt import MultiImagePrompt
 from .prompt_strategy import ExamplePromptStrategy, SentenceEmbeddingStrategy

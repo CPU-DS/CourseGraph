@@ -8,7 +8,6 @@ from .agent import Agent
 import copy
 import json
 from .types import Result, ContextVariables
-from typing import Callable
 
 
 class Controller:

@@ -6,7 +6,6 @@
 
 from loguru import logger
 import sys
-import time
 
 
 def set_logger(console: bool = False,

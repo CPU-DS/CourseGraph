@@ -7,7 +7,7 @@
 from .base import BookMark, PageIndex
 from .parser import Parser, Content, ContentType
 import docx
-import uuid
+import shortuuid
 from xml.dom.minidom import parseString
 
 
@@ -38,7 +38,7 @@ class DOCXParser(Parser):
                 title = phar.text
                 bookmarks.append(
                     BookMark(
-                        id='1:' + str(uuid.uuid4()) + f':{level}',
+                        id='1:' + str(shortuuid.uuid()) + f':{level}',
                         title=title,
                         page_start=PageIndex(index=0,
                                              anchor=(0, 0)),  # 无需设置起始页码和结束页码

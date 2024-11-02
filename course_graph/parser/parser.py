@@ -10,7 +10,7 @@ from enum import Enum
 from dataclasses import dataclass
 from .base import Document, BookMark
 import os
-import uuid
+import shortuuid
 
 
 class ContentType(Enum):
@@ -97,7 +97,7 @@ class Parser(ABC):
         Returns:
             Document: 文档
         """
-        return Document(id='0:' + str(uuid.uuid4()),
+        return Document(id='0:' + str(shortuuid.uuid()),
                         name=os.path.basename(self.file_path).split('.')[0],
                         file_path=self.file_path,
                         bookmarks=self.get_bookmarks(),

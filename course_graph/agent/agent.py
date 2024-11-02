@@ -10,7 +10,7 @@ from .types import ContextVariables
 from openai.types.chat import *
 import inspect
 import docstring_parser
-from typing import Callable, TypeAlias
+from typing import Callable
 from typing import Literal
 from openai import NOT_GIVEN, NotGiven
 

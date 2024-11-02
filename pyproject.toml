@@ -41,6 +41,7 @@ maturin = "1.7.4"
 patchelf = "0.17.2.1"
 docstring-parser = "^0.16"
 doclayout-yolo = "^0.0.2"
+shortuuid = "^1.0.13"
 
 [build-system]
 requires = ["poetry-core"]

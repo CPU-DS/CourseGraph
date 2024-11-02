@@ -6,15 +6,14 @@
 
 from dataclasses import dataclass, field
 from ..llm import LLM, ExtractPrompt, ExamplePrompt
-from ..llm.prompt import relations,attributes
-import uuid
+from ..llm.prompt import ontology
+import shortuuid
 from loguru import logger
 from collections import Counter
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Union
 import random
 import pickle
 import os
-import pandas as pd
 from .config import config
 
 if TYPE_CHECKING:
@@ -65,8 +64,9 @@ class BookMark:
             page_end (int): 结束页
         """
         self.page_end = page_end
-        if self.subs and isinstance(self.subs[-1], BookMark):
-            self.subs[-1].set_page_end(page_end)
+        match self.subs[-1]:
+            case BookMark() as sub:
+                sub.set_page_end(page_end)
 
     def get_kps(self) -> list[KPEntity]:
         """ 获取当前书签下的所有 知识点实体
@@ -76,14 +76,14 @@ class BookMark:
         """
         kps: list[KPEntity] = []
 
-        def get_kp(bookmarks: list[BookMark]):
-            for bk in bookmarks:
-                if bk.subs and isinstance(bk.subs[-1], KPEntity):
-                    kps.extend(bk.subs)
-                else:
-                    get_kp(bk.subs)
-
-        get_kp([self])
+        def get_kp(bookmark: BookMark):
+            for sub in bookmark.subs:
+                match sub:
+                    case KPEntity():
+                        kps.append(sub)
+                    case BookMark():
+                        get_kp(sub)
+        get_kp(self)
         return kps
 
 
@@ -108,7 +108,7 @@ class Document:
         Returns:
             Document: 文档
         """
-        return cls(id='0:' + str(uuid.uuid4()),
+        return cls(id='0:' + str(shortuuid.uuid()),
                    name=os.path.basename(parser.file_path).split('.')[0],
                    file_path=parser.file_path,
                    bookmarks=parser.get_bookmarks(),
@@ -151,23 +151,31 @@ class Document:
         """
         res: list[BookMark] = []
 
-        def get_bookmark(bookmarks: list[BookMark]):
-            for bookmark in bookmarks:
-                res.append(bookmark)
-                if bookmark.subs and isinstance(bookmark.subs[-1], BookMark):
-                    get_bookmark(bookmark.subs)
-
-        get_bookmark(self.bookmarks)
+        def get_bookmark(node:Union[Document, BookMark]):
+            match node:
+                case Document():
+                    for bookmark in node.bookmarks:
+                        res.append(bookmark)
+                        get_bookmark(bookmark)
+                case BookMark():
+                    for sub in node.subs:
+                        match sub:
+                            case BookMark():
+                                res.append(sub)
+                                get_bookmark(sub)
+                            case _:
+                                pass
+        get_bookmark(self)
         return res
 
     @logger.catch
     def set_knowledgepoints_by_llm(
-        self,
-        llm: LLM,
-        prompt: ExtractPrompt = ExamplePrompt(),
-        self_consistency: bool = False,
-        samples: int = 5,
-        top: float = 0.5) -> None:
+            self,
+            llm: LLM,
+            prompt: ExtractPrompt = ExamplePrompt(),
+            self_consistency: bool = False,
+            samples: int = 5,
+            top: float = 0.5) -> None:
         """ 使用 LLM 抽取知识点存储到 BookMark 中
 
         Args:
@@ -231,7 +239,7 @@ class Document:
                         entities.append(kp)
                         break
                 else:
-                    kp = KPEntity(id='2:' + str(uuid.uuid4()), name=name)
+                    kp = KPEntity(id='2:' + str(shortuuid.uuid()), name=name)
                     self.knowledgepoints.append(kp)
                     entities.append(kp)
             logger.success(f'最终获取知识点实体: ' + str(entities_name))
@@ -289,12 +297,13 @@ class Document:
                                 break
                         else:
                             head.relations.append(
-                                KPRelation(id='3:' + str(uuid.uuid4()),
+                                KPRelation(id='3:' + str(shortuuid.uuid()),
                                            type=rela['relation'],
                                            tail=tail))
 
             return entities
 
+        # 知识抽取
         for bookmark in self.flatten_bookmarks():
             if not bookmark.subs:  # 表示最后一级书签 subs为空数组需要设置知识点
                 logger.info('子章节: ' + bookmark.title)
@@ -344,53 +353,107 @@ class Document:
         Returns:
             list[str]: 多条 cypher 语句
         """
-        relations = list(relations.keys())
-        attrs = list(attributes.keys())
+        relas = list(ontology.relations.keys())
+        attrs = list(ontology.attributes.keys())
         cyphers = [
             f'CREATE (:Document {{id: "{self.id}", name: "{self.name}"}})'
         ]
         # 创建所有知识点实体和实体属性
         for entity in self.knowledgepoints:
             res = [str(sl) for sl in entity.resourceSlices]
-            attr_string = [f'定义: "{entity.attributes.get("定义", "")}' for attr in attrs]
+            attr_string = [f'{attr}: "{entity.attributes.get(attr, "")}' for attr in attrs]
             cyphers.append(
                 f'CREATE (:KnowledgePoint {{id: "{entity.id}", name: "{entity.name}", resource: {res},  {",".join(attr_string)}}})'
             )
         # 创建所有知识点关联
         for entity in self.knowledgepoints:
             for relation in entity.relations:
-                if relation.type in relations:
+                if relation.type in relas:
                     cyphers.append(
                         f'MATCH (n1:KnowledgePoint {{id: "{entity.id}"}}) MATCH (n2:KnowledgePoint {{id: "{relation.tail.id}"}}) CREATE (n1)-[:{relation.type} {relation.attributes}]->(n2)'
                     )
 
-        def bookmarks_to_cypher(bookmarks: list[BookMark], parent_id: str):
-            cyphers: list[str] = []
-            for bookmark in bookmarks:
-                if bookmark.title in config.ignore_page:
-                    continue
-                # 创建章节实体
-                res = [str(resource) for resource in bookmark.resource]
-                cyphers.append(
-                    f'CREATE (:Chapter {{id: "{bookmark.id}", name: "{bookmark.title}", page_start: {bookmark.page_start.index}, page_end: {bookmark.page_end.index}, resource: {res}}})'
-                )
-                # 创建章节和上级章节 (书籍) 关联, 所以不写类别
-                cyphers.append(
-                    f'MATCH (n1 {{id: "{parent_id}"}}) MATCH (n2:Chapter {{id: "{bookmark.id}"}}) CREATE (n1)-[:子章节]->(n2)'
-                )
-                if bookmark.subs and isinstance(bookmark.subs[-1], BookMark):
-                    cyphers.extend(
-                        bookmarks_to_cypher(bookmark.subs, bookmark.id))
-                # 创建章节和知识点之间关联
-                elif bookmark.subs and isinstance(bookmark.subs[-1], KPEntity):
-                    for entity in bookmark.subs:
+        def bookmark_to_cypher(bookmark: BookMark, parent_id: str):
+            if bookmark.title in config.ignore_page:
+                return
+            # 创建章节实体
+            res = [str(resource) for resource in bookmark.resource]
+            cyphers.append(
+                f'CREATE (:Chapter {{id: "{bookmark.id}", name: "{bookmark.title}", page_start: {bookmark.page_start.index}, page_end: {bookmark.page_end.index}, resource: {res}}})'
+            )
+            # 创建章节和上级章节 (书籍) 关联, 所以不写类别
+            cyphers.append(
+                f'MATCH (n1 {{id: "{parent_id}"}}) MATCH (n2:Chapter {{id: "{bookmark.id}"}}) CREATE (n1)-[:子章节]->(n2)'
+            )
+            for sub in bookmark.subs:
+                match sub:
+                    case BookMark():
+                        bookmark_to_cypher(sub, bookmark.id)
+                    case KPEntity():
                         cyphers.append(
                             f'MATCH (n1:Chapter {{id: "{bookmark.id}"}}) MATCH (n2:KnowledgePoint {{id: "{entity.id}"}}) CREATE (n1)-[:提到知识点]->(n2)'
                         )
-            return cyphers
 
-        cyphers.extend(bookmarks_to_cypher(self.bookmarks, self.id))
+        for bookmark in self.bookmarks:
+            bookmark_to_cypher(bookmark, self.id)
         return cyphers
+
+    def to_json(self) -> tuple[dict, dict]:
+        """ 将图谱转换为 json 格式
+
+        Returns:
+            tuple[dict, dict]: relations, entity_attributes 两个字段
+        """
+        relations = []
+        entity_attributes = []
+        # relation_attributes = []
+
+        def add_relation(x_id, x_type, x_name, y_id, y_type ,y_name, relation, relation_id=None):
+            relations.append({
+                'x_id': x_id,
+                'x_type': x_type,
+                'x_name': x_name,
+                'y_id': y_id,
+                'y_type': y_type,
+                'y_name': y_name,
+                'relation': relation,
+                'relation_id': relation_id or f'3:{shortuuid.uuid()}'
+            })
+
+        def dfs(node: Union[Document, BookMark, KPEntity]):
+            match node:
+                case Document():
+                    for bookmark in node.bookmarks:
+                        if bookmark in config.ignore_page:
+                            pass
+                        add_relation(node.id, 'Document', node.name, bookmark.id, 'Chapter',bookmark.title, '子章节')
+                        dfs(bookmark)
+                case BookMark():
+                    for sub in node.subs:
+                        match sub:
+                            case BookMark():
+                                add_relation(node.id, 'Chapter', node.title, sub.id, 'Chapter', sub.title, '子章节')
+                            case KPEntity():
+                                add_relation(node.id, 'Chapter', node.title, sub.id, 'KnowledgePoint', sub.name, '提到知识点')
+                        dfs(sub)
+                case KPEntity():
+                    for relation in node.relations:
+                        add_relation(node.id, node.name, 'KnowledgePoint', relation.tail.id, 'KnowledgePoint', relation.tail.name, relation.type, relation.id)
+
+        dfs(self)
+
+        attrs = list(ontology.attributes.keys())
+        for kp in self.knowledgepoints:
+            attribute = {
+                'entity_id': kp.id,
+                'entity_type': 'KnowledgePoint',
+                'entity_name': kp.name,
+            }
+            for attr in attrs:
+                attribute[attr] = kp.attributes.get(attr, '')
+            entity_attributes.append(attribute)
+
+        return relations, entity_attributes #, relation_attributes
 
     def set_resource(self, resource_map: 'ResourceMap') -> None:
         """ 为知识点设置相应的资源

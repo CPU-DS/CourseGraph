@@ -7,7 +7,7 @@
 from ..base import BookMark, PageIndex
 from .structure_model import *
 from .ocr_model import *
-import uuid
+import shortuuid
 from ..parser import Parser, Page, Content, ContentType
 import fitz
 from PIL import Image
@@ -244,7 +244,7 @@ class PDFParser(Parser):
             page -= 1  # 从0开始
             level -= 1  # 从0开始
             bookmarks.append(
-                BookMark(id='1:' + str(uuid.uuid4()) + f':{level}',
+                BookMark(id='1:' + str(shortuuid.uuid()) + f':{level}',
                          title=title,
                          page_start=PageIndex(index=page, anchor=anchor),
                          page_end=PageIndex(index=0, anchor=(0, 0)),
@@ -385,7 +385,7 @@ class PDFParser(Parser):
                 return  # 图片过小
             cropped_img = Image.fromarray(img).crop((x1, y1, x2, y2))
             path = os.path.join(self.cache_path,
-                                f'{str(uuid.uuid4())}_{_idx}_{type_}.png')
+                                f'{str(shortuuid.uuid())}_{_idx}_{type_}.png')
             cropped_img.save(path)
             return path
 
