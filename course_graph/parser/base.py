@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING
 import random
 import pickle
 import os
+import pandas as pd
 
 if TYPE_CHECKING:
     from .parser import Parser
@@ -158,6 +159,7 @@ class Document:
         get_bookmark(self.bookmarks)
         return res
 
+    @logger.catch
     def set_knowledgepoints_by_llm(
         self,
         llm: LLM,
@@ -338,7 +340,7 @@ class Document:
         # 实体共指消解
 
     def to_cyphers(self) -> list[str]:
-        """ 将整体的关联关系转换为 cypher CREATE 语句
+        """ 将图谱转换为 cypher CREATE 语句
 
         Returns:
             list[str]: 多条 cypher 语句
@@ -355,10 +357,10 @@ class Document:
         # 创建所有知识点关联
         for entity in self.knowledgepoints:
             for relation in entity.relations:
-                if relation.type in ['包含', '相关', '顺序']:
-                    cyphers.append(
-                        f'MATCH (n1:KnowledgePoint {{id: "{entity.id}"}}) MATCH (n2:KnowledgePoint {{id: "{relation.tail.id}"}}) CREATE (n1)-[:{relation.type} {relation.attributes}]->(n2)'
-                    )
+                # if relation.type in ['包含', '相关', '顺序']:
+                cyphers.append(
+                    f'MATCH (n1:KnowledgePoint {{id: "{entity.id}"}}) MATCH (n2:KnowledgePoint {{id: "{relation.tail.id}"}}) CREATE (n1)-[:{relation.type} {relation.attributes}]->(n2)'
+                )
 
         def bookmarks_to_cypher(bookmarks: list[BookMark], parent_id: str):
             cyphers: list[str] = []

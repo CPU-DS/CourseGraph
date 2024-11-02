@@ -5,5 +5,3 @@
 # Description: course_graph
 
 from .log import setup_logger
-
-setup_logger()

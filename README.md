@@ -17,23 +17,21 @@
 CourseGraph 使用大模型，利用多种 prompt 优化技术, 自动从教材、书籍中抽取知识点, 构成以课程-章节-知识点为主题的知识图谱。为增加每个知识点的信息, CourseGraph 可以为知识点链接相应的习题、扩展阅读材料等资源, 另外也可利用多模态大模型从 pptx、图片、视频中提取信息并与之相关联。
 
 
-## 局限性
+## 🤔局限性
 
 - 目前只实现了基本的知识图谱抽取和对 pptx 的解析，效果有待优化
 - 对视频的解析还处于规划中
 
-## 未来发展方向
+## 📈未来发展方向
 
 - 改进提示词工程，并尝试使用 Agent 完成相关工作
 - 基于图谱的问答 (KBQA 或 Graph-RAG)
 
-## 快速使用
+## 🚀快速使用
 
 #### 安装依赖
 
-本项目使用 Conda 管理虚拟环境，使用 Poetry 管理 Python 包，另外还使用 Rust + PyO3 编写了部分 Python 扩展
-
-请确保已安装 Anaconda (或Minionda) 和 Rust，然后执行：
+本项目使用 Conda 管理虚拟环境，使用 Poetry 管理 Python 包，另外还使用 Rust + PyO3 编写了部分 Python 扩展，请确保已安装 Anaconda (或Miniconda) 和 Rust 环境，然后执行：
 
 ```bash
 git clone git@github.com:wangtao2001/CourseGraph.git
@@ -64,7 +62,7 @@ cd rust_ext && maturin develop && cd ..
 python examples/get_knowledge_graph.py
 ```
 
-## 文档
+## 📚文档
 
 你可以访问 [在线文档](https://wangtao2001.github.io/CourseGraph/) (由于项目功能仍处于快速开发中，故在线文档暂时还没有准备好)。如果你希望自定义文档请依照以下步骤：
 
@@ -83,7 +81,7 @@ npm run docs:dev
 
 在线文档使用 Github Actions + Github Pages 部署，描述文件在 `.github/workflows/docs.yaml`
 
-## 贡献和引用
+## 🛠️贡献和引用
 
 欢迎提交 [PR](https://github.com/wangtao2001/CourseGraph/pulls) 或 [Issues](https://github.com/wangtao2001/CourseGraph/issues)，也欢迎参与任何形式的贡献
 
