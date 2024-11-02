@@ -8,7 +8,7 @@ import openai
 from openai.types.chat import *
 from openai import NOT_GIVEN, NotGiven
 from abc import ABC
-from .config import LLMConfig
+from .config import llm_config
 import os
 import requests
 import subprocess
@@ -21,24 +21,17 @@ class LLM(ABC):
 
     def __init__(
         self,
-        instruction: str = 'You are a helpful assistant.',
-        config: LLMConfig = LLMConfig()
     ) -> None:
         """ 大模型抽象类
-
-        Args:
-            instruction (str, optional): 指令. Defaults to 'You are a helpful assistant.'.
-            config (LLMConfig, optional): 大模型配置. Defaults to LLMConfig().
         """
         ABC.__init__(self)
-        self.config = config
 
         self.model: str | None = None  # 需要在子类中额外初始化
         self.client: openai.OpenAI | None = None
 
         self.json: bool = False
         self.stop = None
-        self.instruction = instruction
+        self.instruction = 'You are a helpful assistant.'
 
     def chat_completion(
         self,
@@ -65,11 +58,11 @@ class LLM(ABC):
         return self.client.chat.completions.create(
             model=self.model,
             messages=messages,
-            top_p=self.config.top_p,
-            temperature=self.config.temperature,
-            presence_penalty=self.config.presence_penalty,
-            frequency_penalty=self.config.frequency_penalty,
-            max_tokens=self.config.max_tokens,
+            top_p=llm_config.top_p,
+            temperature=llm_config.temperature,
+            presence_penalty=llm_config.presence_penalty,
+            frequency_penalty=llm_config.frequency_penalty,
+            max_tokens=llm_config.max_tokens,
             tools=tools,
             parallel_tool_calls=parallel_tool_calls,
             tool_choice=tool_choice,
@@ -80,7 +73,7 @@ class LLM(ABC):
             },
             stop=self.stop,
             extra_body={
-                'top_k': self.config.top_k
+                'top_k': llm_config.top_k
             }).choices[0].message
 
     def chat(self, message: str) -> str:
@@ -102,17 +95,15 @@ class OpenAI(LLM):
                  name: str,
                  *,
                  base_url: str = None,
-                 api_key: str = None,
-                 config: LLMConfig = LLMConfig()):
+                 api_key: str = None):
         """ OpenAI 模型 API 服务
 
         Args:
             name (str): 模型名称
             base_url (str, optional): 地址. Defaults to None.
             api_key (str, optional): API key. Defaults to None.
-            config (LLMConfig, optional): 大模型配置. Defaults to LLMConfig().
         """
-        super().__init__(config=config)
+        super().__init__()
 
         self.model = name
         self.client = openai.OpenAI(
@@ -126,20 +117,17 @@ class Qwen(OpenAI):
     def __init__(self,
                  name: str = 'qwen-max',
                  *,
-                 api_key: str = os.getenv("DASHSCOPE_API_KEY"),
-                 config: LLMConfig = LLMConfig()):
+                 api_key: str = os.getenv("DASHSCOPE_API_KEY")):
         """ Qwen 系列模型 API 服务
 
         Args:
             name (str, optional): 模型名称. Defaults to qwen-max.
             api_key (str, optional): API key. Defaults to os.getenv("DASHSCOPE_API_KEY").
-            config (LLMConfig, optional): 大模型配置. Defaults to LLMConfig().
         """
         super().__init__(
             name=name,
             base_url='https://dashscope.aliyuncs.com/compatible-mode/v1',
-            api_key=api_key,
-            config=config)
+            api_key=api_key)
 
 
 class Serve:
@@ -190,7 +178,6 @@ class VLLM(LLM, Serve):
     def __init__(self,
                  path: str,
                  *,
-                 config: LLMConfig = LLMConfig(),
                  host: str = 'localhost',
                  port: int = 9017,
                  starting_command: str = None,
@@ -199,13 +186,12 @@ class VLLM(LLM, Serve):
 
         Args:
             path (str): 模型名称或路径
-            config (LLMConfig, optional): 大模型配置. Defaults to LLMConfig().
             timeout (int, optional): 启动服务超时时间. Defaults to 60.
             host (str, optional): 服务地址. Defaults to 'localhost'.
             port (int, optional): 服务端口. Defaults to 9017.
             starting_command (str, optional): VLLM启动命令 (适合于需要自定义template的情况), 也可以使用默认命令, LLMConfig中的配置会自动加入. Defaults to None.
         """
-        LLM.__init__(self, config=config)
+        LLM.__init__(self)
 
         self.host = host
         self.port = port
@@ -215,9 +201,9 @@ class VLLM(LLM, Serve):
             command_list = shlex.split(f"""vllm serve {self.model}\
                                             --host {self.host}\
                                             --port {self.port}\
-                                            --gpu-memory-utilization {str(self.config.gpu_memory_utilization)}\
-                                            --tensor-parallel-size {str(self.config.tensor_parallel_size)}\
-                                            --max-model-len {str(self.config.max_model_len)}\
+                                            --gpu-memory-utilization {str(llm_config.gpu_memory_utilization)}\
+                                            --tensor-parallel-size {str(llm_config.tensor_parallel_size)}\
+                                            --max-model-len {str(llm_config.max_model_len)}\
                                             --enable-auto-tool-choice\
                                             --tool-call-parser hermes\
                                             --disable-log-requests""")
@@ -226,17 +212,17 @@ class VLLM(LLM, Serve):
             if "--gpu-memory-utilization" not in command_list:
                 command_list.extend([
                     "--gpu-memory-utilization",
-                    str(self.config.gpu_memory_utilization)
+                    str(llm_config.gpu_memory_utilization)
                 ])
             if "--tensor-parallel-size" not in command_list:
                 command_list.extend([
                     "--tensor-parallel-size",
-                    str(self.config.tensor_parallel_size)
+                    str(llm_config.tensor_parallel_size)
                 ])
             if "--max-model-len" not in command_list:
                 command_list.extend(
                     ["--max-model-len",
-                     str(self.config.max_model_len)])
+                     str(llm_config.max_model_len)])
             try:
                 idx = command_list.index('--host')
                 self.host = command_list[idx + 1]
@@ -262,7 +248,6 @@ class Ollama(LLM, Serve):
     def __init__(self,
                  name: str,
                  *,
-                 config: LLMConfig = LLMConfig(),
                  host: str = 'localhost',
                  port: int = 9017,
                  timeout: int = 60):
@@ -273,9 +258,8 @@ class Ollama(LLM, Serve):
             timeout (int, optional): 启动服务超时时间. Defaults to 60.
             host (str, optional): 服务地址. Defaults to 'localhost'.
             port (int, optional): 服务端口. Defaults to 9017.
-            config (LLMConfig, optional): 大模型配置. Defaults to LLMConfig().
         """
-        LLM.__init__(self, config=config)
+        LLM.__init__(self)
         self.model = name
 
         available_models = [m['name'] for m in ollama.list()['models']]

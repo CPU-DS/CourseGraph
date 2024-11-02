@@ -20,7 +20,10 @@ class LLMConfig:
     tensor_parallel_size: int = 2  # 张量并行大小
     gpu_memory_utilization: float = 0.6  # 显存占用率
 
+llm_config = LLMConfig()
 
 @dataclass
-class VisualConfig:
+class VLMConfig:
     temperature: int = 0.6  # 温度
+
+vlm_config = VLMConfig()

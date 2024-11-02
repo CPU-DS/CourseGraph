@@ -1,5 +1,7 @@
+@import "./blur.css";
+
 :root {
-    --gradient-background: linear-gradient(135deg, #FF9D6C 10%, #BB4E75 100%);
+    --gradient-background: linear-gradient(135deg, #1be7c9 10%, #025c4b 100%);
 
     --vp-home-hero-name-color: transparent;
     --vp-home-hero-name-background: var(--gradient-background);

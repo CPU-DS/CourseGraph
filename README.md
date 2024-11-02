@@ -1,18 +1,11 @@
-<p align="center">
-<img src="docs/public/logo.png" width="200"  alt="">
-</p>
-
 <div align="center">
-<h1>
-  CourseGraph: 使用大模型自动构建课程知识图谱
-</h1>
-</div>
+<img src="docs/public/logo.png" width="200"  alt="" />
+<h2>CourseGraph: 使用大模型自动构建课程知识图谱</h2>
 
-<h4 align="center">
-    <p>
-        <b>中文</b> | <a href="README_en.md">English</a>
-    </p>
-</h4>
+<p>
+    <b>中文</b> | <a href="README_en.md">English</a>
+</p>
+</div>
 
 CourseGraph 使用大模型，利用多种 prompt 优化技术, 自动从教材、书籍中抽取知识点, 构成以课程-章节-知识点为主题的知识图谱。为增加每个知识点的信息, CourseGraph 可以为知识点链接相应的习题、扩展阅读材料等资源, 另外也可利用多模态大模型从 pptx、图片、视频中提取信息并与之相关联。
 
@@ -68,7 +61,7 @@ python examples/get_knowledge_graph.py
 
 #### 依赖安装和预览
 
-文档使用 [VitePress](https://vitepress.dev/) 构建, 需安装 Node.js 18 及以上版本，然后执行：
+文档使用 [VitePress](https://vitepress.dev/) 构建, 需安装 Node.js 18 或以上版本，然后执行：
 
 ```bash
 npm i

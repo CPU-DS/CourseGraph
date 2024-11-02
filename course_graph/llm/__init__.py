@@ -8,6 +8,6 @@ from .prompt import ExtractPrompt, ExamplePrompt, ParserPrompt
 from .llm import LLM, VLLM, Qwen, Ollama, OpenAI
 from .vl_prompt import MultiImagePrompt
 from .prompt_strategy import ExamplePromptStrategy, SentenceEmbeddingStrategy
-from .config import VisualConfig, LLMConfig
+from .config import llm_config, vlm_config
 from .type import Database
 from .vlm import VLM

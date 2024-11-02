@@ -6,15 +6,16 @@
 
 from dataclasses import dataclass, field
 from ..llm import LLM, ExtractPrompt, ExamplePrompt
+from ..llm.prompt import relations,attributes
 import uuid
 from loguru import logger
-from .config import Config
 from collections import Counter
 from typing import TYPE_CHECKING
 import random
 import pickle
 import os
 import pandas as pd
+from .config import config
 
 if TYPE_CHECKING:
     from .parser import Parser
@@ -166,8 +167,7 @@ class Document:
         prompt: ExtractPrompt = ExamplePrompt(),
         self_consistency: bool = False,
         samples: int = 5,
-        top: float = 0.5,
-        config: Config = Config()) -> None:
+        top: float = 0.5) -> None:
         """ 使用 LLM 抽取知识点存储到 BookMark 中
 
         Args:
@@ -176,7 +176,6 @@ class Document:
             self_consistency (bool, optional): 是否采用自我一致性策略 (需要更多的模型推理次数). Defaults to False.
             samples (int, optional): 采用自我一致性策略的采样次数. Defaults to 5.
             top (float, optional): 采用自我一致性策略时，出现次数超过 top * samples 时才会被采纳，范围为 [0, 1]. Defaults to 0.5.
-            config (Config, optional): 配置. Defaults to Config().
         """
 
         def get_knowledgepoints(content: str,
@@ -309,7 +308,7 @@ class Document:
                 if len(text_contents) == 0:
                     bookmark.subs = []
                     continue
-                logger.success('子章节内容: \n' + text_contents)
+                logger.info('子章节内容: \n' + text_contents)
                 entities: list[KPEntity] = get_knowledgepoints(
                     text_contents,
                     self_consistency=self_consistency,
@@ -345,26 +344,31 @@ class Document:
         Returns:
             list[str]: 多条 cypher 语句
         """
+        relations = list(relations.keys())
+        attrs = list(attributes.keys())
         cyphers = [
             f'CREATE (:Document {{id: "{self.id}", name: "{self.name}"}})'
         ]
         # 创建所有知识点实体和实体属性
         for entity in self.knowledgepoints:
             res = [str(sl) for sl in entity.resourceSlices]
+            attr_string = [f'定义: "{entity.attributes.get("定义", "")}' for attr in attrs]
             cyphers.append(
-                f'CREATE (:KnowledgePoint {{id: "{entity.id}", name: "{entity.name}", define: "{entity.attributes.get("定义", "")}", resource: {res} }})'
+                f'CREATE (:KnowledgePoint {{id: "{entity.id}", name: "{entity.name}", resource: {res},  {",".join(attr_string)}}})'
             )
         # 创建所有知识点关联
         for entity in self.knowledgepoints:
             for relation in entity.relations:
-                # if relation.type in ['包含', '相关', '顺序']:
-                cyphers.append(
-                    f'MATCH (n1:KnowledgePoint {{id: "{entity.id}"}}) MATCH (n2:KnowledgePoint {{id: "{relation.tail.id}"}}) CREATE (n1)-[:{relation.type} {relation.attributes}]->(n2)'
-                )
+                if relation.type in relations:
+                    cyphers.append(
+                        f'MATCH (n1:KnowledgePoint {{id: "{entity.id}"}}) MATCH (n2:KnowledgePoint {{id: "{relation.tail.id}"}}) CREATE (n1)-[:{relation.type} {relation.attributes}]->(n2)'
+                    )
 
         def bookmarks_to_cypher(bookmarks: list[BookMark], parent_id: str):
             cyphers: list[str] = []
             for bookmark in bookmarks:
+                if bookmark.title in config.ignore_page:
+                    continue
                 # 创建章节实体
                 res = [str(resource) for resource in bookmark.resource]
                 cyphers.append(
@@ -406,6 +410,6 @@ class Document:
                 # 为下面的知识点实体设置Resource Slice
                 for kp in bookmark.get_kps():
                     slices = resource.get_slices(kp.name)
-                    logger.info(f'{kp.name}: {slices}')
+                    logger.success(f'{kp.name}: {slices}')
                     if slices:
                         kp.resourceSlices.extend(slices)

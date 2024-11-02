@@ -1,15 +1,8 @@
-<p align="center">
-<img src="docs/public/logo.png" width="200"  alt="">
-</p>
-
 <div align="center">
-<h1>
-  CourseGraph: Automatic Construction of Course Knowledge Graphs Using Large Models
-</h1>
-</div>
+<img src="docs/public/logo.png" width="200"  alt="" />
+<h2>CourseGraph: Automatic Construction of Course Knowledge Graphs Using Large Models</h2>
 
-<h4 align="center">
-    <p>
-        <a href="README.md">中文</a> | <b>English</b>
-    </p>
-</h4>
+<p>
+    <a href="README.md">中文</a> | <b>English</b>
+</p>
+</div>

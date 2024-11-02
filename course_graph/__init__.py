@@ -4,4 +4,4 @@
 # File Name: course_graph/__init__.py
 # Description: course_graph
 
-from .log import setup_logger
+from .log import set_logger

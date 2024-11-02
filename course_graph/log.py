@@ -9,7 +9,7 @@ import sys
 import time
 
 
-def setup_logger(console: bool = False,
+def set_logger(console: bool = False,
                  file: bool = True,
                  file_path: str = None,
                  format: str = None,
