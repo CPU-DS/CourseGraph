@@ -57,7 +57,7 @@ python examples/get_knowledge_graph.py
 
 ## 📚文档
 
-你可以访问 [在线文档](https://wangtao2001.github.io/CourseGraph/) (由于项目功能仍处于快速开发中，故在线文档暂时还没有准备好)。如果你希望自定义文档请依照以下步骤：
+可以在 `docs` 目录下查文档, 也可以访问 [在线文档](https://wangtao2001.github.io/CourseGraph/) (由于项目功能仍处于快速开发中，故在线文档暂时还没有准备好)。如果你希望自定义在线文档请依照以下步骤：
 
 #### 依赖安装和预览
 

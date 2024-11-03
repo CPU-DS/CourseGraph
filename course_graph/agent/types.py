@@ -48,5 +48,5 @@ class ContextVariables:
 class Result:
     agent: Optional['Agent'] = None
     content: str = 'Function call successfully.'
-    context_variables: ContextVariables = ContextVariables()
+    context_variables: ContextVariables | dict = ContextVariables()
     message: bool = True
