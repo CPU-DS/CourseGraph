@@ -2,13 +2,13 @@
 
 本章提到的 package: `course_graph.agent` 和 `course_graph.llm`
 
-## 多智能体编排框架{#1}
+## 多智能体编排框架
 
 > 该框架受到了 openai [swarm](https://github.com/openai/swarm) 项目的启发
 
 `course_graph.agent` 是一款通用的多智能体编排框架, 不仅支持多智能体的 **主动切换**, 也可以使用 **人工编排**, 从而形成工作流。`course_graph.agent` 也拥有比 swarm 更好的 function2json 的能力。基于 `course_graph.llm` , 该框架也支持调用更多类型的大模型。
 
-接下来介绍该框架的一般用法, 如果想了解如何使用智能体抽取知识图谱以及与大模型抽取知识图谱的区别, 请参考 [使用智能体抽取知识图谱](#2)。
+接下来介绍该框架的一般用法, 如果想了解如何使用智能体抽取知识图谱以及与大模型抽取知识图谱的区别, 请参考 [使用智能体抽取知识图谱](#使用智能体抽取知识图谱)。
 
 ### 创建一个智能体
 
@@ -26,7 +26,7 @@ translator = Agent(name='translator',
 
 创建一个 `Agent` 类, 需要提供智能体的名称 `name`、基础大模型 `llm` 和 系统指令 `instruction`, 其中 `instruction` 将作为 `system message` 在每次对话时传递给大模型以提供高层指导。
 
-当然你也可以将具体的指令需求直接写在 `instruction` 中, 这种方式将在 [几种编排方式的对比](#3) 中具体解释。
+当然你也可以将具体的指令需求直接写在 `instruction` 中, 这种方式将在 [工作流编排](#工作流编排) 中具体解释。
 
 ### 创建一个控制器
 
@@ -107,7 +107,7 @@ def get_weather(location: str) -> str:
 > [!NOTE]
 > 文档支持 ReST、Google、Numpydoc-style 和 Epydoc 风格。
 
-##### 通过 Tool 接口{#6}
+##### 通过 Tool 接口
 
 如果工具函数来自外部库, 没有办法控制标注和文档时, 可以有以下两种解决方式:
 
@@ -159,15 +159,15 @@ assistant.add_tools(get_weather_tool)
 
 - 字符串: 字符串一般表示函数的执行结果, 例如天气查询的返回值, 此返回值会交还给智能体。
 
-- `Agent` 对象: 表示要切换到新的智能体上继续执行任务。详细见 [多智能体编排](#4)。
+- `Agent` 对象: 表示要切换到新的智能体上继续执行任务。详细见 [多智能体编排](#多智能体编排)。
 
-- `ContextVariables` 对象: 表示要更新的上下文变量。详细见 [上下文变量](#5)。
+- `ContextVariables` 对象: 表示要更新的上下文变量。详细见 [上下文变量](#上下文变量)。
 
 - `Result` 对象: 以上三种类型的组合类。
 
-初此之外的返回值都将会被忽略, 其隐藏含义是指只关心函数的副作用而不关心函数的返回值。
+除此之外的返回值都将会被忽略, 其隐藏含义是只关心函数的副作用而不关心函数的返回值。
 
-### 上下文变量{#5}
+### 上下文变量
 
 智能体拥有短期记忆和长期记忆, 在这里我们将短期记忆定义为对话的历史记录, 而使用上下文变量实现长期记忆。
 
@@ -187,13 +187,13 @@ controller = Controller(context_variables={'current_time': '2024/09/01'})
 
 ##### instruction中使用
 
-在创建 `Agent` 对象时, `instruction` 不仅可以是一个字符串，也可以是一个函数，但是这个函数 **只能** 拥有一个形参且必需是 `ContextVariables` 类型且 **必需** 返回一个字符串。
+在创建 `Agent` 对象时, `instruction` 不仅可以是一个字符串，也可以是一个函数，但这个函数 **只能** 拥有一个 `ContextVariables` 类型的形参且 **必需** 返回一个字符串。
 
 ``` python
 from course_graph.agent import ContextVariables
 
 def assistant_instruction(context_variables: ContextVariables):
-    return f"你是一个通用的助手, 当前的时间是: {context_variables['current_time']}"
+    return f"你是一个通用的助手, 当前的时间是: {context_variables['current_time']}。"
 
 assistant = Agent(name="assistant",
                   llm=llm,
@@ -232,11 +232,11 @@ get_weather_tool: Tool = {
 }
 ```
 
-这里对 `get_weather_tool` 中 `tool` 字段的定义进行了省略, 详细定义见 [这里](#6)。
+这里对 `get_weather_tool` 中 `tool` 字段的定义进行了省略, 详细定义见 [这里](#通过-tool-接口)。
 
 #### 更新上下文变量
 
-通过在外部工具的返回值中返回一个 `ContextVariables` 类型来上下文变量, 也可以返回一个 `Result` 类型, 其中的 `context_variables` 字段表示要更新的上下文变量, 可以传递一个 `ContextVariables` 类型变量或字典类型变量。
+通过在外部工具的返回值中返回一个 `ContextVariables` 类型来上下文变量, 也可以返回一个 `Result` 类型, 其中的 `context_variables` 字段表示要更新的上下文变量, 可以传递一个 `ContextVariables` 类型的变量或字典类型的变量。
 
 上下文变量的更新逻辑与字典的更新逻辑相同。
 
@@ -246,12 +246,43 @@ from course_graph.agent import Result
 result = Result(context_variables={'current_time': '2024/09/02'})
 ```
 
-### 多智能体编排{#4}
+### 多智能体编排
+
+[这里](https://github.com/wangtao2001/CourseGraph/blob/dev/examples/agent/agent_orchestration.py) 展示了一个典型的多智能体编排的场景。
+
+`core_agent` 负责选择不同的智能体执行相应的任务, 其中的 `transfer_to` 函数通过返回一个 `Agent` 对象来实现身份的转换。
+
+对于具体执行任务的智能体来说, 当任务执行完成后, 返回了一个 `Result` 对象, 其中包含了工具函数的调用结果, 并且将身份再转回到 `core_agent` 上。
+
+这里我们并没有使用上下文变量, 而是通过历史对话消息在不同的智能体间传递信息。
 
 ### 工作流编排
 
-### 几种编排方式的对比{#3}
+[这里](https://github.com/wangtao2001/CourseGraph/blob/dev/examples/agent/workflow_orchestration.py) 展示了一个典型的工作流编排场景。
 
-## 使用智能体抽取知识图谱{#2}
+其中包含了两个工作: 中文的新闻稿撰写和英文的新闻稿撰写。两个工作是并行执行的。
+
+在每个工作的内部, 我们手动控制智能体的执行顺序并更新上下文变量。比较特殊的是, 我们将指令直接写在了 `instruction` 中。在这种编排方式下, 智能体不再主动进行任务的规划, 只负责执行具体的指令。
+
+### 几种编排方式的对比 
+
+1. **单智能体**：所有的任务都由一个智能体负责，自动规划任务、选择工具调用并进行结果的总结。优点是简单, 用户只需要配置工具下发指令即可。缺点是无法控制智能体的行为, 当任务过于复杂时, 单智能体的压力可能过大, 这种现象在小模型上更加明显。
+
+2. **多智能体**：这种情况下通常用拥有一个核心智能体, 负责将任务拆分成多个任务，每个任务由一个智能体负责，智能体之间通过历史消息传递进行沟通。优点是子任务更加简单智能体处理更加轻松, 但缺点是缺乏稳定性。
+
+3. **工作流**: 当用户明确知道解决任务的具体步骤时工作流是更加合适的选择。智能体之间不再发生联系, 每个智能体的工作结果也通常保存到上下文变量中。
+
+在具体的实践中, 我们可以将多种编排方式结合起来。将一个任务拆解成多个子任务, 每个子任务可以由多智能体规划具体的执行策略。这样就实现了人工拆解和智能体规划的平衡。
+
+这里有一个细节需要注意: 在多智能体编排中, 我们通常使用历史对话传递消息, 在智能体切换的时候, 之前智能体的与用户的对话或是工具函数调用的结果都会被保存起来, 但是这种方式容易造成历史对话过长。如果你明确不需要这种传递机制, 可以在 `Result` 对象中设置 `message` 字段为 `False` 来实现转换智能体但并不携带历史对话。
+
+```python
+result = Result(agent=assistant, message=False)
+```
+> [!TIP]
+> 在这种情况下你可以使用上下文变量实现信息的传递。
+
+
+## 使用智能体抽取知识图谱
 
 
