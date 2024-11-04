@@ -1,4 +1,5 @@
 @import "./blur.css";
+@import "./custom-block.css";
 
 :root {
     --gradient-background: linear-gradient(135deg, #1be7c9 10%, #025c4b 100%);

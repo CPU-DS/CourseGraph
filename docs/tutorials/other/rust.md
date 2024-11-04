@@ -1,10 +1,13 @@
 # Rust 扩展
 
-本项目使用 Rust 编写了部分 Python 函数, 目的是加速这些函数的执行速度。例如目标检测的后处理上。
+<ArticleMetadata/>
 
-实际上因为大量调用大模型, 所以 Rust 带来的速度提升并不明显。这样做的原因只是为了体验混合编程。所有 Rust 代码保存在 [rust_ext](https://github.com/wangtao2001/CourseGraph/tree/dev/rust_ext) 目录下。
+本项目使用 Rust 编写了部分 Python 函数, 目的是加速这些函数的执行速度。例如目标检测的后处理上。实际上因为大量调用大模型, 所以 Rust 带来的速度提升并不明显, 这部分只是为了体验混合编程。
 
-这部分扩展并不提供给用户, 只在项目内部进行调用。如果你不打算继续开发, 请忽略本章内容。
+所有 Rust 代码保存在 [rust_ext](https://github.com/wangtao2001/CourseGraph/tree/dev/rust_ext) 目录下。
+
+> [!NOTE]
+> 这部分扩展并不提供给用户, 只在项目内部进行调用。如果你不打算继续开发, 请忽略本章内容。
 
 ## 继续编写 Rust 扩展
 

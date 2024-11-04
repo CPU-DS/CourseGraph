@@ -17,7 +17,7 @@ import re
 from ...llm import VLM, MultiImagePrompt, LLM, ParserPrompt
 import os
 import shutil
-from course_graph_ext import get_list_from_string
+from course_graph_ext import get_list_from_string, find_longest_consecutive_sequence
 
 
 class PDFParser(Parser):
@@ -69,11 +69,8 @@ class PDFParser(Parser):
                 case 4:
                     try:
                         xref = item[3]['xref']
-                        t_xref = int(
-                            self._pdf.xref_get_key(xref, 'A')[1].split()[0])
-                        fitH = int(
-                            self._pdf.xref_get_key(t_xref,
-                                                   'D')[1][1:-1].split()[-1])
+                        t_xref = int(self._pdf.xref_get_key(xref, 'A')[1].split()[0])
+                        fitH = int(self._pdf.xref_get_key(t_xref, 'D')[1][1:-1].split()[-1])
                         outline.append([*item[:3], (-1, max(h - fitH, 0))])
                     except:
                         outline.append([*item[:3], (-1, -1)])  # 解析出错
@@ -122,38 +119,6 @@ class PDFParser(Parser):
             if res.startswith('是'):
                 catalogue.append(index)
         shutil.rmtree(cache_path)
-
-        def find_longest_consecutive_sequence(
-                nums: list[int]) -> tuple[int, int]:
-            """ 找到一个最长的连续序列的起点和终点
-
-            Args:
-                nums (list[int]): 序列
-
-            Returns:
-                tuple[int, int]: 起点数字和终点数字
-            """
-            if not nums:
-                return -1, -1
-
-            nums = sorted(set(nums))
-            max_start = max_end = nums[0]
-            current_start = nums[0]
-            max_length = 1
-            current_length = 1
-
-            for i in range(1, len(nums)):
-                if nums[i] == nums[i - 1] + 1:
-                    current_length += 1
-                    if current_length > max_length:
-                        max_length = current_length
-                        max_start = current_start
-                        max_end = nums[i]
-                else:
-                    current_start = nums[i]
-                    current_length = 1
-
-            return max_start, max_end
 
         return find_longest_consecutive_sequence(catalogue)
 
@@ -206,11 +171,9 @@ class PDFParser(Parser):
             text = page.get_text()
             if len(text) == 0:  # 图片型pdf则使用OCR
                 text = '\n'.join([
-                    item['text'] for item in self.structure_model(
-                        self._get_page_img(index, zoom=2))
+                    item['text'] for item in self.structure_model(self._get_page_img(index, zoom=2))
                 ])
-            res = llm.chat(parser_prompt.get_directory_prompt(text)).replace(
-                "，", ",")
+            res = llm.chat(parser_prompt.get_directory_prompt(text)).replace("，", ",")
             lines.extend(get_list_from_string(res))
         self._set_outline(lines, offset, llm, parser_prompt)
 
@@ -227,8 +190,7 @@ class PDFParser(Parser):
         for index in range(self._pdf.page_count):
             img = self._get_page_img(index, zoom=1)
             res = self.structure_model(img)
-            titles.extend([[block['text'], index] for block in res
-                           if block['type'] == 'title'])
+            titles.extend([[block['text'], index] for block in res if block['type'] == 'title'])
         self._set_outline(titles, 0, llm, parser_prompt)
 
     def get_bookmarks(self) -> list[BookMark]:
@@ -291,8 +253,7 @@ class PDFParser(Parser):
         # 获取书签对应的页面内容
         contents: list[Content] = []
         # 后续这个地方可以并行执行
-        for index in range(bookmark.page_start.index,
-                           bookmark.page_end.index + 1):
+        for index in range(bookmark.page_start.index, bookmark.page_end.index + 1):
 
             page_contents = self.get_page(index).contents
 
@@ -302,12 +263,9 @@ class PDFParser(Parser):
                 title = remove_blanks(bookmark.title)
 
                 if x == -1 and y == -1:  # 使用内容定位
-                    condition = lambda content: (content.type == ContentType.
-                                                 Title and remove_blanks(
-                                                     content.content) in title)
+                    condition = lambda content: (content.type == ContentType.Title and remove_blanks(content.content) in title)
                 else:  # 使用 anchor 定位
-                    condition = lambda content: (content.bbox[0] > x and
-                                                 content.bbox[1] > y)
+                    condition = lambda content: (content.bbox[0] > x and content.bbox[1] > y)
 
                 for i, content in enumerate(page_contents):
                     if condition(content):
@@ -321,11 +279,9 @@ class PDFParser(Parser):
                 x, y = bookmark.page_start.anchor
 
                 if x == -1 and y == -1:  # 使用内容定位
-                    condition = lambda content: (content.type == ContentType.
-                                                 Title)
+                    condition = lambda content: (content.type == ContentType.Title)
                 else:  # 使用 anchor 定位
-                    condition = lambda content: (content.bbox[0] > x and
-                                                 content.bbox[1] > y)
+                    condition = lambda content: (content.bbox[0] > x and content.bbox[1] > y)
                 for i, content in enumerate(page_contents):
                     if condition(content):
                         idx = i
@@ -376,16 +332,13 @@ class PDFParser(Parser):
         def save_block(_idx, _block) -> None | str:
             x1, y1, x2, y2 = _block['bbox']
             # 扩充裁剪区域
-            x1, y1, x2, y2 = max(0, x1 - t), max(0,
-                                                 y1 - t), min(w, x2 + t), min(
-                                                     h, y2 + t)  # 防止越界
+            x1, y1, x2, y2 = max(0, x1 - t), max(0, y1 - t), min(w, x2 + t), min(h, y2 + t)  # 防止越界
             if (x2 - x1) < 5 or (y2 - y1) < 5:
                 return  # 区域过小
             if type_ == 'figure' and ((x2 - x1) < 150 or (y2 - y1) < 150):
                 return  # 图片过小
             cropped_img = Image.fromarray(img).crop((x1, y1, x2, y2))
-            path = os.path.join(self.cache_path,
-                                f'{str(shortuuid.uuid())}_{_idx}_{type_}.png')
+            path = os.path.join(self.cache_path, f'{str(shortuuid.uuid())}_{_idx}_{type_}.png')
             cropped_img.save(path)
             return path
 
@@ -408,16 +361,16 @@ class PDFParser(Parser):
                         res = self.ocr_model(file_path)
                         if self.llm is not None:
                             try:
-                                res = self.llm.chat(
-                                    ParserPrompt.get_ocr_aided_prompt(res))
+                                res = self.llm.chat(ParserPrompt.get_ocr_aided_prompt(res))
                             finally:
                                 pass  # 这一步不是必须的
                         block['text'] = res
 
             elif self.vlm is not None:
                 if file_path := save_block(idx, block) is not None:
-                    block['text'] = self.vlm.chat(
-                        *self.vl_prompt.get_ocr_prompt(file_path))
+                    prompt, instruction = self.vl_prompt.get_ocr_prompt(file_path)
+                    self.vlm.instruction = instruction
+                    block['text'] = self.vlm.chat(prompt)
 
         contents: list[Content] = []
         for block in blocks:

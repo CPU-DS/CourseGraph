@@ -153,9 +153,6 @@ class Agent:
         Args:
             *functions (Callable): 外部工具函数
 
-        Raises:
-            ValueError: 传递 lambda 函数
-
         Returns:
             Agent: 智能体
         """

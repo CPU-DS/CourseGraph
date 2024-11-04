@@ -5,7 +5,7 @@
 # Description: 布局分析模型封装
 
 from abc import ABC, abstractmethod
-from typing_extensions import Literal, Required, TypedDict
+from typing_extensions import Required, TypedDict
 from numpy import ndarray
 from paddleocr.ppstructure.recovery.recovery_to_doc import sorted_layout_boxes
 from paddleocr import PPStructure
@@ -85,9 +85,7 @@ class LayoutYOLO(StructureModel):
         res = sorted_layout_boxes(result, w)
 
         # 后处理 (接受元组类型)
-        res = structure_post_process(detections=[(item['name'], item['bbox'])
-                                                 for item in res],
-                                     iou_threshold=0.1)
+        res = structure_post_process(detections=[(item['name'], item['bbox']) for item in res], iou_threshold=0.1)
 
         return [
             {

@@ -15,6 +15,7 @@ import random
 import pickle
 import os
 from .config import config
+from .utils import instance_method_transactional
 
 if TYPE_CHECKING:
     from .parser import Parser
@@ -97,6 +98,7 @@ class Document:
     bookmarks: list[BookMark]
     parser: 'Parser'
     knowledgepoints: list[KPEntity] = field(default_factory=list)  # 全局共享状态
+    checkpoint: dict = field(default=dict)
 
     @classmethod
     def from_parser(cls, parser: 'Parser') -> 'Document':
@@ -175,7 +177,8 @@ class Document:
             prompt: ExtractPrompt = ExamplePrompt(),
             self_consistency: bool = False,
             samples: int = 5,
-            top: float = 0.5) -> None:
+            top: float = 0.5,
+            checkpoint: bool = False) -> None:
         """ 使用 LLM 抽取知识点存储到 BookMark 中
 
         Args:
@@ -184,8 +187,10 @@ class Document:
             self_consistency (bool, optional): 是否采用自我一致性策略 (需要更多的模型推理次数). Defaults to False.
             samples (int, optional): 采用自我一致性策略的采样次数. Defaults to 5.
             top (float, optional): 采用自我一致性策略时，出现次数超过 top * samples 时才会被采纳，范围为 [0, 1]. Defaults to 0.5.
+            checkpoint (bool, optional): 如果保存有断点信息, 是否继续从断点处运行. Defaults to False.
         """
 
+        @instance_method_transactional('knowledgepoints')
         def get_knowledgepoints(content: str,
                                 self_consistency=False,
                                 samples: int = 5,
@@ -304,9 +309,12 @@ class Document:
             return entities
 
         # 知识抽取
-        for bookmark in self.flatten_bookmarks():
+        for index, bookmark in enumerate(self.flatten_bookmarks()):
             if not bookmark.subs:  # 表示最后一级书签 subs为空数组需要设置知识点
                 logger.info('子章节: ' + bookmark.title)
+                if index < self.skip['skip1'] and checkpoint:
+                    logger.info('已跳过')
+                    continue
                 if bookmark.title in config.ignore_page:
                     continue
                 contents = self.parser.get_contents(bookmark)
@@ -318,12 +326,17 @@ class Document:
                     bookmark.subs = []
                     continue
                 logger.info('子章节内容: \n' + text_contents)
-                entities: list[KPEntity] = get_knowledgepoints(
-                    text_contents,
-                    self_consistency=self_consistency,
-                    samples=samples,
-                    top=top)
-                bookmark.subs = entities
+                try:
+                    entities: list[KPEntity] = get_knowledgepoints(
+                        text_contents,
+                        self_consistency=self_consistency,
+                        samples=samples,
+                        top=top)
+                except Exception as e:
+                    self.checkpoint['extract'] = index
+                    raise e
+                else:
+                    bookmark.subs = entities
 
         # 选择最好的属性值
         for entity in self.knowledgepoints:

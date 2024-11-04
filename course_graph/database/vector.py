@@ -45,8 +45,6 @@ class Faiss:
         if self.index:
             _, idx = self.index.search(vec, k)
             return [int(i) for i in idx[0]]
-        else:
-            raise ValueError("请先加载或创建索引")
 
     def create(self, embed_dim: int) -> 'Faiss':
         """ 新建索引
@@ -71,5 +69,3 @@ class Faiss:
         """
         if self.index:
             faiss.write_index(self.index, self.index_path)
-        else:
-            raise ValueError("请先加载或创建索引")

@@ -34,3 +34,14 @@ def structure_post_process(
     Returns:
         list[tuple[str, tuple[float, ...]]]: 处理后检测结果
     """
+
+def find_longest_consecutive_sequence(
+        nums: list[int]) -> tuple[int, int]:
+    """ 找到一个最长的连续序列的起点和终点
+
+    Args:
+        nums (list[int]): 序列
+
+    Returns:
+        tuple[int, int]: 起点数字和终点数字
+    """

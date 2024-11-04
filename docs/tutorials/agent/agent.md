@@ -1,16 +1,14 @@
-# 智能体
+# Agent编排框架
 
-本章提到的 package: `course_graph.agent` 和 `course_graph.llm`
-
-## 多智能体编排框架
+<ArticleMetadata/>
 
 > 该框架受到了 openai [swarm](https://github.com/openai/swarm) 项目的启发
 
 `course_graph.agent` 是一款通用的多智能体编排框架, 不仅支持多智能体的 **主动切换**, 也可以使用 **人工编排**, 从而形成工作流。`course_graph.agent` 也拥有比 swarm 更好的 function2json 的能力。基于 `course_graph.llm` , 该框架也支持调用更多类型的大模型。
 
-接下来介绍该框架的一般用法, 如果想了解如何使用智能体抽取知识图谱以及与大模型抽取知识图谱的区别, 请参考 [使用智能体抽取知识图谱](#使用智能体抽取知识图谱)。
+接下来介绍该框架的一般用法, 如果想了解如何使用智能体抽取知识图谱以及与大模型抽取知识图谱的区别, 请参考 [使用Agent抽取知识图谱](../agent/kg)。
 
-### 创建一个智能体
+## 创建一个智能体
 
 ```python
 from course_graph.llm import Qwen
@@ -28,7 +26,7 @@ translator = Agent(name='translator',
 
 当然你也可以将具体的指令需求直接写在 `instruction` 中, 这种方式将在 [工作流编排](#工作流编排) 中具体解释。
 
-### 创建一个控制器
+## 创建一个控制器
 
 ```python
 from course_graph.agent import Controller
@@ -37,7 +35,7 @@ controller = Controller()
 
 `Controller` 负责启动 `Agent` 并为 `Agent` 提供上下文、具体执行外部工具等功能。
 
-### 启动智能体
+## 启动智能体
 
 ```python
 _, resp = controller.run(agent=translator, message="请帮我翻译蛋白质。")
@@ -47,13 +45,13 @@ _, resp = controller.run(agent=translator, message="请帮我翻译蛋白质。"
 
 `controller.run` 方法返回两个值, 其中第一个值代表最后响应的 `Agent` 对象 (暂时还用不到), 第二个值代表智能体最后的相应内容。在这个例子中, `resp` 的值应该是智能体翻译的结果 (不排除其中包含一些提示语)。
 
-### 使用外部工具
+## 使用外部工具
 
 智能体可以使用外部工具, 在这里我们定义 **外部工具** 等价于一个或多个 **函数对象**。在解决相应任务时, 智能体会自动选择外部工具、提供相应的参数并生成响应。之后则由控制器自动注入参数值并执行相应的函数。
 
 接下来的描述中可能混用函数与工具、外部工具等说法。
 
-#### 添加外部工具
+### 添加外部工具
 
 你可以在创建 `Agent` 时指定提供的外部工具:
 
@@ -79,11 +77,11 @@ assistant.add_too_functions(get_weather)
 > [!WARNING]
 > 工具函数不能是 lambda 函数。
 
-#### 外部工具的描述
+### 外部工具的描述
 
 智能体很难通过函数名称推断出函数的作用和参数, 所以需要尽可能多的为函数添加描述信息。
 
-##### 通过标注和文档 (推荐)
+#### 通过标注和文档 (推荐)
 
 对于一个函数我们应该使用文档清晰的描述函数的形参、形参类型、返回值描述、返回值类型和函数的功能。当然也可以使用类型标注来描述形参类型和返回值类型。
 
@@ -107,7 +105,7 @@ def get_weather(location: str) -> str:
 > [!NOTE]
 > 文档支持 ReST、Google、Numpydoc-style 和 Epydoc 风格。
 
-##### 通过 Tool 接口
+#### 通过 Tool 接口
 
 如果工具函数来自外部库, 没有办法控制标注和文档时, 可以有以下两种解决方式:
 
@@ -153,7 +151,7 @@ assistant.add_tools(get_weather_tool)
 > [!TIP]
 > 对于同一个工具函数, 不需要重调用 `add_tools` 和 `add_tool_functions` 进行添加。 
 
-#### 外部工具的返回值{#7}
+### 外部工具的返回值
 
 工具函数可以返回任意值，但以下几种返回值类型需要被特殊关注到:
 
@@ -167,13 +165,13 @@ assistant.add_tools(get_weather_tool)
 
 除此之外的返回值都将会被忽略, 其隐藏含义是只关心函数的副作用而不关心函数的返回值。
 
-### 上下文变量
+## 上下文变量
 
 智能体拥有短期记忆和长期记忆, 在这里我们将短期记忆定义为对话的历史记录, 而使用上下文变量实现长期记忆。
 
 上下文变量使用 `ContextVariables` 类, 其本质上就是一个字典类型。只不过为了在函数的返回值类型中区分字典类型和上下文变量类型, 就单独创造了一个类型。
 
-#### 初始化上下文变量
+### 初始化上下文变量
 
 在创建控制器时初始化上下文变量:
 
@@ -181,11 +179,11 @@ assistant.add_tools(get_weather_tool)
 controller = Controller(context_variables={'current_time': '2024/09/01'})
 ```
 
-#### 使用上下文变量
+### 使用上下文变量
 
 智能体有两种方式可以使用到上下文变量。
 
-##### instruction中使用
+#### instruction中使用
 
 在创建 `Agent` 对象时, `instruction` 不仅可以是一个字符串，也可以是一个函数，但这个函数 **只能** 拥有一个 `ContextVariables` 类型的形参且 **必需** 返回一个字符串。
 
@@ -203,7 +201,7 @@ assistant = Agent(name="assistant",
 
 当每次对话时，控制器会将当前上下文变量对象注入到 `instruction` 函数中获取字符串。
 
-##### 外部工具中使用
+#### 外部工具中使用
 
 在定义外部工具函数时, 可以额外拥有一个 `ContextVariables` 类型的形参。同样的, 控制器也会在调用这些函数的时候自动注入上下文变量。
 
@@ -234,7 +232,7 @@ get_weather_tool: Tool = {
 
 这里对 `get_weather_tool` 中 `tool` 字段的定义进行了省略, 详细定义见 [这里](#通过-tool-接口)。
 
-#### 更新上下文变量
+### 更新上下文变量
 
 通过在外部工具的返回值中返回一个 `ContextVariables` 类型来上下文变量, 也可以返回一个 `Result` 类型, 其中的 `context_variables` 字段表示要更新的上下文变量, 可以传递一个 `ContextVariables` 类型的变量或字典类型的变量。
 
@@ -246,7 +244,7 @@ from course_graph.agent import Result
 result = Result(context_variables={'current_time': '2024/09/02'})
 ```
 
-### 多智能体编排
+## 多智能体编排
 
 [这里](https://github.com/wangtao2001/CourseGraph/blob/dev/examples/agent/agent_orchestration.py) 展示了一个典型的多智能体编排的场景。
 
@@ -256,7 +254,7 @@ result = Result(context_variables={'current_time': '2024/09/02'})
 
 这里我们并没有使用上下文变量, 而是通过历史对话消息在不同的智能体间传递信息。
 
-### 工作流编排
+## 工作流编排
 
 [这里](https://github.com/wangtao2001/CourseGraph/blob/dev/examples/agent/workflow_orchestration.py) 展示了一个典型的工作流编排场景。
 
@@ -264,7 +262,7 @@ result = Result(context_variables={'current_time': '2024/09/02'})
 
 在每个工作的内部, 我们手动控制智能体的执行顺序并更新上下文变量。比较特殊的是, 我们将指令直接写在了 `instruction` 中。在这种编排方式下, 智能体不再主动进行任务的规划, 只负责执行具体的指令。
 
-### 几种编排方式的对比 
+## 几种编排方式的对比 
 
 1. **单智能体**：所有的任务都由一个智能体负责，自动规划任务、选择工具调用并进行结果的总结。优点是简单, 用户只需要配置工具下发指令即可。缺点是无法控制智能体的行为, 当任务过于复杂时, 单智能体的压力可能过大, 这种现象在小模型上更加明显。
 
@@ -281,8 +279,3 @@ result = Result(agent=assistant, message=False)
 ```
 > [!TIP]
 > 在这种情况下你可以使用上下文变量实现信息的传递。
-
-
-## 使用智能体抽取知识图谱
-
-

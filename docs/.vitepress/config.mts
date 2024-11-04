@@ -4,6 +4,7 @@ export default defineConfig({
   base: '/CourseGraph/',
   title: "CourseGraph",
   titleTemplate: ':title',
+  lastUpdated: true,
   description: "使用大模型自动构建课程知识图谱",
   head: [['link', { rel: 'icon', href: '/CourseGraph/logo.png' }]],
   themeConfig: {
@@ -21,8 +22,7 @@ export default defineConfig({
           { text: '大模型', link: '/tutorials/llm' },
           { text: 'example管理', link: '/tutorials/example' },
           { text: '数据库', link: '/tutorials/kb' },
-          { text: 'Agent', link: '/tutorials/agent' },
-          { text: 'Rust扩展', link: '/tutorials/other/rust' }]
+          { text: 'Agent', link: '/tutorials/agent/agent' }]
       },
       { text: 'API 参考', link: '/api-reference' }
     ],
@@ -47,7 +47,12 @@ export default defineConfig({
           { text: '大模型', link: '/tutorials/llm' },
           { text: 'example管理', link: '/tutorials/example' },
           { text: '数据库', link: '/tutorials/kb' },
-          { text: 'Agent', link: '/tutorials/agent' },
+          {
+            text: 'Agent', items: [
+              { text: 'Agent编排框架', link: '/tutorials/agent/agent' },
+              { text: '使用Agent抽取知识图谱', link: '/tutorials/agent/kg' }
+            ]
+          },
           {
             text: '其他', items: [
               { text: 'Rust扩展', link: '/tutorials/other/rust' },

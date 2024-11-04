@@ -56,3 +56,32 @@ pub fn get_list_from_string(text: &str) -> PyResult<Vec<String>> {
 
     Ok(result)
 }
+
+#[pyfunction]
+pub fn find_longest_consecutive_sequence(nums: Vec<i32>) -> PyResult<(i32, i32)> {
+    if nums.is_empty() {
+        return Ok((-1, -1));
+    }
+
+    let mut max_start = nums[0];
+    let mut max_end = nums[0];
+    let mut current_start = nums[0];
+    let mut max_length = 1;
+    let mut current_length = 1;
+
+    for i in 1..nums.len() {
+        if nums[i] == nums[i - 1] + 1 {
+            current_length += 1;
+            if current_length > max_length {
+                max_length = current_length;
+                max_start = current_start;
+                max_end = nums[i];
+            }
+        } else {
+            current_start = nums[i];
+            current_length = 1;
+        }
+    }
+
+    Ok((max_start, max_end))
+}
