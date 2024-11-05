@@ -8,7 +8,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pptx import Presentation
-from ..llm import VLM, MultiImagePrompt
+from ..llm import VLM, vl_prompt
 from .utils import pptx2imgs
 import shutil
 from tqdm import tqdm
@@ -127,27 +127,24 @@ class PPTX(Resource):
         return _merge_index_slice(idxs, self.file_path)
 
     def set_maps_by_vlm(
-        self, model: VLM,
-        prompt: MultiImagePrompt = MultiImagePrompt()) -> None:
+        self, model: VLM) -> None:
         """ 使用图文理解模型提取pptx主要内容
 
         Args:
             model (VisualLM): 图文理解模型
-            prompt (MultiImagePrompt, optional): 相应提示词. Defaults to MultiImagePrompt().
         """
         cache_path = '.cache/pptx_imgs_cache'
         imgs = pptx2imgs(self.file_path, cache_path)
         res = ''
         for idx, img in tqdm(enumerate(imgs), total=len(imgs)):
             if idx == 0:
-                prompt_, instruction = prompt.get_ie_prompt(img)
+                prompt_, instruction = vl_prompt.get_ie_prompt()
                 model.instruction = instruction
-                res = model.chat(prompt_)
+                res = model.chat(img, prompt_)
             else:
-                prompt_, instruction = prompt.get_context_ie_prompt(
-                    res, [imgs[idx - 1], img])  # 之前的回答作为上文信息，可以更好理解本张图片
+                prompt_, instruction = vl_prompt.get_context_ie_prompt(res)  # 之前的回答作为上文信息，可以更好理解本张图片
                 model.instruction = instruction
-                res = model.chat(prompt_)
+                res = model.chat([imgs[idx - 1], img], prompt_)
             # 页数从1开始
             self.index_maps[idx + 1] = res
         # 删除缓存文件夹

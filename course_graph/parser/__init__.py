@@ -6,7 +6,8 @@
 
 from .pdf_parser import PDFParser
 from .docx_parser import DOCXParser
-from .base import BookMark, Document
+from .document import Document
+from .bookmark import BookMark
 from .parser import Page, Parser
 from .config import config
 from .utils import instance_method_transactional

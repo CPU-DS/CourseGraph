@@ -8,9 +8,9 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from enum import Enum
 from dataclasses import dataclass
-from .base import Document, BookMark
+from .document import Document
+from .bookmark import BookMark
 import os
-import shortuuid
 
 
 class ContentType(Enum):
@@ -97,8 +97,4 @@ class Parser(ABC):
         Returns:
             Document: 文档
         """
-        return Document(id='0:' + str(shortuuid.uuid()),
-                        name=os.path.basename(self.file_path).split('.')[0],
-                        file_path=self.file_path,
-                        bookmarks=self.get_bookmarks(),
-                        parser=self)
+        return Document(parser=self)

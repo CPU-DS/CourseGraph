@@ -5,7 +5,7 @@
 # Description: 布局分析模型封装
 
 from abc import ABC, abstractmethod
-from typing_extensions import Required, TypedDict
+from typing_extensions import Required, TypedDict, Literal
 from numpy import ndarray
 from paddleocr.ppstructure.recovery.recovery_to_doc import sorted_layout_boxes
 from paddleocr import PPStructure
@@ -15,6 +15,9 @@ from course_graph_ext import structure_post_process
 
 
 class StructureResult(TypedDict, total=False):
+    origin_type: Required[Literal[
+            'abandon', 'text', 'title', 'figure', 'figure_caption', 'table', 'table_caption', 'table_footnote', 'formula', 'formula_caption'
+        ]]
     type: Required[str]
     bbox: Required[tuple[float]]
     text: str
@@ -45,14 +48,23 @@ class PaddleStructure(StructureModel):
         """
         super().__init__()
         self.pp = PPStructure(table=False, ocr=True, show_log=False)
+        self.origin2type = {
+            'header': 'abandon',
+            'footer': 'abandon',
+            'reference': 'abandon',
+            'equation': 'formula'
+        }
 
     def predict(self, img: ndarray) -> list[StructureResult]:
+        # labels: text, title, figure, figure_caption, table, table_caption, header, footer, reference, equation
         result = self.pp(img)
         h, w, _ = img.shape
         res = sorted_layout_boxes(result, w)
+
         return [{
-            'type': item['type'],
-            'bbox': tuple(item['bbox'])
+            'origin_type': item['type'],
+            'bbox': tuple(item['bbox']),
+            'type': self.origin2type.get(item['type'], item['type'])
         } for item in res]
 
 
@@ -68,16 +80,20 @@ class LayoutYOLO(StructureModel):
         super().__init__()
         self.model = YOLOv10(model_path)
         self.device = device
+        self.origin2type = {
+            'plain text': 'text',
+            'isolate_formula': 'formula'
+        }
 
     def predict(self, img: ndarray) -> list[StructureResult]:
+        # labels: title, plain text, abandon, figure, figure_caption, table, table_caption, table_footnote, isolate_formula, formula_caption
         result = json.loads(
             self.model.predict(img,
                                imgsz=1024,
                                conf=0.2,
                                verbose=False,
                                device=self.device)[0].tojson())
-        result = [item for item in result if item['name'] != 'abandon']
-        # 将 bbox 坐标变换为 (x1,y1,x2,y2)
+        # 将 bbox 坐标变换为 (x1,y1,x2,y2) 格式
         for item in result:
             item['bbox'] = (item['box']['x1'], item['box']['y1'],
                             item['box']['x2'], item['box']['y2'])
@@ -89,7 +105,8 @@ class LayoutYOLO(StructureModel):
 
         return [
             {
-                'type': item[0].replace('plain text', 'text'),  # 替换标准写法
-                'bbox': item[1]
+                'origin_type': item[0],
+                'bbox': item[1],
+                'type': self.origin2type.get(item[0], item[0])
             } for item in res
         ]

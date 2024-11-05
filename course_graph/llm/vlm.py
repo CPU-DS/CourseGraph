@@ -7,6 +7,18 @@
 from .config import vlm_config
 import torch
 from modelscope import AutoModel, AutoTokenizer
+from PIL import Image
+
+def get_msgs(image_paths, message) -> list:
+    if len(image_paths) == 0:
+        msgs = []
+    elif isinstance(image_paths, str):
+        msgs = [Image.open(image_paths).convert('RGB')]
+    else:
+        msgs = [Image.open(path).convert('RGB') for path in image_paths]
+    msgs.append(message)
+    return msgs
+
 
 
 class VLM:
@@ -24,17 +36,19 @@ class VLM:
                                                        trust_remote_code=True)
         self.instruction = 'You are a helpful assistant.'
 
-    def chat(self, msgs: list[dict]) -> str:
+    def chat(self, image_paths: str | list[str], message: str) -> str:
         """ 图片问答
 
         Args:
-            msgs (list): 输入内容
+            image_paths (str | list[str]): 多张图片
+            message (str): 用户输入
+
 
         Returns:
             str: 模型输出
         """
         return self.model.chat(image=None,
-                               msgs=msgs,
+                               msgs=get_msgs(image_paths, message),
                                tokenizer=self.tokenizer,
                                sampling=True,
                                temperature=vlm_config.temperature,

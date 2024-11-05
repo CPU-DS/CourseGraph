@@ -1,10 +1,9 @@
 # -*- coding: utf-8 -*-
 # Create Date: 2024/07/11
 # Author: wangtao <wangtao.cpu@gmail.com>
-# File Name: course_graph/parser/base.py
-# Description: 定义文档、书签以及抽取知识图谱相关类和方法
+# File Name: course_graph/parser/document.py
+# Description: 定义文档以及抽取知识图谱相关方法
 
-from dataclasses import dataclass, field
 from ..llm import LLM, ExtractPrompt, ExamplePrompt
 from ..llm.prompt import ontology
 import shortuuid
@@ -16,105 +15,31 @@ import pickle
 import os
 from .config import config
 from .utils import instance_method_transactional
+from ..resource import ResourceMap
+from .bookmark import BookMark
+from .entity import KPEntity, KPRelation
 
 if TYPE_CHECKING:
     from .parser import Parser
-    from ..resource import ResourceMap, Resource, Slice
 
 
-@dataclass
-class KPEntity:
-    id: str
-    name: str
-    relations: list['KPRelation'] = field(default_factory=list)
-    attributes: dict[str, list] | dict[str, str] = field(
-        default_factory=dict)  # 同一个属性可能会存在多个属性值, 后续选择一个最好的值
-    resourceSlices: list['Slice'] = field(default_factory=list)
-
-
-@dataclass
-class KPRelation:
-    id: str
-    type: str
-    tail: KPEntity
-    attributes: dict[str, list] | dict[str, str] = field(default_factory=dict)
-
-
-@dataclass
-class PageIndex:
-    index: int
-    anchor: tuple[float, float]  # 等价于 bbox 中的 x1,y1
-
-
-@dataclass
-class BookMark:
-    """ 书签
-    """
-    id: str
-    title: str
-    page_start: PageIndex
-    page_end: PageIndex
-    level: int
-    subs: list['BookMark'] | list[KPEntity]
-    resource: list['Resource']
-
-    def set_page_end(self, page_end: PageIndex) -> None:
-        """ 设置书签的结束页, 和直接修改 BookMark 对象的 page_end 属性不同, 该方法会考虑到书签嵌套的情况
-
-        Args:
-            page_end (int): 结束页
-        """
-        self.page_end = page_end
-        match self.subs[-1]:
-            case BookMark() as sub:
-                sub.set_page_end(page_end)
-
-    def get_kps(self) -> list[KPEntity]:
-        """ 获取当前书签下的所有 知识点实体
-
-        Returns:
-            list[KPEntity]: 实体列表
-        """
-        kps: list[KPEntity] = []
-
-        def get_kp(bookmark: BookMark):
-            for sub in bookmark.subs:
-                match sub:
-                    case KPEntity():
-                        kps.append(sub)
-                    case BookMark():
-                        get_kp(sub)
-        get_kp(self)
-        return kps
-
-
-@dataclass
 class Document:
-    """文档
-    """
-    id: str
-    name: str
-    file_path: str
-    bookmarks: list[BookMark]
-    parser: 'Parser'
-    knowledgepoints: list[KPEntity] = field(default_factory=list)  # 全局共享状态
-    checkpoint: dict = field(default=dict)
-
-    @classmethod
-    def from_parser(cls, parser: 'Parser') -> 'Document':
-        """ 使用 Parser 对象生成 Document 对象
-
+    def __init__(self, parser: 'Parser') -> None:
+        """ 文档
+        
         Args:
-            parser (Parser): 解析器
-
-        Returns:
-            Document: 文档
+            parser (Parser): 对应的解析器
         """
-        return cls(id='0:' + str(shortuuid.uuid()),
-                   name=os.path.basename(parser.file_path).split('.')[0],
-                   file_path=parser.file_path,
-                   bookmarks=parser.get_bookmarks(),
-                   parser=parser)
+        self.id ='0:' + str(shortuuid.uuid())
+        self.name = os.path.basename(parser.file_path).split('.')[0]
+        self.parser = parser
+        self.file_path = parser.file_path
+        self.bookmarks = parser.get_bookmarks()
+
+        self.knowledgepoints: list[KPEntity] = []  # 全局共享状态
+        self.checkpoint = {
+            'extract_index': 0
+        }
 
     def dump(self, path: str) -> None:
         """ 序列化 Document 对象
@@ -191,21 +116,11 @@ class Document:
         """
 
         @instance_method_transactional('knowledgepoints')
-        def get_knowledgepoints(content: str,
+        def get_knowledgepoints(self,  # 这里需要传递self的原因是instance_method_transactional本来只能装饰实例方法
+                                content: str,
                                 self_consistency=False,
                                 samples: int = 5,
                                 top: float = 0.5) -> list[KPEntity]:
-            """ 使用 llm 生成知识点实体和与其相关的关系关系、属性
-
-            Args:
-                content (str): 输入文本
-                self_consistency (bool, optional): 是否采用自我一致性策略. Defaults to False.
-                samples (int, optional): 采用自我一致性策略的采样次数. Defaults to 5.
-                top (float, optional): 采样自我一致性策略时，出现次数超过 top * samples 时才会被采纳. Defaults to 0.5.
-
-            Returns:
-                list[KPEntity]: 生成的知识点实体
-            """
             # 实体抽取
             if not self_consistency:
                 # 默认策略：生成数量过多则重试，否则随机选择5个
@@ -312,10 +227,11 @@ class Document:
         for index, bookmark in enumerate(self.flatten_bookmarks()):
             if not bookmark.subs:  # 表示最后一级书签 subs为空数组需要设置知识点
                 logger.info('子章节: ' + bookmark.title)
-                if index < self.skip['skip1'] and checkpoint:
+                if index < self.checkpoint['extract_index'] and checkpoint:
                     logger.info('已跳过')
                     continue
                 if bookmark.title in config.ignore_page:
+                    logger.info('已跳过')
                     continue
                 contents = self.parser.get_contents(bookmark)
                 text_contents = '\n'.join(
@@ -328,12 +244,13 @@ class Document:
                 logger.info('子章节内容: \n' + text_contents)
                 try:
                     entities: list[KPEntity] = get_knowledgepoints(
+                        self,
                         text_contents,
                         self_consistency=self_consistency,
                         samples=samples,
                         top=top)
                 except Exception as e:
-                    self.checkpoint['extract'] = index
+                    self.checkpoint['extract_index'] = index
                     raise e
                 else:
                     bookmark.subs = entities

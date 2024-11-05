@@ -4,7 +4,6 @@
 # File Name: course_graph/parser/pdf_parser/pdf_parser.py
 # Description: 定义pdf文档解析器
 
-from ..base import BookMark, PageIndex
 from .structure_model import *
 from .ocr_model import *
 import shortuuid
@@ -14,10 +13,11 @@ from PIL import Image
 import numpy as np
 import cv2
 import re
-from ...llm import VLM, MultiImagePrompt, LLM, ParserPrompt
+from ...llm import VLM, vl_prompt, LLM, parser_prompt
 import os
 import shutil
 from course_graph_ext import get_list_from_string, find_longest_consecutive_sequence
+from ..bookmark import BookMark, PageIndex
 
 
 class PDFParser(Parser):
@@ -26,9 +26,9 @@ class PDFParser(Parser):
         self,
         pdf_path: str,
         ocr_model: OCRModel = PaddleOCR(),
+        ocr_priority: bool = False,
         structure_model: StructureModel = PaddleStructure(),
         vlm: VLM = None,
-        vl_prompt: MultiImagePrompt = MultiImagePrompt(),
         llm: LLM = None,
     ) -> None:
         """ pdf文档解析器
@@ -36,9 +36,9 @@ class PDFParser(Parser):
         Args:
             pdf_path (str): pdf文档路径
             ocr_model (OCRModel, optional): OCR 模型. Defaults to PaddleOCR().
+            ocr_priority (bool, optional): 获取文字内容时优先使用 OCR模型, 否则优先直接读取. Defaults to False.
             structure_model (StructureModel, optional): 布局分析模型. Defaults to Paddle().
             vlm ( VLM, optional): 视觉模型. Default to None.
-            vl_prompt (MultiImagePrompt, optional): 提示词. Defaults to MultiImagePrompt().
             llm ( LLM, optional): 语言模型. Default to None.
         """
         super().__init__(pdf_path)
@@ -46,10 +46,10 @@ class PDFParser(Parser):
 
         self.structure_model = structure_model
         self.ocr_model = ocr_model
+        self.ocr_priority = ocr_priority
 
         self.outline: list[list] = self._get_outline()
         self.vlm = vlm
-        self.vl_prompt = vl_prompt
         self.llm = llm
 
         self.cache_path = '.cache/pdf_cache'
@@ -66,19 +66,19 @@ class PDFParser(Parser):
         for item in self._pdf.get_toc(simple=False):
             h = self._pdf[item[2] - 1].get_pixmap().height  # 宽高一律采用像素层面
             match item[3]['kind']:
-                case 4:
-                    try:
-                        xref = item[3]['xref']
-                        t_xref = int(self._pdf.xref_get_key(xref, 'A')[1].split()[0])
-                        fitH = int(self._pdf.xref_get_key(t_xref, 'D')[1][1:-1].split()[-1])
-                        outline.append([*item[:3], (-1, max(h - fitH, 0))])
-                    except:
-                        outline.append([*item[:3], (-1, -1)])  # 解析出错
+                # case 4:
+                #     try:
+                #         xref = item[3]['xref']
+                #         t_xref = int(self._pdf.xref_get_key(xref, 'A')[1].split()[0])
+                #         fitH = int(self._pdf.xref_get_key(t_xref, 'D')[1][1:-1].split()[-1])
+                #         outline.append([*item[:3], (-1, max(h - fitH, 0))])
+                #     except:
+                #         outline.append([*item[:3], (-1, -1)])  # 解析出错
                 case 1:
                     outline.append(
                         [*item[:3], (item[3]['to'].x, item[3]['to'].y)])
                 case _:
-                    pass  # 其他类型指向的都是外部资源
+                    outline.append([*item[:3], (-1, -1)]) 
         return outline
 
     def __enter__(self) -> 'PDFParser':
@@ -93,13 +93,11 @@ class PDFParser(Parser):
     def get_catalogue_index_by_vlm(
             self,
             vlm: VLM,
-            vl_prompt: MultiImagePrompt = MultiImagePrompt(),
             rate: float = 0.1) -> tuple[int, int]:
         """ 通过图文理解模型寻找目录页, 返回目录页起始页和终止页页码 (从0开始编序)
 
         Args:
             vlm (VLM): 图文理解模型
-            vl_prompt (MultiImagePrompt, optional): 图文理解提示词. Defaults to MultiImagePrompt().
             rate (float, optional): 查询前 ratio 比例的页面. Defaults to 0.1 即 10%.
 
         Returns:
@@ -113,9 +111,9 @@ class PDFParser(Parser):
             img = self._get_page_img(index, zoom=2)
             file_path = os.path.join(cache_path, f'{index}.png')
             Image.fromarray(img).save(file_path)
-            prompt_, instruction = vl_prompt.get_catalogue_prompt(file_path)
+            prompt_, instruction = vl_prompt.get_catalogue_prompt()
             vlm.instruction = instruction
-            res = vlm.chat(prompt_)
+            res = vlm.chat(file_path, prompt_)
             if res.startswith('是'):
                 catalogue.append(index)
         shutil.rmtree(cache_path)
@@ -125,25 +123,25 @@ class PDFParser(Parser):
     def _set_outline(self,
                      lines: list,
                      offset: int,
-                     llm: LLM,
-                     parser_prompt: ParserPrompt = ParserPrompt) -> None:
+                     llm: LLM) -> None:
         """ 设置大纲层级
 
         Args:
             lines (list): 标题和页码数组
             offset (int): 页码偏移
             llm (LLM): 大模型
-            parser_prompt (ParserPrompt, optional):  文档解析提示词类. Defaults to ParserPrompt.
         """
         lines_without_index = [line[0] for line in lines]
-        res = llm.chat(parser_prompt.get_outline_prompt(lines_without_index))
+        prompt, instruction = parser_prompt.get_outline_prompt(lines_without_index)
+        llm.instruction = instruction
+        res = llm.chat(prompt)
         r2 = get_list_from_string(res)
 
         outline: list = []
         for i in range(len(r2)):
             level = int(re.findall(r'\d+', r2[i][1])[0])
             if str(lines[i][1]).isdigit():
-                outline.append([level, lines[i][0], int(lines[i][1]) + offset])
+                outline.append([level, lines[i][0], int(lines[i][1]) + offset, (-1, -1)])
         self.outline = outline
 
     def set_outline_by_catalogue(
@@ -151,8 +149,7 @@ class PDFParser(Parser):
             start_index: int,
             end_index: int,
             offset: int,
-            llm: LLM,
-            parser_prompt: ParserPrompt = ParserPrompt) -> None:
+            llm: LLM) -> None:
         """ 手动指定目录页, 通过大模型解析目录页获取大纲层级
 
         Args:
@@ -160,7 +157,6 @@ class PDFParser(Parser):
             end_index (int): 目录页终止页
             offset (int): 首页偏移
             llm (LLM): 大模型
-            parser_prompt (ParserPrompt, optional): 文档解析提示词类. Defaults to ParserPrompt.
         """
 
         self.outline = []
@@ -173,25 +169,25 @@ class PDFParser(Parser):
                 text = '\n'.join([
                     item['text'] for item in self.structure_model(self._get_page_img(index, zoom=2))
                 ])
-            res = llm.chat(parser_prompt.get_directory_prompt(text)).replace("，", ",")
+            prompt, instruction = parser_prompt.get_directory_prompt(text)
+            llm.instruction = instruction
+            res = llm.chat(prompt).replace("，", ",")
             lines.extend(get_list_from_string(res))
-        self._set_outline(lines, offset, llm, parser_prompt)
+        self._set_outline(lines, offset, llm)
 
     def set_outline_auto(self,
-                         llm: LLM,
-                         parser_prompt: ParserPrompt = ParserPrompt) -> None:
+                         llm: LLM) -> None:
         """ 使用OCR自动设置大纲层级, 适用于没有目录页的情况
 
         Args:
             llm (LLM): 大模型
-            parser_prompt (ParserPrompt, optional): 文件解析提示词类. Defaults to ParserPrompt.
         """
         titles = []
         for index in range(self._pdf.page_count):
             img = self._get_page_img(index, zoom=1)
             res = self.structure_model(img)
             titles.extend([[block['text'], index] for block in res if block['type'] == 'title'])
-        self._set_outline(titles, 0, llm, parser_prompt)
+        self._set_outline(titles, 0, llm)
 
     def get_bookmarks(self) -> list[BookMark]:
         """  获取pdf文档书签
@@ -327,9 +323,9 @@ class PDFParser(Parser):
         h, w, _ = img.shape
         blocks = self.structure_model(img)
 
-        t = 20  # 切割子图, 向外扩充t个像素
 
-        def save_block(_idx, _block) -> None | str:
+        def save_block(_block) -> None | str:
+            t = 20  # 切割子图, 向外扩充t个像素
             x1, y1, x2, y2 = _block['bbox']
             # 扩充裁剪区域
             x1, y1, x2, y2 = max(0, x1 - t), max(0, y1 - t), min(w, x2 + t), min(h, y2 + t)  # 防止越界
@@ -338,39 +334,48 @@ class PDFParser(Parser):
             if type_ == 'figure' and ((x2 - x1) < 150 or (y2 - y1) < 150):
                 return  # 图片过小
             cropped_img = Image.fromarray(img).crop((x1, y1, x2, y2))
-            path = os.path.join(self.cache_path, f'{str(shortuuid.uuid())}_{_idx}_{type_}.png')
+            path = os.path.join(self.cache_path, f'{str(shortuuid.uuid())}_{type_}.png')
             cropped_img.save(path)
             return path
+        
+        def set_text(block_) -> None:
+            bbox = [b / zoom for b in block_['bbox']]
+            res = pdf_page.get_textbox(bbox).replace('\n', '')
 
-        for idx, block in enumerate(blocks):
+            if block_.get('text', None) is not None:
+                pass
+            elif len(res) != 0 and not bool(re.search(r'[\uFFFD]', res)) and not self.ocr_priority:
+                block_['text'] = res
+            else:  # 有些pdf是图片型可能无法直接读取, 则使用OCR的结果
+                if file_path := save_block(block_):
+                    res = self.ocr_model(file_path)
+                    if self.llm is not None:
+                        try:
+                            prompt_, instruction_ = parser_prompt.get_ocr_aided_prompt(res)
+                            self.llm.instruction = instruction_
+                            res = self.llm.chat(prompt_)
+                        finally:
+                            pass  # 使用大模型矫正这一步不是必须的
+                    block_['text'] = res
+
+        for _, block in enumerate(blocks):
             type_ = block['type']
-
-            if type_ in ['header', 'footer', 'reference']:
+            if type_ in ['abandon']:
                 continue
-
             elif type_ in ['title', 'text']:
-                bbox = [b / zoom for b in block['bbox']]
-                res = pdf_page.get_textbox(bbox).replace('\n', '')
-                if block.get('text', None) is not None:
-                    pass
-                elif len(res) != 0 and not bool(re.search(r'[\uFFFD]', res)):
-                    # 有些pdf是图片型可能无法直接读取, 则使用OCR的结果
-                    block['text'] = res
-                else:
-                    if file_path := save_block(idx, block):
-                        res = self.ocr_model(file_path)
-                        if self.llm is not None:
-                            try:
-                                res = self.llm.chat(ParserPrompt.get_ocr_aided_prompt(res))
-                            finally:
-                                pass  # 这一步不是必须的
-                        block['text'] = res
+                set_text(block)
 
-            elif self.vlm is not None:
-                if file_path := save_block(idx, block) is not None:
-                    prompt, instruction = self.vl_prompt.get_ocr_prompt(file_path)
+        if self.vlm is not None:  # 如果有多模态模型 就可以处理表格/图片/公式 (GOT也有处理公式的能力....)
+            for _, block in enumerate(blocks):
+                type_ = block['type']
+
+                if type_ in ['figure_caption', 'table_caption', 'table_footnote', 'formula_caption']:
+                    set_text(block)
+
+                if file_path := save_block(block) is not None:
+                    prompt, instruction = vl_prompt.get_ocr_prompt()
                     self.vlm.instruction = instruction
-                    block['text'] = self.vlm.chat(prompt)
+                    block['text'] = self.vlm.chat(file_path, prompt)
 
         contents: list[Content] = []
         for block in blocks:
@@ -379,7 +384,7 @@ class PDFParser(Parser):
                     type=ContentType.Text,
                     content=content,
                     bbox=tuple([b / zoom for b in block['bbox']]),  # 还原为原始大小坐标
-                    origin_type=block['type'])
+                    origin_type=block['origin_type'])
                 if block['type'] == 'title':
                     content.type = ContentType.Title  # 除了title其余全部当作正文对待
                 contents.append(content)
