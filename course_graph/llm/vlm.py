@@ -4,7 +4,7 @@
 # File Name: course_graph/llm/vlm.py
 # Description: 定义图文理解模型类
 
-from .config import vlm_config
+from .config import VLM_CONFIG
 import torch
 from modelscope import AutoModel, AutoTokenizer
 from PIL import Image
@@ -51,5 +51,5 @@ class VLM:
                                msgs=get_msgs(image_paths, message),
                                tokenizer=self.tokenizer,
                                sampling=True,
-                               temperature=vlm_config.temperature,
+                               temperature=VLM_CONFIG.temperature,
                                sys_prompt=self.instruction)

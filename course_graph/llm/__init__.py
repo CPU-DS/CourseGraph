@@ -9,7 +9,7 @@ from .ontology import ontology
 from .llm import LLM, VLLM, Qwen, Ollama, OpenAI
 from .vl_prompt import vl_prompt
 from .prompt_strategy import ExamplePromptStrategy, SentenceEmbeddingStrategy
-from .config import llm_config, vlm_config
+from .config import LLM_CONFIG, VLM_CONFIG
 from .type import Database
 from .vlm import VLM
 from .parser_prompt import parser_prompt

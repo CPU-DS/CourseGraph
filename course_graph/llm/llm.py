@@ -8,7 +8,7 @@ import openai
 from openai.types.chat import *
 from openai import NOT_GIVEN, NotGiven
 from abc import ABC
-from .config import llm_config
+from .config import LLM_CONFIG
 import os
 import requests
 import subprocess
@@ -58,11 +58,11 @@ class LLM(ABC):
         return self.client.chat.completions.create(
             model=self.model,
             messages=messages,
-            top_p=llm_config.top_p,
-            temperature=llm_config.temperature,
-            presence_penalty=llm_config.presence_penalty,
-            frequency_penalty=llm_config.frequency_penalty,
-            max_tokens=llm_config.max_tokens,
+            top_p=LLM_CONFIG.top_p,
+            temperature=LLM_CONFIG.temperature,
+            presence_penalty=LLM_CONFIG.presence_penalty,
+            frequency_penalty=LLM_CONFIG.frequency_penalty,
+            max_tokens=LLM_CONFIG.max_tokens,
             tools=tools,
             parallel_tool_calls=parallel_tool_calls,
             tool_choice=tool_choice,
@@ -73,7 +73,7 @@ class LLM(ABC):
             },
             stop=self.stop,
             extra_body={
-                'top_k': llm_config.top_k
+                'top_k': LLM_CONFIG.top_k
             }).choices[0].message
 
     def chat(self, message: str) -> str:
@@ -135,18 +135,24 @@ class Serve:
     def __init__(self,
                  command_list: list[str],
                  test_url: str,
+                 log: bool = True,
                  timeout: int = 30):
         """ 启动服务
 
         Args:
             command_list (list[str]): 命令列表
             test_url (str): 测试地址
+            log (bool, optional): 输出控制台日志. Defaults to True.
             timeout (int, optional): 超时时间. Defaults to 30.
 
         Raises:
             TimeoutError: 服务启动超时
         """
-        self.process = subprocess.Popen(command_list)
+        self.process = subprocess.Popen(
+            command_list,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL
+        ) if not log else subprocess.Popen(command_list) 
 
         start_time = time.time()
         while time.time() - start_time < timeout:
@@ -181,7 +187,8 @@ class VLLM(LLM, Serve):
                  host: str = 'localhost',
                  port: int = 9017,
                  starting_command: str = None,
-                 timeout: int = 60):
+                 timeout: int = 60,
+                 log: bool = True):
         """ 使用VLLM加载模型
 
         Args:
@@ -189,6 +196,7 @@ class VLLM(LLM, Serve):
             timeout (int, optional): 启动服务超时时间. Defaults to 60.
             host (str, optional): 服务地址. Defaults to 'localhost'.
             port (int, optional): 服务端口. Defaults to 9017.
+            log (bool, optional): 输出控制台日志. Defaults to True.
             starting_command (str, optional): VLLM启动命令 (适合于需要自定义template的情况), 也可以使用默认命令, LLMConfig中的配置会自动加入. Defaults to None.
         """
         LLM.__init__(self)
@@ -201,9 +209,9 @@ class VLLM(LLM, Serve):
             command_list = shlex.split(f"""vllm serve {self.model}\
                                             --host {self.host}\
                                             --port {self.port}\
-                                            --gpu-memory-utilization {str(llm_config.gpu_memory_utilization)}\
-                                            --tensor-parallel-size {str(llm_config.tensor_parallel_size)}\
-                                            --max-model-len {str(llm_config.max_model_len)}\
+                                            --gpu-memory-utilization {str(LLM_CONFIG.gpu_memory_utilization)}\
+                                            --tensor-parallel-size {str(LLM_CONFIG.tensor_parallel_size)}\
+                                            --max-model-len {str(LLM_CONFIG.max_model_len)}\
                                             --enable-auto-tool-choice\
                                             --tool-call-parser hermes\
                                             --disable-log-requests""")
@@ -212,17 +220,17 @@ class VLLM(LLM, Serve):
             if "--gpu-memory-utilization" not in command_list:
                 command_list.extend([
                     "--gpu-memory-utilization",
-                    str(llm_config.gpu_memory_utilization)
+                    str(LLM_CONFIG.gpu_memory_utilization)
                 ])
             if "--tensor-parallel-size" not in command_list:
                 command_list.extend([
                     "--tensor-parallel-size",
-                    str(llm_config.tensor_parallel_size)
+                    str(LLM_CONFIG.tensor_parallel_size)
                 ])
             if "--max-model-len" not in command_list:
                 command_list.extend(
                     ["--max-model-len",
-                     str(llm_config.max_model_len)])
+                     str(LLM_CONFIG.max_model_len)])
             try:
                 idx = command_list.index('--host')
                 self.host = command_list[idx + 1]
@@ -237,6 +245,7 @@ class VLLM(LLM, Serve):
         Serve.__init__(self,
                        command_list=command_list,
                        timeout=timeout,
+                       log=log,
                        test_url=f'http://{self.host}:{self.port}/health')
 
         self.client = openai.OpenAI(

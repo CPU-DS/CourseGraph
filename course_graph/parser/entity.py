@@ -12,9 +12,10 @@ from ..resource import Slice
 class KPEntity:
     id: str
     name: str
+    type: str
     relations: list['KPRelation'] = field(default_factory=list)
-    attributes: dict[str, list] | dict[str, str] = field(
-        default_factory=dict)  # 同一个属性可能会存在多个属性值, 后续选择一个最好的值
+    attributes: dict[str, list] = field(default_factory=dict)  # 同一个属性可能会存在多个属性值, 后续选择一个最好的值
+    best_attributes: dict[str, str] = field(default=dict)
     resourceSlices: list[Slice] = field(default_factory=list)
 
 
@@ -23,4 +24,3 @@ class KPRelation:
     id: str
     type: str
     tail: KPEntity
-    attributes: dict[str, list] | dict[str, str] = field(default_factory=dict)

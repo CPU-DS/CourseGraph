@@ -32,6 +32,6 @@ class Neo4j:
             return self.graph.run(cyphers)
         else:
             res = []
-            for cypher in tqdm(cyphers):
+            for cypher in tqdm(cyphers, desc='执行 cypher 语句'):
                 res.append(self.graph.run(cypher))
             return res

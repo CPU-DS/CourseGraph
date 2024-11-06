@@ -25,7 +25,8 @@ class Config:
         'O’Reilly Media, Inc.介绍', 
         '索引', 
         '后记', 
-        '思考题'
+        '思考题',
+        '参考文献'
     ])
 
 config = Config()
