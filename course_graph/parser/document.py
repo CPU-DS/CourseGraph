@@ -16,9 +16,10 @@ import os
 from .config import config
 from .utils import instance_method_transactional
 from ..resource import ResourceMap
-from .bookmark import BookMark
+from .type import BookMark, ContentType
 from .entity import KPEntity, KPRelation
 from tqdm import tqdm
+from course_graph_ext import optimize_string_lengths
 
 if TYPE_CHECKING:
     from .parser import Parser
@@ -146,9 +147,10 @@ class Document:
                     entities: dict = prompt.post_process(resp) or {}
         
                     logger.info(f'获取知识点实体: ' + str(entities))
-                    all_entities.extend(entities)
+                    all_entities.append(entities)
                 
                 entities = {}
+                # 这里的自我一致性是要求每种类型中提及的实体超过一定数量
                 for entity_type in {k for d in all_entities for k in d}: # 所有的 keys
                     elements = [item for d in all_entities if entity_type in d for item in d[entity_type]]
                     entities[entity_type] = [point for point, count in Counter(elements).items() if count > (samples * top)]
@@ -182,9 +184,9 @@ class Document:
                     # 使用 name 匹配
                     if matching_kp := next((kp for kp in kps if kp.name == name), None):
                         # 更新相应的属性值
-                        for attr_name, value in attr.items():
-                            matching_kp.attributes.setdefault(attr_name, []).append(value)
-
+                        if isinstance(attr, dict):
+                            for attr_name, value in attr.items():
+                                matching_kp.attributes.setdefault(attr_name, []).append(value)
 
             # 关系抽取
             if len(kps) <= 1:
@@ -206,7 +208,7 @@ class Document:
                         all_relations.extend(relations)
                     relations = [
                         dict(relation)
-                        for relation, count in Counter(frozenset(relation.items()) for relation in all_relations) if count > (samples * top)
+                        for relation, count in Counter(frozenset(relation.items()) for relation in all_relations).items()  if count > (samples * top)
                     ]
                 
                 logger.success(f'最终获取关系三元组: ' + str(relations))
@@ -247,26 +249,24 @@ class Document:
                     logger.info('已跳过')
                     continue
                 contents = self.parser.get_contents(bookmark)
-                text_contents = '\n'.join(
-                    [content.content for content in contents])
-                # 防止生成全空白
-                text_contents = text_contents.strip()
-                if len(text_contents) == 0:
-                    bookmark.subs = []
-                    continue
-                logger.info('子章节内容: \n' + text_contents)
-                try:
-                    entities: list[KPEntity] = get_knowledgepoints(
-                        self,
-                        text_contents,
-                        self_consistency=self_consistency,
-                        samples=samples,
-                        top=top)
-                except Exception as e:
-                    self.checkpoint['extract_index'] = index
-                    raise e
-                else:
-                    bookmark.subs = entities
+                kps = []
+                contents = optimize_string_lengths([content.content for content in contents], target_length=400)
+                for content in contents:
+                    logger.info('输入片段: \n' + content)
+                    try:
+                        entities: list[KPEntity] = get_knowledgepoints(
+                            self,
+                            content.content,
+                            self_consistency=self_consistency,
+                            samples=samples,
+                            top=top)
+                    except Exception as e:
+                        raise e
+                    else:
+                        kps.extend(entities)
+                    finally:
+                        self.checkpoint['extract_index'] = index
+                bookmark.subs = kps
 
         # 属性值总结
         for entity in tqdm(self.knowledgepoints, desc='属性总结'):

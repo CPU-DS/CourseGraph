@@ -85,3 +85,49 @@ pub fn find_longest_consecutive_sequence(nums: Vec<i32>) -> PyResult<(i32, i32)>
 
     Ok((max_start, max_end))
 }
+
+#[pyfunction]
+pub fn optimize_string_lengths(s: Vec<String>, n: i32) -> PyResult<Vec<String>> {
+    let mut result: Vec<String> = Vec::new();
+    let mut buffer = String::new();
+
+    for string in s {
+        // 如果字符串比目标长度短，先合并到 buffer 中
+        if string.chars().count() < n as usize {
+            buffer.push_str(&string);
+            // 如果 buffer 达到或超过目标长度，将其添加到结果并清空 buffer
+            if buffer.chars().count() >= n as usize {
+                result.push(buffer.clone());
+                buffer.clear();
+            }
+        } else {
+            // 对于较长的字符串，根据句号拆分后再处理
+            let sentences: Vec<&str> = string.split('。').collect();
+            for (i, sentence) in sentences.iter().enumerate() {
+                let mut current = String::from(*sentence);
+                if i < sentences.len() - 1 {
+                    current.push('。'); // 加回句号
+                }
+
+                // 如果句子长度较短，将其合并到 buffer
+                if current.chars().count() < n as usize {
+                    buffer.push_str(&current);
+                    if buffer.chars().count() >= n as usize {
+                        result.push(buffer.clone());
+                        buffer.clear();
+                    }
+                } else {
+                    // 若句子本身已足够长，直接添加到结果
+                    result.push(current);
+                }
+            }
+        }
+    }
+
+    // 若 buffer 中还有剩余内容，添加到结果
+    if !buffer.is_empty() {
+        result.push(buffer);
+    }
+
+    Ok(result)
+}

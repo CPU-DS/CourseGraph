@@ -9,7 +9,9 @@ from dataclasses import dataclass, field
 
 @dataclass
 class Ontology:
-    entities: dict[str, str] = field(default_factory=lambda: {"知识点": "知识点实体类型表示特定领域或学科中的知识单元"})
+    entities: dict[str, str] = field(default_factory=lambda: {
+        "知识点": "特定领域或学科中的知识单元，需要具有一定的深度与广度，是一个相对自包含的完整结构"
+    })
     relations: dict[str, str] = field(default_factory=lambda: {
         "包含": "某一个知识点包含另一个知识点",
         "相关": "知识点之间存在相互联系、相互影响和相互作用",

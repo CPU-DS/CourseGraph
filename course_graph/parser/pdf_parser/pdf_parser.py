@@ -17,7 +17,7 @@ from ...llm import VLM, vl_prompt, LLM, parser_prompt
 import os
 import shutil
 from course_graph_ext import get_list_from_string, find_longest_consecutive_sequence
-from ..bookmark import BookMark, PageIndex
+from ..type import BookMark, PageIndex
 
 
 class PDFParser(Parser):
@@ -54,7 +54,7 @@ class PDFParser(Parser):
 
         self.cache_path = '.cache/pdf_cache'
         if not os.path.exists(self.cache_path):
-            os.mkdir(self.cache_path)
+            os.makedirs(self.cache_path)
 
     def _get_outline(self) -> list[list]:
         """ 从 pdf 中读取大纲层级
@@ -154,22 +154,18 @@ class PDFParser(Parser):
 
         Args:
             start_index (int): 目录页起始页 (从0开始编序)
-            end_index (int): 目录页终止页
+            end_index (int): 目录页终止页 (包含终止页)
             offset (int): 首页偏移
             llm (LLM): 大模型
         """
 
         self.outline = []
-        page_index = list(range(start_index, end_index + 1))
         lines = []
-        for index in page_index:
-            page = self._pdf[index]
-            text = page.get_text()
-            if len(text) == 0:  # 图片型pdf则使用OCR
-                text = '\n'.join([
-                    item['text'] for item in self.structure_model(self._get_page_img(index, zoom=2))
-                ])
-            prompt, instruction = parser_prompt.get_directory_prompt(text)
+        for index in range(start_index, end_index + 1):
+            page = self.get_page(index)
+            text_contents = '\n'.join(
+                [content.content for content in page.contents]).strip()
+            prompt, instruction = parser_prompt.get_directory_prompt(text_contents)
             llm.instruction = instruction
             res = llm.chat(prompt).replace("，", ",")
             lines.extend(get_list_from_string(res))

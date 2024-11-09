@@ -12,5 +12,6 @@ fn course_graph_ext(m: &Bound<'_, PyModule>) -> PyResult<()> {
         ext::common::find_longest_consecutive_sequence,
         m
     )?)?;
+    m.add_function(wrap_pyfunction!(ext::common::optimize_string_lengths, m)?)?;
     Ok(())
 }

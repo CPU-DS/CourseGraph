@@ -6,37 +6,8 @@
 
 from __future__ import annotations
 from abc import ABC, abstractmethod
-from enum import Enum
-from dataclasses import dataclass
 from .document import Document
-from .bookmark import BookMark
-import os
-
-
-class ContentType(Enum):
-    """ 内容类型
-    """
-    Text = 1
-    Title = 2
-
-
-@dataclass
-class Content:
-    """ 内容
-    """
-    type: ContentType  # 只有title两类
-    origin_type: str  # 和 bbox 同为目标检测结果
-    content: str  # 文本
-    bbox: tuple[float]
-
-
-@dataclass
-class Page:
-    """ 页面
-    """
-    page_index: int
-    contents: list[Content]
-
+from .type import BookMark, Content
 
 class Parser(ABC):
 

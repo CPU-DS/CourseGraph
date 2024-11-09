@@ -49,7 +49,7 @@ class Controller:
             message (str, optional): 用户输入. Defaults to None.
 
         Returns:
-            (Agent, str): Agent 和他最终的输出
+            (Agent, str): Agent 和最终的输出
         """
         self.set_agent_instruction(agent)
         if message is None:

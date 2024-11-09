@@ -7,7 +7,7 @@ def get_title_from_latex(latex: str) -> list[str]:
     Returns:
         list[str]: 标题类型字符串
     """
-    ...
+    pass
 
 def get_list_from_string(text: str) -> list:
     """ 括号匹配提取列表
@@ -18,7 +18,7 @@ def get_list_from_string(text: str) -> list:
     Returns:
         list: 列表
     """
-    ...
+    pass
 
 def structure_post_process(
         detections: list[tuple[str, tuple[float, ...]]],
@@ -32,7 +32,7 @@ def structure_post_process(
     Returns:
         list[tuple[str, tuple[float, ...]]]: 处理后检测结果
     """
-    ...
+    pass
 
 def find_longest_consecutive_sequence(
         nums: list[int]) -> tuple[int, int]:
@@ -44,4 +44,13 @@ def find_longest_consecutive_sequence(
     Returns:
         tuple[int, int]: 起点数字和终点数字
     """
-    ...
+    pass
+
+def optimize_string_lengths(strings: list[str], n: int):
+    """ 将列表中的字符串到调整到目标长度附近
+
+    Args:
+        strings (list[str]): 字符串数组
+        n (int): 目标长度
+    """
+    pass

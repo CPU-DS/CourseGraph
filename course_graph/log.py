@@ -11,6 +11,7 @@ from tqdm import tqdm
 
 def set_logger(console: bool = False,
                file: bool = True,
+               *,
                level: str = 'TRACE',
                use_tqdm: bool = True,
                file_path: str = None,
