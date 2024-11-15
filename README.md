@@ -29,12 +29,7 @@ CourseGraph 使用大模型，利用多种 prompt 优化技术, 自动从教材�
 ```bash
 git clone git@github.com:wangtao2001/CourseGraph.git
 cd CourseGraph
-conda create -n cg python=3.10
-conda activate cg
-pip install poetry
-poetry config virtualenvs.create false
-poetry install
-cd rust_ext && maturin develop && cd ..
+source install.sh
 ```
 
 > linux 下还需安装 libreoffice 以完成文档转换，以 Debian 系为例: `sudo apt install libreoffice`

@@ -47,9 +47,8 @@ model
 
 *.ps1
 .ipynb_checkpoints
-assets/pptx
-course_graph/database/faiss_index
+src/course_graph/database/faiss_index
 libreoffice_convert.log
 
-rust_ext/target
+src/course_graph_ext/target
 .github/workflows
