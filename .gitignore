@@ -50,5 +50,4 @@ model
 src/course_graph/database/faiss_index
 libreoffice_convert.log
 
-src/course_graph_ext/target
-.github/workflows
+rust/target

@@ -92,25 +92,21 @@ pub fn optimize_string_lengths(s: Vec<String>, n: i32) -> PyResult<Vec<String>> 
     let mut buffer = String::new();
 
     for string in s {
-        // 如果字符串比目标长度短，先合并到 buffer 中
         if string.chars().count() < n as usize {
             buffer.push_str(&string);
-            buffer.push_str("\n"); // 连接的字符串后接一个换行
-                                   // 如果 buffer 达到或超过目标长度，将其添加到结果并清空 buffer
+            buffer.push_str("\n");
             if buffer.chars().count() >= n as usize {
-                result.push(buffer.clone());
+                let trimmed = buffer.trim_end().to_string();
+                result.push(trimmed);
                 buffer.clear();
             }
         } else {
-            // 对于较长的字符串，根据句号拆分后再处理
             let sentences: Vec<&str> = string.split('。').collect();
             for (i, sentence) in sentences.iter().enumerate() {
                 let mut current = String::from(*sentence);
                 if i < sentences.len() - 1 {
-                    current.push('。'); // 加回句号
+                    current.push('。');
                 }
-
-                // 如果句子长度较短，将其合并到 buffer
                 if current.chars().count() < n as usize {
                     buffer.push_str(&current);
                     if buffer.chars().count() >= n as usize {
@@ -118,14 +114,11 @@ pub fn optimize_string_lengths(s: Vec<String>, n: i32) -> PyResult<Vec<String>> 
                         buffer.clear();
                     }
                 } else {
-                    // 若句子本身已足够长，直接添加到结果
                     result.push(current);
                 }
             }
         }
     }
-
-    // 若 buffer 中还有剩余内容，添加到结果
     if !buffer.is_empty() {
         result.push(buffer);
     }

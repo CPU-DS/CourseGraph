@@ -3,5 +3,6 @@ conda activate cg
 pip install poetry
 poetry config virtualenvs.create false
 poetry install
-cd src/course_graph_ext
+cd rust
 maturin develop
+cd ..
