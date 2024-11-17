@@ -1,0 +1,34 @@
+version: '3'
+
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    environment:
+      - DASHSCOPE_API_KEY=${DASHSCOPE_API_KEY}
+      - NEO4J_URI=bolt://neo4j:7687
+      - NEO4J_USER=neo4j
+      - NEO4J_PASSWORD=password
+    ports:
+      - "5173:5173"
+    depends_on:
+      - neo4j
+    volumes:
+      - ..:/app
+    command: tail -f /dev/null  # 保持容器运行
+
+  neo4j:
+    image: neo4j:5.13.0
+    environment:
+      - NEO4J_AUTH=neo4j/password
+    ports:
+      - "7474:7474"  # HTTP
+      - "7687:7687"  # Bolt
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+
+volumes:
+  neo4j_data:
+  neo4j_logs: 
