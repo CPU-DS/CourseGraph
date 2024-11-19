@@ -3,6 +3,102 @@
 <h2>CourseGraph: Automatic Construction of Course Knowledge Graphs Using Large Models</h2>
 
 <p>
-    <a href="README.md">中文</a> | <b>English</b>
+    <a href="README.md">Chinese</a> | <b>English</b>
 </p>
 </div>
+
+CourseGraph utilizes large language models and various prompt optimization techniques to automatically extract knowledge points from textbooks and books, forming a knowledge graph centered around courses, chapters, and knowledge points. To enrich each knowledge point, CourseGraph can link relevant exercises, extended reading materials, and other resources. Additionally, it can leverage multimodal large models to extract information from pptx files, images, and videos, establishing connections with the knowledge points.
+
+## 🤔 Limitations
+
+- Currently, only basic knowledge graph extraction and pptx parsing have been implemented, with room for optimization
+- Video parsing is still in the planning phase
+
+## 📈 Future Development
+
+- Improve prompt engineering and explore using Agents for related tasks
+- Knowledge graph-based question answering (KBQA or Graph-RAG)
+
+## 🚀 Quick Start
+
+First, obtain an Alibaba Cloud Tongyi Qianwen [API Key](https://help.aliyun.com/zh/model-studio/developer-reference/get-api-key?spm=a2c4g.11186623.0.0.1be847bbvv6p4o), then choose either Docker installation or local installation
+
+### Option 1: Using Docker (Recommended)
+
+This project provides Docker configuration for quick environment setup:
+
+```bash
+git clone git@github.com:wangtao2001/CourseGraph.git
+cd CourseGraph
+export DASHSCOPE_API_KEY=
+docker-compose -f docker/docker-compose.yml up -d
+python examples/get_knowledge_graph.py
+```
+
+### Option 2: Local Installation
+
+#### Install Dependencies
+
+Ensure Anaconda (or Miniconda) and Rust are installed, then execute:
+
+```bash
+git clone git@github.com:wangtao2001/CourseGraph.git
+cd CourseGraph
+conda create -n cg python=3.10 -y
+conda activate cg
+pip install poetry
+poetry config virtualenvs.create false
+poetry install
+cd rust
+maturin develop
+cd ..
+```
+
+> On Linux, libreoffice is required for document conversion. For Debian-based systems: `sudo apt install libreoffice`
+
+Then locate the file `examples/get_knowledge_graph.py`
+
+#### Configure Graph Database
+
+The project uses Neo4j as the graph database. You'll need to provide the connection address and credentials. If not installed, please refer to the [Neo4j documentation](https://neo4j.com/docs/operations-manual/current/installation/)
+
+#### Execute
+
+```bash
+python examples/get_knowledge_graph.py
+```
+
+## 📚 Documentation
+
+Documentation can be found in the `docs` directory, or you can visit the [online documentation](https://wangtao2001.github.io/CourseGraph/) (As the project features are still under rapid development, the online documentation is not yet ready). If you wish to customize the online documentation, follow these steps:
+
+#### Install Dependencies and Preview
+
+The documentation is built with [VitePress](https://vitepress.dev/), requiring Node.js 18 or above. Execute:
+
+```bash
+cd docs
+npm i
+npm run docs:dev
+```
+
+Open [http://localhost:5173/](http://localhost:5173/) in your browser to preview
+
+#### Deployment
+
+Online documentation is deployed using Github Actions + Github Pages, with the workflow file at `.github/workflows/docs.yaml`
+
+## 🛠️ Contributing and Citation
+
+[PR](https://github.com/wangtao2001/CourseGraph/pulls) and [Issues](https://github.com/wangtao2001/CourseGraph/issues) are welcome, as well as any form of contribution
+
+If you find CourseGraph helpful for your work, please consider citing:
+
+```
+@misc{CourseGraph,
+      author = {Wang, Tao},
+      year = {2024},
+      note = {https://github.com/wangtao2001/CourseGraph},
+      title = {CourseGraph: Automatic Construction of Course Knowledge Graphs Using Large Models}
+   }
+``` 

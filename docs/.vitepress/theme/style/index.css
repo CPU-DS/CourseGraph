@@ -2,10 +2,10 @@
 @import "./custom-block.css";
 
 :root {
-    --gradient-background: linear-gradient(135deg, #1be7c9 10%, #025c4b 100%);
+    --gradient-background: linear-gradient(135deg, #4FD0F6 10%, #01056C 100%);
 
     --vp-home-hero-name-color: transparent;
     --vp-home-hero-name-background: var(--gradient-background);
-    --vp-home-hero-image-background-image: var(--gradient-background);
+    /* --vp-home-hero-image-background-image: var(--gradient-background); */
     --vp-home-hero-image-filter: blur(60px);
 }

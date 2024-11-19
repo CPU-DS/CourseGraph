@@ -35,25 +35,23 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0 # 如果未启用 lastUpdated，则不需要
-      # - uses: pnpm/action-setup@v2 # 如果使用 pnpm，请取消注释
-      # - uses: oven-sh/setup-bun@v1 # 如果使用 Bun，请取消注释
+          fetch-depth: 0
       - name: Setup Node
         uses: actions/setup-node@v3
         with:
           node-version: 18
-          cache: npm # 或 pnpm / yarn
+          cache: npm
+          cache-dependency-path: docs/package-lock.json
       - name: Setup Pages
         uses: actions/configure-pages@v3
       - name: Install dependencies
-        run: |
-          cd docs
-          npm ci # 或 pnpm install / yarn install / bun install
+        working-directory: ./docs
+        run: npm ci
       - name: Build with VitePress
+        working-directory: ./docs
         run: |
-          cd docs
-          npm run build # 或 pnpm build / yarn build / bun run build
-          touch docs/.vitepress/dist/.nojekyll
+          npm run build
+          touch .vitepress/dist/.nojekyll
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v2
         with:
