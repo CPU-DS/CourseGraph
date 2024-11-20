@@ -13,15 +13,10 @@ from pprint import pprint
 model = Qwen()
 news = """
 Two people were taken to hospital after a "significant fire" broke out at the BAE Systems nuclear submarine shipyard in Barrow-in-Furness, police have said.
-
 Emergency services were called to the site, where the UK's nuclear submarines are built, at about 00:44 GMT on Wednesday.
-
 Those taken to hospital were said to be suffering from suspected smoke inhalation and have since been released, BAE confirmed, with everyone "accounted for".
-
 Cumbria Police said there was "no nuclear risk". An investigation into the cause of the fire is under way.
-
 Police said the Devonshire Dock Hall, the site's main building facility, was evacuated overnight.
-
 The Ministry of Defence (MOD) said it was working closely with BAE and the emergency services following the fire."""
 
 
