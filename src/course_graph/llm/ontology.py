@@ -19,4 +19,4 @@ class Ontology:
     })
     attributes: dict[str, str] = field(default_factory=lambda: {"定义": "清楚的规定出知识点概念、意义的描述语句"})
 
-ontology = Ontology()
+ONTOLOGY = Ontology()

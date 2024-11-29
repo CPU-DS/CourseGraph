@@ -43,6 +43,7 @@ docstring-parser = "^0.16"
 doclayout-yolo = "^0.0.2"
 shortuuid = "^1.0.13"
 jupyter = "^1.1.1"
+dashscope = "^1.20.13"
 
 
 [build-system]

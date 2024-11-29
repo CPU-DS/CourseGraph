@@ -4,7 +4,7 @@
 # File Name: course_graph/llm/prompt_strategy.py
 # Description: 定义提示词示例检索策略
 
-from ..database import Mongo, Faiss
+from ...database import Mongo, Faiss
 import os
 from sentence_transformers import SentenceTransformer
 import json
@@ -12,7 +12,7 @@ import numpy as np
 from glob import glob
 from typing import Literal
 from abc import ABC, abstractmethod
-from .type import Database
+from ..type import Database
 
 
 class ExamplePromptStrategy(ABC):

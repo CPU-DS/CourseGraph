@@ -938,6 +938,24 @@ files = [
 ]
 
 [[package]]
+name = "dashscope"
+version = "1.20.13"
+description = "dashscope client sdk library"
+optional = false
+python-versions = ">=3.8.0"
+files = [
+    {file = "dashscope-1.20.13-py3-none-any.whl", hash = "sha256:68fb7e9ffa260ebba7188520ca3e462b651ead0d5ee470ccd510c84856be7465"},
+]
+
+[package.dependencies]
+aiohttp = "*"
+requests = "*"
+websocket-client = "*"
+
+[package.extras]
+tokenizer = ["tiktoken"]
+
+[[package]]
 name = "datasets"
 version = "2.14.4"
 description = "HuggingFace community-driven open-source library of datasets"
@@ -8275,4 +8293,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "becf5c43603edea4dff76f5ce44f11597a261680fcb6ae351cef8eca311ddd2f"
+content-hash = "bd62752c2269e65014b42b77ba74aa5e042760ba5c07121eef477c5ee3f56a2e"

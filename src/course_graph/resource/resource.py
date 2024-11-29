@@ -8,7 +8,8 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pptx import Presentation
-from ..llm import VLM, vl_prompt
+from ..llm import VLM
+from ..llm.prompt import VLPromptGenerator
 from .utils import pptx2imgs
 import shutil
 from tqdm import tqdm
@@ -88,14 +89,16 @@ def _merge_index_slice(items: list[int], file_path: str) -> list[Slice]:
 
 class PPTX(Resource):
 
-    def __init__(self, pptx_path: str) -> None:
+    def __init__(self, pptx_path: str, vl_prompt: VLPromptGenerator = VLPromptGenerator()) -> None:
         """ .pptx类型文件资源
 
         Args:
             pptx_path (str): 文件路径
+            vl_prompt (VLPromptGenerator, optional): 图文理解模型提示词. Defaults to VLPromptGenerator().
         """
         super().__init__(pptx_path)
         self.pptx = Presentation(pptx_path)
+        self.vl_prompt = vl_prompt
         # 每一页对应的描述
         self.index_maps: dict[int, str] = dict()
 
@@ -138,11 +141,11 @@ class PPTX(Resource):
         res = ''
         for idx, img in tqdm(enumerate(imgs), total=len(imgs)):
             if idx == 0:
-                prompt_, instruction = vl_prompt.get_ie_prompt()
+                prompt_, instruction = self.vl_prompt.get_ie_prompt()
                 model.instruction = instruction
                 res = model.chat(img, prompt_)
             else:
-                prompt_, instruction = vl_prompt.get_context_ie_prompt(res)  # 之前的回答作为上文信息，可以更好理解本张图片
+                prompt_, instruction = self.vl_prompt.get_context_ie_prompt(res)  # 之前的回答作为上文信息，可以更好理解本张图片
                 model.instruction = instruction
                 res = model.chat([imgs[idx - 1], img], prompt_)
             # 页数从1开始

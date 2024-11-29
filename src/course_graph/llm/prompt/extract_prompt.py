@@ -8,10 +8,10 @@ from abc import ABC, abstractmethod
 import re
 import json
 from .prompt_strategy import ExamplePromptStrategy
-from .ontology import ontology
+from ..ontology import ONTOLOGY
 
 
-class ExtractPrompt(ABC):
+class ExtractPromptGenerator(ABC):
 
     def __init__(self) -> None:
         """ 信息抽取提示词类, 包含获取提示词和格式化模型返回两类方法
@@ -87,7 +87,7 @@ class ExtractPrompt(ABC):
         raise NotImplementedError
 
 
-class ExamplePrompt(ExtractPrompt):
+class ExamplePromptGenerator(ExtractPromptGenerator):
 
     def __init__(self, strategy: ExamplePromptStrategy = None) -> None:
         """ 获取提取提示词, 使用多种提示词优化, 包括CoT、基于动态检索的ICL
@@ -125,7 +125,7 @@ class ExamplePrompt(ExtractPrompt):
         prompt = {
             "instruction":
                 "请对input的内容进行总结根据总结从中抽取出符合schema类型的实体。最后请给出你的总结和抽取到的类型以及对应的列表, 返回的格式为 ```json\n{\"entity_type1\": [\"entity1\", \"entity2\"]}\n```",
-            "schema": ontology.entities,
+            "schema": ONTOLOGY.entities,
             "examples": examples,
             "input": content
         }
@@ -159,7 +159,7 @@ class ExamplePrompt(ExtractPrompt):
         prompt = {
             "instruction":
                 "请对输入的实体列表并根据已有文本片段, 一步步思考, 判断两两实体间的关系, 如果两两之间无关系或关系不在所指定的关系范围relations中, 则不返回。头尾实体不应该相同。返回为你的思考和关系三元组, 格式为 ```json\n[{\"head\": \"\", \"relation\": \"\", \"tail\": \"\"}]\n```",
-            "relations": ontology.relations,
+            "relations": ONTOLOGY.relations,
             "examples": examples,
             "input": f"实体列表为: {entities}, 文本片段为: '{content}'"
         }
@@ -181,7 +181,7 @@ class ExamplePrompt(ExtractPrompt):
         prompt = {
             "instruction":
                 "请对输入的实体列表根据已有文本片段各自抽取他们的属性值。属性范围只能来源于提供的attributes, 属性值无需完全重复原文, 可以是你根据原文进行的总结, 如果实体没有能够总结的属性值则不返回。返回格式为 ```json\n{\"entity1\": {\"attribute1\":\"value\"}}\n```",
-            "attributes": ontology.attributes,
+            "attributes": ONTOLOGY.attributes,
             "examples": examples,
             "input": f"实体列表为: {entities}, 文本片段为: '{content}'"
         }

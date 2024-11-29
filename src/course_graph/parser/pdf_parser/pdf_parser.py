@@ -14,7 +14,8 @@ from PIL import Image
 import numpy as np
 import cv2
 import re
-from ...llm import VLM, vl_prompt, LLM, parser_prompt
+from ...llm import VLM, LLM
+from ...llm.prompt import VLPromptGenerator, ParserPromptGenerator
 import os
 import shutil
 from course_graph_ext import get_list_from_string, find_longest_consecutive_sequence
@@ -29,8 +30,11 @@ class PDFParser(Parser):
         ocr_model: OCRModel = PaddleOCR(),
         ocr_priority: bool = False,
         structure_model: StructureModel = PaddleStructure(),
+        parser_prompt: ParserPromptGenerator= ParserPromptGenerator(),
+        vl_prompt: VLPromptGenerator = VLPromptGenerator(),
         vlm: VLM = None,
         llm: LLM = None,
+        ancher: bool = False
     ) -> None:
         """ pdf文档解析器
 
@@ -39,8 +43,11 @@ class PDFParser(Parser):
             ocr_model (OCRModel, optional): OCR 模型. Defaults to PaddleOCR().
             ocr_priority (bool, optional): 获取文字内容时优先使用 OCR模型, 否则优先直接读取. Defaults to False.
             structure_model (StructureModel, optional): 布局分析模型. Defaults to Paddle().
+            parser_prompt (ParserPromptGenerator, optional): 解析提示词. Defaults to ParserPromptGenerator().
+            vl_prompt (VLPromptGenerator, optional): 图文理解模型提示词. Defaults to VLPromptGenerator().
             vlm ( VLM, optional): 视觉模型. Default to None.
             llm ( LLM, optional): 语言模型. Default to None.
+            anchor (bool, optional): 使用anchor定位. Defaults to False.
         """
         super().__init__(pdf_path)
         self._pdf = fitz.open(pdf_path)
@@ -50,8 +57,14 @@ class PDFParser(Parser):
         self.ocr_priority = ocr_priority
 
         self.outline: list[list] = self._get_outline()
+
+        self.parser_prompt = parser_prompt
+        self.vl_prompt = vl_prompt
+        
         self.vlm = vlm
         self.llm = llm
+
+        self.anchor = ancher
 
     def _get_outline(self) -> list[list]:
         """ 从 pdf 中读取大纲层级
@@ -62,20 +75,22 @@ class PDFParser(Parser):
         outline = []
         for item in self._pdf.get_toc(simple=False):
             h = self._pdf[item[2] - 1].get_pixmap().height  # 宽高一律采用像素层面
-            match item[3]['kind']:
-                # case 4:
-                #     try:
-                #         xref = item[3]['xref']
-                #         t_xref = int(self._pdf.xref_get_key(xref, 'A')[1].split()[0])
-                #         fitH = int(self._pdf.xref_get_key(t_xref, 'D')[1][1:-1].split()[-1])
-                #         outline.append([*item[:3], (-1, max(h - fitH, 0))])
-                #     except:
-                #         outline.append([*item[:3], (-1, -1)])  # 解析出错
-                # case 1:
-                #     outline.append(
-                #         [*item[:3], (item[3]['to'].x, item[3]['to'].y)])
-                case _:
-                    outline.append([*item[:3], (-1, -1)]) 
+            if self.anchor:     
+                match item[3]['kind']:
+                    case 4:
+                        try:
+                            xref = item[3]['xref']
+                            t_xref = int(self._pdf.xref_get_key(xref, 'A')[1].split()[0])
+                            fitH = int(self._pdf.xref_get_key(t_xref, 'D')[1][1:-1].split()[-1])
+                            outline.append([*item[:3], (-1, max(h - fitH, 0))])
+                        except:
+                            outline.append([*item[:3], (-1, -1)])  # 解析出错
+                    case 1:
+                        outline.append([*item[:3], (item[3]['to'].x, item[3]['to'].y)])
+                    case _:
+                        outline.append([*item[:3], (-1, -1)])
+            else:
+                outline.append([*item[:3], (-1, -1)])
         return outline
 
     def __enter__(self) -> 'PDFParser':
@@ -107,7 +122,7 @@ class PDFParser(Parser):
             img = self._get_page_img(index, zoom=2)
             file_path = os.path.join(cache_path, f'{index}.png')
             Image.fromarray(img).save(file_path)
-            prompt_, instruction = vl_prompt.get_catalogue_prompt()
+            prompt_, instruction = self.vl_prompt.get_catalogue_prompt()
             vlm.instruction = instruction
             res = vlm.chat(file_path, prompt_)
             if res.startswith('是'):
@@ -128,7 +143,7 @@ class PDFParser(Parser):
             llm (LLM): 大模型
         """
         lines_without_index = [line[0] for line in lines]
-        prompt, instruction = parser_prompt['get_outline_prompt'](lines_without_index)
+        prompt, instruction = self.parser_prompt.get_outline_prompt(lines_without_index)
         llm.instruction = instruction
         res = llm.chat(prompt)
         r2 = get_list_from_string(res)
@@ -161,7 +176,7 @@ class PDFParser(Parser):
             page = self.get_page(index)
             text_contents = '\n'.join(
                 [content.content for content in page.contents]).strip()
-            prompt, instruction = parser_prompt['get_directory_prompt'](text_contents)
+            prompt, instruction = self.parser_prompt.get_directory_prompt(text_contents)
             llm.instruction = instruction
             res = llm.chat(prompt).replace("，", ",")
             lines.extend(get_list_from_string(res))
@@ -348,7 +363,7 @@ class PDFParser(Parser):
                     res = self.ocr_model(file_path)
                     if self.llm is not None:
                         try:
-                            prompt_, instruction_ = parser_prompt['get_ocr_aided_prompt'](res)
+                            prompt_, instruction_ = self.parser_prompt.get_ocr_aided_prompt(res)
                             self.llm.instruction = instruction_
                             res = self.llm.chat(prompt_)
                         finally:
@@ -370,7 +385,7 @@ class PDFParser(Parser):
                     set_text(block)
 
                 if file_path := save_block(block) is not None:
-                    prompt, instruction = vl_prompt.get_ocr_prompt()
+                    prompt, instruction = self.vl_prompt.get_ocr_prompt()
                     self.vlm.instruction = instruction
                     block['text'] = self.vlm.chat(file_path, prompt)
 

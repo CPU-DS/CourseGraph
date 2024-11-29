@@ -4,8 +4,8 @@
 # File Name: course_graph/parser/document.py
 # Description: 定义文档以及抽取知识图谱相关方法
 
-from ..llm import LLM, ExtractPrompt, ExamplePrompt
-from ..llm.prompt import ontology
+from ..llm import LLM, ONTOLOGY
+from ..llm.prompt import ExtractPromptGenerator, ExamplePromptGenerator
 import shortuuid
 from loguru import logger
 from collections import Counter
@@ -101,7 +101,7 @@ class Document:
     def set_knowledgepoints_by_llm(
             self,
             llm: LLM,
-            prompt: ExtractPrompt = ExamplePrompt(),
+            prompt: ExtractPromptGenerator = ExamplePromptGenerator(),
             self_consistency: bool = False,
             samples: int = 5,
             top: float = 0.5,
@@ -110,7 +110,7 @@ class Document:
 
         Args:
             llm (LLM): 指定 LLM
-            prompt (Prompt, optional): 使用的提示词类. Defaults to ExamplePrompt().
+            prompt (Prompt, optional): 使用的提示词类. Defaults to ExamplePromptGenerator().
             self_consistency (bool, optional): 是否采用自我一致性策略 (需要更多的模型推理次数). Defaults to False.
             samples (int, optional): 采用自我一致性策略的采样次数. Defaults to 5.
             top (float, optional): 采用自我一致性策略时，出现次数超过 top * samples 时才会被采纳，范围为 [0, 1]. Defaults to 0.5.
@@ -249,8 +249,8 @@ class Document:
                     logger.info('已跳过')
                     continue
                 contents = self.parser.get_contents(bookmark)
-                kps = []
-                contents = optimize_string_lengths(strings=[content.content for content in contents], n=400)
+                kps: list[KPEntity] = []
+                contents = optimize_string_lengths([content.content for content in contents], n=400)
                 for content in contents:
                     if len(content) != 0:
                         logger.info('输入片段: \n' + content)
@@ -266,7 +266,7 @@ class Document:
                         else:
                             kps.extend(entities)
                 self.checkpoint['extract_index'] = index
-                bookmark.subs = list(set(kps))
+                bookmark.subs = kps
 
         # 属性值总结
         for entity in tqdm(self.knowledgepoints, desc='属性总结'):
@@ -289,8 +289,8 @@ class Document:
         Returns:
             list[str]: 多条 cypher 语句
         """
-        relas = list(ontology.relations.keys())
-        attrs = list(ontology.attributes.keys())
+        relas = list(ONTOLOGY.relations.keys())
+        attrs = list(ONTOLOGY.attributes.keys())
         cyphers = [
             f'CREATE (:文档 {{id: "{self.id}", name: "{self.name}"}})'
         ]
@@ -377,7 +377,7 @@ class Document:
 
         dfs(self)
 
-        attrs = list(ontology.attributes.keys())
+        attrs = list(ONTOLOGY.attributes.keys())
         for kp in self.knowledgepoints:
             attribute = {
                 'entity_id': kp.id,
