@@ -377,18 +377,64 @@ class Document:
 
         dfs(self)
 
-        attrs = list(ONTOLOGY.attributes.keys())
         for kp in self.knowledgepoints:
             attribute = {
                 'entity_id': kp.id,
                 'entity_type': '知识点/' + kp.type,
                 'entity_name': kp.name,
             }
-            for attr in attrs:
+            for attr in list(ONTOLOGY.attributes.keys()):
                 attribute[attr] = kp.best_attributes.get(attr, '')
             entity_attributes.append(attribute)
 
         return relations, entity_attributes #, relation_attributes
+    
+    def to_topic_template(self) -> None:
+        """ 将图谱转换为主题模板
+
+        Returns:
+            list[list]: 每个子数组包含三个元素：遍历路径、关系列表、属性列表
+        """
+        relations = []
+        attrs = []
+        def dfs(node: Union[Document, BookMark, KPEntity], path: list = None) -> list[list]:
+            if path is None:
+                path = []
+            paths = []
+            current_path = path + [node]
+            
+            match node:
+                case Document():
+                    for bookmark in node.bookmarks:
+                        if bookmark not in config.ignore_page:
+                            paths.extend(dfs(bookmark, current_path))
+                case BookMark():
+                    if not node.subs:
+                        paths.append(current_path)
+                    for sub in node.subs:
+                        paths.extend(dfs(sub, current_path))
+                case KPEntity():
+                    paths.append(current_path)
+                    for relation_type in list(ONTOLOGY.relations.keys()):
+                        tails = [r.tail.name for r in node.relations if r.type == relation_type]
+                        if tails:
+                            relations.append(";".join(tails))
+                        else:
+                            relations.append(None)
+                    
+                    for attr_type in list(ONTOLOGY.attributes.keys()):
+                        attr_value = node.best_attributes.get(attr_type, '')
+                        if attr_value:
+                            attrs.append(attr_value)
+                        else:
+                            attrs.append(None)
+            return paths
+        paths = dfs(self)
+        only_names = []
+
+        for index in range(len(paths)):
+            only_names.append([[ getattr(node, 'name', getattr(node, 'title', None)) for node in paths[index]], relations[index], attrs[index]])
+        return only_names
 
     def set_resource(self, resource_map: 'ResourceMap') -> None:
         """ 为知识点设置相应的资源

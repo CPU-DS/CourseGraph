@@ -25,16 +25,16 @@ from ..type import BookMark, PageIndex
 class PDFParser(Parser):
 
     def __init__(
-        self,
-        pdf_path: str,
-        ocr_model: OCRModel = PaddleOCR(),
-        ocr_priority: bool = False,
-        structure_model: StructureModel = PaddleStructure(),
-        parser_prompt: ParserPromptGenerator= ParserPromptGenerator(),
-        vl_prompt: VLPromptGenerator = VLPromptGenerator(),
-        vlm: VLM = None,
-        llm: LLM = None,
-        ancher: bool = False
+            self,
+            pdf_path: str,
+            ocr_model: OCRModel = PaddleOCR(),
+            ocr_priority: bool = False,
+            structure_model: StructureModel = PaddleStructure(),
+            parser_prompt: ParserPromptGenerator = ParserPromptGenerator(),
+            vl_prompt: VLPromptGenerator = VLPromptGenerator(),
+            vlm: VLM = None,
+            llm: LLM = None,
+            anchor: bool = False
     ) -> None:
         """ pdf文档解析器
 
@@ -47,7 +47,7 @@ class PDFParser(Parser):
             vl_prompt (VLPromptGenerator, optional): 图文理解模型提示词. Defaults to VLPromptGenerator().
             vlm ( VLM, optional): 视觉模型. Default to None.
             llm ( LLM, optional): 语言模型. Default to None.
-            anchor (bool, optional): 使用anchor定位. Defaults to False.
+            anchor (bool, optional): 优先使用 anchor 定位. Defaults to False.
         """
         super().__init__(pdf_path)
         self._pdf = fitz.open(pdf_path)
@@ -56,15 +56,15 @@ class PDFParser(Parser):
         self.ocr_model = ocr_model
         self.ocr_priority = ocr_priority
 
-        self.outline: list[list] = self._get_outline()
-
         self.parser_prompt = parser_prompt
         self.vl_prompt = vl_prompt
-        
+
         self.vlm = vlm
         self.llm = llm
 
-        self.anchor = ancher
+        self.anchor = anchor
+
+        self.outline: list[list] = self._get_outline()
 
     def _get_outline(self) -> list[list]:
         """ 从 pdf 中读取大纲层级
@@ -75,7 +75,7 @@ class PDFParser(Parser):
         outline = []
         for item in self._pdf.get_toc(simple=False):
             h = self._pdf[item[2] - 1].get_pixmap().height  # 宽高一律采用像素层面
-            if self.anchor:     
+            if self.anchor:
                 match item[3]['kind']:
                     case 4:
                         try:
@@ -260,16 +260,16 @@ class PDFParser(Parser):
 
             page_contents = self.get_page(index).contents
 
-
             if index == bookmark.page_start.index:
                 idx = 0
                 x, y = bookmark.page_start.anchor
                 title = remove_blanks(bookmark.title)
 
                 if x == -1 and y == -1:  # 使用内容定位
-                    condition = lambda content: (content.type == ContentType.Title and remove_blanks(content.content) in remove_blanks(title))
+                    condition = lambda s: (
+                            s.type == ContentType.Title and remove_blanks(s.content) in remove_blanks(title))
                 else:  # 使用 anchor 定位
-                    condition = lambda content: (content.bbox[0] > x and content.bbox[1] > y)
+                    condition = lambda s: (s.bbox[0] > x and s.bbox[1] > y)
 
                 for i, content in enumerate(page_contents):
                     if condition(content):
@@ -283,9 +283,9 @@ class PDFParser(Parser):
                 x, y = bookmark.page_start.anchor
 
                 if x == -1 and y == -1:  # 使用内容定位
-                    condition = lambda content: (content.type == ContentType.Title)
+                    condition = lambda s: (s.type == ContentType.Title)
                 else:  # 使用 anchor 定位
-                    condition = lambda content: (content.bbox[0] > x and content.bbox[1] > y)
+                    condition = lambda s: (s.bbox[0] > x and s.bbox[1] > y)
                 for i, content in enumerate(page_contents):
                     if condition(content):
                         idx = i
@@ -335,7 +335,6 @@ class PDFParser(Parser):
         if not os.path.exists(cache_path):
             os.makedirs(cache_path)
 
-
         def save_block(_block) -> None | str:
             t = 20  # 切割子图, 向外扩充t个像素
             x1, y1, x2, y2 = _block['bbox']
@@ -349,7 +348,7 @@ class PDFParser(Parser):
             path = os.path.join(cache_path, f'{str(shortuuid.uuid())}_{type_}.png')
             cropped_img.save(path)
             return path
-        
+
         def set_text(block_) -> None:
             bbox = [b / zoom for b in block_['bbox']]
             res = pdf_page.get_textbox(bbox).replace('\n', '')
@@ -359,8 +358,8 @@ class PDFParser(Parser):
             elif len(res) != 0 and not bool(re.search(r'[\uFFFD]', res)) and not self.ocr_priority:
                 block_['text'] = res
             else:  # 有些pdf是图片型可能无法直接读取, 则使用OCR的结果
-                if file_path := save_block(block_):
-                    res = self.ocr_model(file_path)
+                if path := save_block(block_):
+                    res = self.ocr_model(path)
                     if self.llm is not None:
                         try:
                             prompt_, instruction_ = self.parser_prompt.get_ocr_aided_prompt(res)
@@ -402,7 +401,7 @@ class PDFParser(Parser):
                 contents.append(content)
 
         shutil.rmtree(cache_path)
-        
+
         return Page(page_index=page_index + 1, contents=contents)
 
     def get_pages(self) -> list[Page]:
