@@ -226,9 +226,7 @@ class Document:
                             break
                     if head and tail:
                         for relation in head.relations:
-                            if relation.type == rela.get(
-                                    'relation', None
-                            ) and relation.tail.name == tail.name:  # 确保没有重复的关系
+                            if relation.type == rela.get('relation', None) and relation.tail.name == tail.name:  # 确保没有重复的关系
                                 break
                         else:
                             head.relations.append(
@@ -266,7 +264,7 @@ class Document:
                         else:
                             kps.extend(entities)
                 self.checkpoint['extract_index'] = index
-                bookmark.subs = kps
+                bookmark.subs = list({kp.id: kp for kp in kps}.values()) # 去重
 
         # 属性值总结
         for entity in tqdm(self.knowledgepoints, desc='属性总结'):
@@ -283,16 +281,17 @@ class Document:
                     f'实体: {entity.name}, 属性: {attr}, 值: {entity.attributes[attr]}'
                 )
 
-    def to_cyphers(self) -> list[str]:
+    def to_cyphers(self, colors: list[str] = None) -> list[str]:
         """ 将图谱转换为 cypher CREATE 语句
 
         Returns:
             list[str]: 多条 cypher 语句
+            colors (list[str], optional): 颜色列表, 会添加到实体的 color 属性. Defaults to None.
         """
         relas = list(ONTOLOGY.relations.keys())
         attrs = list(ONTOLOGY.attributes.keys())
         cyphers = [
-            f'CREATE (:文档 {{id: "{self.id}", name: "{self.name}"}})'
+            f'CREATE (:文档 {{id: "{self.id}", name: "{self.name}"}}' + f', color: "{colors[0]}"' if colors else '' + ')'
         ]
         # 创建所有知识点实体和实体属性
         for entity in self.knowledgepoints:
@@ -309,13 +308,13 @@ class Document:
                         f'MATCH (n1:知识点 {{id: "{entity.id}"}}) MATCH (n2:知识点 {{id: "{relation.tail.id}"}}) CREATE (n1)-[:{relation.type} {{id: "{relation.id}"}}]->(n2)'
                     )
 
-        def bookmark_to_cypher(bookmark: BookMark, parent_id: str):
+        def bookmark_to_cypher(bookmark: BookMark, parent_id: str, color: str = None):
             if bookmark.title in config.ignore_page:
                 return
             # 创建章节实体
             res = [str(resource) for resource in bookmark.resource]
             cyphers.append(
-                f'CREATE (:章节 {{id: "{bookmark.id}", name: "{bookmark.title}", page_start: {bookmark.page_start.index}, page_end: {bookmark.page_end.index}, resource: {res}}})'
+                f'CREATE (:章节 {{id: "{bookmark.id}", name: "{bookmark.title}", page_start: {bookmark.page_start.index}, page_end: {bookmark.page_end.index}, resource: {res}}}' + f', color: "{color}"' if color else '' + ')'
             )
             # 创建章节和上级章节 (书籍) 关联, 所以不写类别
             cyphers.append(
@@ -324,14 +323,21 @@ class Document:
             for sub in bookmark.subs:
                 match sub:
                     case BookMark():
-                        bookmark_to_cypher(sub, bookmark.id)
+                        bookmark_to_cypher(sub, bookmark.id, color)
                     case KPEntity():
                         cyphers.append(
-                            f'MATCH (n1:章节 {{id: "{bookmark.id}"}}) MATCH (n2:知识点 {{id: "{entity.id}"}}) CREATE (n1)-[:包含知识点 {{id: "3:{shortuuid.uuid()}"}}]->(n2)'
+                            f'MATCH (n1:章节 {{id: "{bookmark.id}"}}) MATCH (n2:知识点 {{id: "{sub.id}"}}) CREATE (n1)-[:包含知识点 {{id: "3:{shortuuid.uuid()}"}}]->(n2)'
+                        )
+                        if color:
+                            cyphers.append(
+                                f'MATCH (n2:知识点 {{id: "{sub.id}"}}) SET n2.color = "{color}"'
                         )
 
-        for bookmark in self.bookmarks:
-            bookmark_to_cypher(bookmark, self.id)
+        for i, bookmark in enumerate(self.bookmarks):
+            if colors:
+                bookmark_to_cypher(bookmark, self.id, colors[i % (len(colors)-1) + 1])
+            else:
+                bookmark_to_cypher(bookmark, self.id)
         return cyphers
 
     def to_json(self) -> tuple[dict, dict]:

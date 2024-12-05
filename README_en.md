@@ -21,28 +21,16 @@ CourseGraph utilizes large language models and various prompt optimization techn
 
 ## 🚀 Quick Start
 
-First, obtain an Alibaba Cloud Tongyi Qianwen [API Key](https://help.aliyun.com/zh/model-studio/developer-reference/get-api-key?spm=a2c4g.11186623.0.0.1be847bbvv6p4o), then choose either Docker installation or local installation
+First, obtain an Alibaba Cloud Tongyi Qianwen [API Key](https://help.aliyun.com/zh/model-studio/developer-reference/get-api-key?spm=a2c4g.11186623.0.0.1be847bbvv6p4o), then choose local installation
 
-### Option 1: Using Docker (Recommended)
-
-This project provides Docker configuration for quick environment setup:
-
-```bash
-git clone git@github.com:wangtao2001/CourseGraph.git
-cd CourseGraph
-export DASHSCOPE_API_KEY=
-docker-compose -f docker/docker-compose.yml up -d
-python examples/get_knowledge_graph.py
-```
-
-### Option 2: Local Installation
+### Option 1: Local Installation
 
 #### Install Dependencies
 
 Ensure Anaconda (or Miniconda) and Rust are installed, then execute:
 
 ```bash
-git clone git@github.com:wangtao2001/CourseGraph.git
+git clone git@github.com:CPU-DS/CourseGraph.git
 cd CourseGraph
 conda create -n cg python=3.10 -y
 conda activate cg
@@ -70,7 +58,7 @@ python examples/get_knowledge_graph.py
 
 ## 📚 Documentation
 
-Documentation can be found in the `docs` directory, or you can visit the [online documentation](https://wangtao2001.github.io/CourseGraph/) (As the project features are still under rapid development, the online documentation is not yet ready). If you wish to customize the online documentation, follow these steps:
+Documentation can be found in the `docs` directory, or you can visit the [online documentation](https://CPU-DS.github.io/CourseGraph/) (As the project features are still under rapid development, the online documentation is not yet ready). If you wish to customize the online documentation, follow these steps:
 
 #### Install Dependencies and Preview
 
@@ -90,7 +78,7 @@ Online documentation is deployed using Github Actions + Github Pages, with the w
 
 ## 🛠️ Contributing and Citation
 
-[PR](https://github.com/wangtao2001/CourseGraph/pulls) and [Issues](https://github.com/wangtao2001/CourseGraph/issues) are welcome, as well as any form of contribution
+[PR](https://github.com/CPU-DS/CourseGraph/pulls) and [Issues](https://github.com/CPU-DS/CourseGraph/issues) are welcome, as well as any form of contribution
 
 If you find CourseGraph helpful for your work, please consider citing:
 
@@ -98,7 +86,7 @@ If you find CourseGraph helpful for your work, please consider citing:
 @misc{CourseGraph,
       author = {Wang, Tao},
       year = {2024},
-      note = {https://github.com/wangtao2001/CourseGraph},
+      note = {https://github.com/CPU-DS/CourseGraph},
       title = {CourseGraph: Automatic Construction of Course Knowledge Graphs Using Large Models}
    }
 ``` 

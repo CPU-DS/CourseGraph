@@ -18,9 +18,23 @@ class KPEntity:
     best_attributes: dict[str, str] = field(default_factory=dict)
     resourceSlices: list[Slice] = field(default_factory=list)
 
+    def __repr__(self, detail: bool = True) -> str:
+        if detail:
+            s = ', \n\t\t'.join([relation.__repr__() for relation in self.relations])
+            return f'''KPEntity(name="{self.name}", 
+\t type="{self.type}", 
+\t attributes={self.attributes}, 
+\t best_attributes={self.best_attributes})
+\t relations=[{s}]'''
+        else:
+            return f'KPEntity(name="{self.name}", ...)'
+
 
 @dataclass
 class KPRelation:
     id: str
     type: str
     tail: KPEntity
+
+    def __repr__(self) -> str:
+        return f'''KPRelation(type="{self.type}", tail={self.tail.__repr__(False)})'''

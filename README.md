@@ -30,7 +30,7 @@ CourseGraph 使用大模型，利用多种 prompt 优化技术, 自动从教材�
 请确保已安装 Anaconda (或 Miniconda) 和 Rust ，然后执行：
 
 ```bash
-git clone git@github.com:wangtao2001/CourseGraph.git
+git clone git@github.com:CPU-DS/CourseGraph.git
 cd CourseGraph
 conda create -n cg python=3.10 -y
 conda activate cg
@@ -58,7 +58,7 @@ python examples/get_knowledge_graph.py
 
 ## 📚 文档
 
-可以在 `docs` 目录下查看文档, 也可以访问 [在线文档](https://wangtao2001.github.io/CourseGraph/) (由于项目功能仍处于快速开发中，故在线文档暂时还没有准备好)。如果你希望自定义在线文档请依照以下步骤：
+可以在 `docs` 目录下查看文档, 也可以访问 [在线文档](https://CPU-DS.github.io/CourseGraph/) (由于项目功能仍处于快速开发中，故在线文档暂时还没有准备好)。如果你希望自定义在线文档请依照以下步骤：
 
 #### 依赖安装和预览
 
@@ -78,7 +78,7 @@ npm run docs:dev
 
 ## 🛠️ 贡献和引用
 
-欢迎提交 [PR](https://github.com/wangtao2001/CourseGraph/pulls) 或 [Issues](https://github.com/wangtao2001/CourseGraph/issues)，也欢迎参与任何形式的贡献
+欢迎提交 [PR](https://github.com/CPU-DS/CourseGraph/pulls) 或 [Issues](https://github.com/CPU-DS/CourseGraph/issues)，也欢迎参与任何形式的贡献
 
 如果觉得 CourseGraph 项目有助于你的工作，请考虑如下引用:
 
@@ -86,7 +86,7 @@ npm run docs:dev
  @misc{CourseGraph,
        author = {Wang, Tao},
        year = {2024},
-       note = {https://github.com/wangtao2001/CourseGraph},
+       note = {https://github.com/CPU-DS/CourseGraph},
        title = {CourseGraph: Automatic Construction of Course Knowledge Graphs Using Large Models}
     }
 ```

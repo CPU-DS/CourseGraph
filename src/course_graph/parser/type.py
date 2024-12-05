@@ -81,3 +81,15 @@ class BookMark:
                         get_kp(sub)
         get_kp(self)
         return kps
+
+    def __repr__(self, detail: bool = True) -> str:
+        if detail:
+            s = ', \n\t\t'.join([sub.__repr__(False) for sub in self.subs])
+            return f'''BookMark(title="{self.title}", 
+\t page_start={self.page_start.index}, 
+\t page_end={self.page_end.index}, 
+\t level={self.level}, 
+\t resource={self.resource}),
+\t subs=[\t{s}]'''
+        else:
+            return  f'BookMark(title="{self.title}", ...)'
