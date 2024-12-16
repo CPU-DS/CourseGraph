@@ -47,6 +47,8 @@ class PaddleOCR(OCRModel):
 class GOT(OCRModel):
 
     def __init__(self, model_path: str, device: str = 'cuda') -> None:
+        """ GOT-OCR 2.0 模型 ref: https://github.com/Ucas-HaoranWei/GOT-OCR2.0
+        """
         self.tokenizer = AutoTokenizer.from_pretrained(model_path,
                                                        trust_remote_code=True)
         self.model = AutoModel.from_pretrained(

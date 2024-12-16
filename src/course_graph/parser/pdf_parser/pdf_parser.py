@@ -335,16 +335,32 @@ class PDFParser(Parser):
         if not os.path.exists(cache_path):
             os.makedirs(cache_path)
 
-        def save_block(_block) -> None | str:
-            t = 20  # 切割子图, 向外扩充t个像素
-            x1, y1, x2, y2 = _block['bbox']
+        def save_block(block_) -> None | str:
+            t = 5  # 切割子图, 向外扩充t个像素
+            x1, y1, x2, y2 = block_['bbox']
+            type_ = block_['type']
             # 扩充裁剪区域
             x1, y1, x2, y2 = max(0, x1 - t), max(0, y1 - t), min(w, x2 + t), min(h, y2 + t)  # 防止越界
             if (x2 - x1) < 5 or (y2 - y1) < 5:
                 return  # 区域过小
             if type_ == 'figure' and ((x2 - x1) < 150 or (y2 - y1) < 150):
                 return  # 图片过小
+            # 裁剪图像
             cropped_img = Image.fromarray(img).crop((x1, y1, x2, y2))
+            # 转换为灰度图像以增强对比度
+            cropped_img = cropped_img.convert('L')
+            # 使用自适应直方图均衡化增强对比度
+            cropped_img = np.array(cropped_img)
+            clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
+            cropped_img = clahe.apply(cropped_img)
+            # 转回RGB模式
+            cropped_img = Image.fromarray(cropped_img).convert('RGB')
+            # 在周围扩充20像素的白色边框
+            border_size = 20
+            new_size = (cropped_img.width + 2*border_size, cropped_img.height + 2*border_size)
+            bordered_img = Image.new('RGB', new_size, 'white')
+            bordered_img.paste(cropped_img, (border_size, border_size))
+            cropped_img = bordered_img
             path = os.path.join(cache_path, f'{str(shortuuid.uuid())}_{type_}.png')
             cropped_img.save(path)
             return path
@@ -368,7 +384,7 @@ class PDFParser(Parser):
                         finally:
                             pass  # 使用大模型矫正这一步不是必须的
                     block_['text'] = res
-
+        
         for _, block in enumerate(blocks):
             type_ = block['type']
             if type_ in ['abandon']:

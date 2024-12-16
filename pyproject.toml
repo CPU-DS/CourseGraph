@@ -2,10 +2,10 @@
 name = "course_graph"
 version = "0.0.1"
 description = "Automatic Construction of Course Knowledge Graphs Using Large Models"
-authors = ["wangtao <wangtao.cpu@gmail.com>"]
-license = "Apache 2.0"
+authors = ["CPU-DS <cpuds21@163.com>"]
+license = "MIT"
 readme = "README.md"
-homepage = "https://github.com/wangtao2001/CourseGraph"
+homepage = "https://github.com/CPU-DS/CourseGraph"
 
 
 [tool.poetry.dependencies]
