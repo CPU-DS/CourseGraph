@@ -34,7 +34,8 @@ class PDFParser(Parser):
             vl_prompt: VLPromptGenerator = VLPromptGenerator(),
             vlm: VLM = None,
             llm: LLM = None,
-            anchor: bool = False
+            anchor: bool = False,
+            sharpen_method: Literal['USM', 'Laplacian'] | None = None
     ) -> None:
         """ pdf文档解析器
 
@@ -47,7 +48,8 @@ class PDFParser(Parser):
             vl_prompt (VLPromptGenerator, optional): 图文理解模型提示词. Defaults to VLPromptGenerator().
             vlm ( VLM, optional): 视觉模型. Default to None.
             llm ( LLM, optional): 语言模型. Default to None.
-            anchor (bool, optional): 优先使用 anchor 定位. Defaults to False.
+            anchor (bool, optional): 优先使用锚点定位. Defaults to False.
+            document_clear (Literal['USM', 'Laplacian'] | None, optional): 文档清晰化处理算法. Defaults to None.
         """
         super().__init__(pdf_path)
         self._pdf = fitz.open(pdf_path)
@@ -65,6 +67,7 @@ class PDFParser(Parser):
         self.anchor = anchor
 
         self.outline: list[list] = self._get_outline()
+        self.sharpen_method = sharpen_method
 
     def _get_outline(self) -> list[list]:
         """ 从 pdf 中读取大纲层级
@@ -295,7 +298,7 @@ class PDFParser(Parser):
             contents.extend(page_contents)
         return contents
 
-    def _get_page_img(self, page_index: int, zoom: int = 1):
+    def _get_page_img(self, page_index: int, zoom: int = 1) -> ndarray:
         """ 获取页面的图像对象
 
         Args:
@@ -306,7 +309,6 @@ class PDFParser(Parser):
             _type_: opencv 转换后的图像对象
         """
         pdf_page = self._pdf[page_index]
-        # 不需要对页面进行缩放
         mat = fitz.Matrix(zoom, zoom)
         pm = pdf_page.get_pixmap(matrix=mat, alpha=False)
         # 图片过大则放弃缩放
@@ -328,53 +330,59 @@ class PDFParser(Parser):
         zoom = 2
         pdf_page = self._pdf[page_index]
         img = self._get_page_img(page_index, zoom=zoom)
+        img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        
         h, w, _ = img.shape
-        blocks = self.structure_model(img)
+        
+        match self.sharpen_method:
+            case 'USM':  # 非锐化掩膜
+                strength = 1
+                img_gray = cv2.addWeighted(img_gray, 1 + strength, cv2.GaussianBlur(img_gray, (5, 5), 1.0), -strength, 0) # 加权
+            case 'Laplacian':  # 拉普拉斯锐化 
+                kernel = np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]])  #  改进的拉普拉斯算子
+                img_gray = cv2.filter2D(img_gray, -1, kernel)
+            case _:
+                pass
+        
+        # 文本区域 (text/title) 和布局检测使用 img_gray 对象
+        # 非文本区域使用 img 对象
+        blocks = self.structure_model(img_gray)
 
         cache_path = '.cache/pdf_cache'
         if not os.path.exists(cache_path):
             os.makedirs(cache_path)
 
-        def save_block(block_) -> None | str:
-            t = 5  # 切割子图, 向外扩充t个像素
+        def save_block(block_: StructureResult, img_: ndarray) -> None | str:
+            wt, ht = 20, 5  # 切割子图, 向左右扩充wt, 向上扩充ht
             x1, y1, x2, y2 = block_['bbox']
             type_ = block_['type']
             # 扩充裁剪区域
-            x1, y1, x2, y2 = max(0, x1 - t), max(0, y1 - t), min(w, x2 + t), min(h, y2 + t)  # 防止越界
+            x1, y1, x2, y2 = max(0, x1 - wt), max(0, y1 - ht), min(w, x2 + wt), min(h, y2 + ht)  # 防止越界
             if (x2 - x1) < 5 or (y2 - y1) < 5:
                 return  # 区域过小
             if type_ == 'figure' and ((x2 - x1) < 150 or (y2 - y1) < 150):
                 return  # 图片过小
             # 裁剪图像
-            cropped_img = Image.fromarray(img).crop((x1, y1, x2, y2))
-            # 转换为灰度图像以增强对比度
-            cropped_img = cropped_img.convert('L')
-            # 使用自适应直方图均衡化增强对比度
-            cropped_img = np.array(cropped_img)
-            clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
-            cropped_img = clahe.apply(cropped_img)
-            # 转回RGB模式
-            cropped_img = Image.fromarray(cropped_img).convert('RGB')
-            # 在周围扩充20像素的白色边框
+            cropped_img = Image.fromarray(img_).crop((x1, y1, x2, y2))
             border_size = 20
             new_size = (cropped_img.width + 2*border_size, cropped_img.height + 2*border_size)
             bordered_img = Image.new('RGB', new_size, 'white')
             bordered_img.paste(cropped_img, (border_size, border_size))
-            cropped_img = bordered_img
+            
             path = os.path.join(cache_path, f'{str(shortuuid.uuid())}_{type_}.png')
-            cropped_img.save(path)
+            bordered_img.save(path)
             return path
 
-        def set_text(block_) -> None:
+        def set_text_auto(block_: StructureResult) -> None:
             bbox = [b / zoom for b in block_['bbox']]
-            res = pdf_page.get_textbox(bbox).replace('\n', '')
 
-            if block_.get('text', None) is not None:
+            if block_.get('text', None) is not None:  # 已经设置过 text 属性
                 pass
-            elif len(res) != 0 and not bool(re.search(r'[\uFFFD]', res)) and not self.ocr_priority:
-                block_['text'] = res
-            else:  # 有些pdf是图片型可能无法直接读取, 则使用OCR的结果
-                if path := save_block(block_):
+            else:
+                res = pdf_page.get_textbox(bbox).replace('\n', '')  # 直接读取
+                if len(res) != 0 and not bool(re.search(r'[\uFFFD]', res)) and not self.ocr_priority:
+                    block_['text'] = res
+                elif path := save_block(block_, img_gray):  # OCR
                     res = self.ocr_model(path)
                     if self.llm is not None:
                         try:
@@ -385,24 +393,21 @@ class PDFParser(Parser):
                             pass  # 使用大模型矫正这一步不是必须的
                     block_['text'] = res
         
+        def set_text_by_vlm(block_: StructureResult) -> None:
+            if file_path := save_block(block_, img):
+                prompt, instruction = self.vl_prompt.get_ocr_prompt()
+                self.vlm.instruction = instruction
+                block_['text'] = self.vlm.chat(file_path, prompt)
+
         for _, block in enumerate(blocks):
             type_ = block['type']
             if type_ in ['abandon']:
                 continue
             elif type_ in ['title', 'text']:
-                set_text(block)
-
-        if self.vlm is not None:  # 如果有多模态模型 就可以处理表格/图片/公式 (GOT也有处理公式的能力....)
-            for _, block in enumerate(blocks):
-                type_ = block['type']
-
-                if type_ in ['figure_caption', 'table_caption', 'table_footnote', 'formula_caption']:
-                    set_text(block)
-
-                if file_path := save_block(block) is not None:
-                    prompt, instruction = self.vl_prompt.get_ocr_prompt()
-                    self.vlm.instruction = instruction
-                    block['text'] = self.vlm.chat(file_path, prompt)
+                set_text_auto(block)  # 直接读取 或 OCR
+            else:
+                if self.vlm is not None:
+                    set_text_by_vlm(block)  # 使用多模态模型
 
         contents: list[Content] = []
         for block in blocks:
