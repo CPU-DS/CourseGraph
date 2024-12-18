@@ -70,12 +70,13 @@ class PaddleStructure(StructureModel):
 
 class LayoutYOLO(StructureModel):
 
-    def __init__(self, model_path: str, device: str = 'cuda') -> None:
+    def __init__(self, model_path: str, device: str = 'cuda', conf: float = 0.2) -> None:
         """ DocLayout-YOLO 布局分析模型 ref: https://github.com/opendatalab/DocLayout-YOLO/blob/main/README-zh_CN.md
 
         Args:
             model_path (str): 模型路径
             device (str, optional): 运行设备. Defaults to 'cuda'.
+            conf (float, optional): 置信度阈值. Defaults to 0.2.
         """
         super().__init__()
         self.model = YOLOv10(model_path)
@@ -84,13 +85,13 @@ class LayoutYOLO(StructureModel):
             'plain text': 'text',
             'isolate_formula': 'formula'
         }
-
+        self.conf = conf
     def predict(self, img: ndarray) -> list[StructureResult]:
         # labels: title, plain text, abandon, figure, figure_caption, table, table_caption, table_footnote, isolate_formula, formula_caption
         result = json.loads(
             self.model.predict(img,
                                imgsz=1024,
-                               conf=0.2,
+                               conf=self.conf,
                                verbose=False,
                                device=self.device)[0].tojson())
         # 将 bbox 坐标变换为 (x1,y1,x2,y2) 格式

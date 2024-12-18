@@ -59,4 +59,5 @@ class GOT(OCRModel):
             pad_token_id=self.tokenizer.eos_token_id).eval().to(device)
 
     def predict(self, img_path: str) -> str:
-        return self.model.chat(self.tokenizer, img_path, ocr_type='ocr')
+        # return self.model.chat(self.tokenizer, img_path, ocr_type='ocr')
+        return self.model.chat_crop(self.tokenizer, img_path, ocr_type='ocr').replace('\n', '')
