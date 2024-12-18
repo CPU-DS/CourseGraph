@@ -8,6 +8,9 @@ from abc import ABC, abstractmethod
 from paddleocr import PaddleOCR as Paddle
 from modelscope import AutoModel, AutoTokenizer
 import logging
+from contextlib import redirect_stdout
+import os
+import re
 
 logging.getLogger("transformers").setLevel(logging.CRITICAL)
 
@@ -57,7 +60,39 @@ class GOT(OCRModel):
             low_cpu_mem_usage=True,
             use_safetensors=True,
             pad_token_id=self.tokenizer.eos_token_id).eval().to(device)
+        
+        self.unreadable_pattern = re.compile(r'[\ue000-\uf8ff\ufff0-\uffff]')
+
+    class OverrideGenerate:
+        def __init__(self, model, temperature: float = 1.0, do_sample: bool = True):
+            self.model = model
+            self.original_generate = model.generate
+            self.temperature = temperature
+            self.do_sample = do_sample
+
+        def __enter__(self):
+            def new_generate(*args, **kwargs):
+                kwargs['temperature'] = self.temperature
+                kwargs['do_sample'] = self.do_sample
+                return self.original_generate(*args, **kwargs)
+            self.model.generate = new_generate
+
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            self.model.generate = self.original_generate
 
     def predict(self, img_path: str) -> str:
-        # return self.model.chat(self.tokenizer, img_path, ocr_type='ocr')
-        return self.model.chat_crop(self.tokenizer, img_path, ocr_type='ocr').replace('\n', '')
+        with open(os.devnull, 'w') as devnull, redirect_stdout(devnull):
+            res = self.model.chat_crop(self.tokenizer, img_path, ocr_type='ocr')
+            res = res.replace('\n', '').replace('\u3000', ' ')
+            
+            if self.unreadable_pattern.search(res):
+                retry = 0
+                while retry < 3: # 不断尝试提高温度
+                    with self.OverrideGenerate(self.model, temperature=1.0 * (retry + 1), do_sample=True):
+                        res = self.model.chat(self.tokenizer, img_path, ocr_type='ocr')
+                    if not self.unreadable_pattern.search(res):
+                        break
+                    retry += 1
+                else:
+                    res = self.unreadable_pattern.sub('', res)  # 过滤掉不可读的文本
+            return res

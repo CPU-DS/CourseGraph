@@ -355,7 +355,7 @@ class PDFParser(Parser):
         if not os.path.exists(cache_path):
             os.makedirs(cache_path)
 
-        def save_block(block_: StructureResult, img_: ndarray) -> None | str:
+        def save_block(block_: StructureResult, img_: ndarray, idx: int) -> None | str:
             wt, ht = 20, 5  # 切割子图, 向左右扩充wt, 向上扩充ht
             x1, y1, x2, y2 = block_['bbox']
             type_ = block_['type']
@@ -372,11 +372,11 @@ class PDFParser(Parser):
             bordered_img = Image.new('RGB', new_size, 'white')
             bordered_img.paste(cropped_img, (border_size, border_size))
             
-            path = os.path.join(cache_path, f'{str(shortuuid.uuid())}_{type_}.png')
+            path = os.path.join(cache_path, f'{idx}_{str(shortuuid.uuid())}_{type_}.png')
             bordered_img.save(path)
             return path
 
-        def set_text_auto(block_: StructureResult) -> None:
+        def set_text_auto(block_: StructureResult, idx: int) -> None:
             bbox = [b / zoom for b in block_['bbox']]
 
             if block_.get('text', None) is not None:  # 已经设置过 text 属性
@@ -385,7 +385,7 @@ class PDFParser(Parser):
                 res = pdf_page.get_textbox(bbox).replace('\n', '')  # 直接读取
                 if len(res) != 0 and not bool(re.search(r'[\uFFFD]', res)) and not self.ocr_priority:
                     block_['text'] = res
-                elif path := save_block(block_, img_sharpen):  # OCR
+                elif path := save_block(block_, img_sharpen, idx):  # OCR
                     res = self.ocr_model(path)
                     if self.llm is not None:
                         try:
@@ -396,21 +396,21 @@ class PDFParser(Parser):
                             pass  # 使用大模型矫正这一步不是必须的
                     block_['text'] = res
         
-        def set_text_by_vlm(block_: StructureResult) -> None:
-            if file_path := save_block(block_, img):
+        def set_text_by_vlm(block_: StructureResult, idx: int) -> None:
+            if file_path := save_block(block_, img, idx):
                 prompt, instruction = self.vl_prompt.get_ocr_prompt()
                 self.vlm.instruction = instruction
                 block_['text'] = self.vlm.chat(file_path, prompt)
 
-        for _, block in enumerate(blocks):
+        for idx, block in enumerate(blocks):
             type_ = block['type']
             if type_ in ['abandon']:
                 continue
             elif type_ in ['title', 'text']:
-                set_text_auto(block)  # 直接读取 或 OCR
+                set_text_auto(block, idx)  # 直接读取 或 OCR
             else:
                 if self.vlm is not None:
-                    set_text_by_vlm(block)  # 使用多模态模型
+                    set_text_by_vlm(block, idx)  # 使用多模态模型
 
         contents: list[Content] = []
         for block in blocks:
