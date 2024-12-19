@@ -80,4 +80,4 @@ npm run docs:dev
 
 欢迎提交 [PR](https://github.com/CPU-DS/CourseGraph/pulls) 或 [Issues](https://github.com/CPU-DS/CourseGraph/issues)，也欢迎参与任何形式的贡献
 
-本项目基于 MIT 协议开源。同时，若觉得 CourseGraph 项目有助于你的工作，也请参考 [CITATION.cff](CITATION.cff) 文件 或点击 Repository 右侧的 `Cite this repository` 按钮进行引用。
+本项目基于 MIT 协议开源。同时，若觉得 CourseGraph 项目有助于你的工作，也请参考 [CITATION.cff](CITATION.cff) 文件或点击 Repository 右侧的 `Cite this repository` 按钮进行引用。
