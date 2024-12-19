@@ -19,7 +19,7 @@ class StructureResult(TypedDict, total=False):
             'abandon', 'text', 'title', 'figure', 'figure_caption', 'table', 'table_caption', 'table_footnote', 'formula', 'formula_caption'
         ]]
     type: Required[str]
-    bbox: Required[tuple[float]]
+    bbox: Required[tuple[float, float, float, float]]
     text: str
 
 
@@ -86,8 +86,8 @@ class LayoutYOLO(StructureModel):
             'isolate_formula': 'formula'
         }
         self.conf = conf
+
     def predict(self, img: ndarray) -> list[StructureResult]:
-        # labels: title, plain text, abandon, figure, figure_caption, table, table_caption, table_footnote, isolate_formula, formula_caption
         result = json.loads(
             self.model.predict(img,
                                imgsz=1024,

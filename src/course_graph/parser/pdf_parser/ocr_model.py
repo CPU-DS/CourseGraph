@@ -11,6 +11,7 @@ import logging
 from contextlib import redirect_stdout
 import os
 import re
+import time
 
 logging.getLogger("transformers").setLevel(logging.CRITICAL)
 
@@ -82,10 +83,14 @@ class GOT(OCRModel):
 
     def predict(self, img_path: str) -> str:
         with open(os.devnull, 'w') as devnull, redirect_stdout(devnull):
+            timmout = False 
+            start_time = time.time()
             res = self.model.chat_crop(self.tokenizer, img_path, ocr_type='ocr')
+            if time.time() - start_time > 30:
+                timmout = True
             res = res.replace('\n', '').replace('\u3000', ' ')
             
-            if self.unreadable_pattern.search(res):
+            if self.unreadable_pattern.search(res) or timmout:
                 retry = 0
                 while retry < 3: # 不断尝试提高温度
                     with self.OverrideGenerate(self.model, temperature=1.0 * (retry + 1), do_sample=True):

@@ -35,7 +35,8 @@ class PDFParser(Parser):
             vlm: VLM = None,
             llm: LLM = None,
             anchor: bool = False,
-            sharpen: Literal['USM', 'Laplacian'] | None = None
+            sharpen: Literal['USM', 'Laplacian'] | None = None,
+            **kwargs
     ) -> None:
         """ pdf文档解析器
 
@@ -49,7 +50,8 @@ class PDFParser(Parser):
             vlm ( VLM, optional): 视觉模型. Default to None.
             llm ( LLM, optional): 语言模型. Default to None.
             anchor (bool, optional): 优先使用锚点定位. Defaults to False.
-            sharpen (Literal['USM', 'Laplacian'] | None, optional): 文档清晰化处理算法. Defaults to None.
+            sharpen (Literal['USM', 'Laplacian'] | None, optional): 锐化处理算法. Defaults to None.
+            **kwargs (dict, optional): 其它细粒度控制参数.
         """
         super().__init__(pdf_path)
         self._pdf = fitz.open(pdf_path)
@@ -60,12 +62,13 @@ class PDFParser(Parser):
 
         self.parser_prompt = parser_prompt
         self.vl_prompt = vl_prompt
-
         self.vlm = vlm
         self.llm = llm
 
         self.anchor = anchor
         self.sharpen = sharpen
+        
+        self.kwargs = kwargs
 
         self.outline: list[list] = self._get_outline()
 
@@ -327,7 +330,7 @@ class PDFParser(Parser):
         Returns:
             Page: 文档页面
         """
-        zoom = 2
+        zoom = self.kwargs.get('zoom', 2)
         pdf_page = self._pdf[page_index]
         img = self._get_page_img(page_index, zoom=zoom)
         img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
@@ -356,7 +359,7 @@ class PDFParser(Parser):
             os.makedirs(cache_path)
 
         def save_block(block_: StructureResult, img_: ndarray, idx: int) -> None | str:
-            wt, ht = 20, 5  # 切割子图, 向左右扩充wt, 向上扩充ht
+            wt, ht = self.kwargs.get('wt', 20), self.kwargs.get('ht', 5)  # 切割子图, 向左右扩充wt, 向上扩充ht
             x1, y1, x2, y2 = block_['bbox']
             type_ = block_['type']
             # 扩充裁剪区域
@@ -367,7 +370,7 @@ class PDFParser(Parser):
                 return  # 图片过小
             # 裁剪图像
             cropped_img = Image.fromarray(img_).crop((x1, y1, x2, y2))
-            border_size = 20
+            border_size = self.kwargs.get('cropped_border_size', 20)
             new_size = (cropped_img.width + 2*border_size, cropped_img.height + 2*border_size)
             bordered_img = Image.new('RGB', new_size, 'white')
             bordered_img.paste(cropped_img, (border_size, border_size))
