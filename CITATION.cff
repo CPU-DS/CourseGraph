@@ -6,7 +6,9 @@ authors:
   orcid: "https://orcid.org/0009-0005-2306-8301"
 - family-names: "Hou"
   given-names: "Fengzhen"
-title: "CourseGraph: Automatic Construction of Course Knowledge Graphs Using Large Models"
+  orcid:
+title: "CourseGraph"
 version: 0.1.0
+doi: 
 date-released: 2024-12-19
 url: "https://github.com/CPU-DS/CourseGraph"

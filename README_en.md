@@ -78,6 +78,6 @@ Online documentation is deployed using Github Actions + Github Pages, with the w
 
 ## 🛠️ Contributing, Protocol and Citation
 
-[PR](https://github.com/CPU-DS/CourseGraph/pulls) and [Issues](https://github.com/CPU-DS/CourseGraph/issues) are welcome, as well as any form of contribution
+[PR](https://github.com/CPU-DS/CourseGraph/pulls) and [Issues](https://github.com/CPU-DS/CourseGraph/issues) are welcome, as well as any form of contribution.
 
-This project is open-sourced under the MIT license. If you find CourseGraph helpful for your work, please refer to [CITATION.cff](CITATION.cff) or click the `Cite this repository` button on the right side of the Repository to cite.
+This project is open-sourced under the MIT license. If you find CourseGraph helpful for your work, please refer to [CITATION.cff](CITATION.cff) (or click the `Cite this repository` button on the right side of the Repository) to cite.
