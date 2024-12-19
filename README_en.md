@@ -23,7 +23,7 @@ CourseGraph utilizes large language models and various prompt optimization techn
 
 First, obtain an Alibaba Cloud Tongyi Qianwen [API Key](https://help.aliyun.com/zh/model-studio/developer-reference/get-api-key?spm=a2c4g.11186623.0.0.1be847bbvv6p4o), then choose local installation
 
-### Option 1: Local Installation
+### Local Installation
 
 #### Install Dependencies
 
@@ -76,17 +76,8 @@ Open [http://localhost:5173/](http://localhost:5173/) in your browser to preview
 
 Online documentation is deployed using Github Actions + Github Pages, with the workflow file at `.github/workflows/docs.yaml`
 
-## 🛠️ Contributing and Citation
+## 🛠️ Contributing, Protocol and Citation
 
 [PR](https://github.com/CPU-DS/CourseGraph/pulls) and [Issues](https://github.com/CPU-DS/CourseGraph/issues) are welcome, as well as any form of contribution
 
-If you find CourseGraph helpful for your work, please consider citing:
-
-```
-@misc{CourseGraph,
-      author = {Wang, Tao},
-      year = {2024},
-      note = {https://github.com/CPU-DS/CourseGraph},
-      title = {CourseGraph: Automatic Construction of Course Knowledge Graphs Using Large Models}
-   }
-``` 
+This project is open-sourced under the MIT license. If you find CourseGraph helpful for your work, please refer to [CITATION.cff](CITATION.cff) or click the `Cite this repository` button on the right side of the Repository to cite.

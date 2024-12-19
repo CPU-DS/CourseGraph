@@ -23,7 +23,7 @@ CourseGraph 使用大模型，利用多种 prompt 优化技术, 自动从教材�
 
 首先申请阿里云通义千问 [API Key](https://help.aliyun.com/zh/model-studio/developer-reference/get-api-key)，然后选择使用本地安装
 
-### 方式一：本地安装
+### 本地安装
 
 #### 安装依赖
 
@@ -76,17 +76,8 @@ npm run docs:dev
 
 在线文档使用 Github Actions + Github Pages 部署，描述文件在 `.github/workflows/docs.yaml`
 
-## 🛠️ 贡献和引用
+## 🛠️ 贡献、协议和引用
 
 欢迎提交 [PR](https://github.com/CPU-DS/CourseGraph/pulls) 或 [Issues](https://github.com/CPU-DS/CourseGraph/issues)，也欢迎参与任何形式的贡献
 
-如果觉得 CourseGraph 项目有助于你的工作，请考虑如下引用:
-
-```
- @misc{CourseGraph,
-       author = {Wang, Tao},
-       year = {2024},
-       note = {https://github.com/CPU-DS/CourseGraph},
-       title = {CourseGraph: Automatic Construction of Course Knowledge Graphs Using Large Models}
-    }
-```
+本项目基于 MIT 协议开源。同时，若觉得 CourseGraph 项目有助于你的工作，也请参考 [CITATION.cff](CITATION.cff) 文件 或点击 Repository 右侧的 `Cite this repository` 按钮进行引用。

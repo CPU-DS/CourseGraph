@@ -1,0 +1,12 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+- family-names: "Wang"
+  given-names: "Tao"
+  orcid: "https://orcid.org/0009-0005-2306-8301"
+- family-names: "Hou"
+  given-names: "Fengzhen"
+title: "CourseGraph: Automatic Construction of Course Knowledge Graphs Using Large Models"
+version: 0.1.0
+date-released: 2024-12-19
+url: "https://github.com/CPU-DS/CourseGraph"
