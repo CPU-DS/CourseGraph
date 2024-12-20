@@ -21,13 +21,13 @@ CourseGraph 使用大模型，利用多种 prompt 优化技术, 自动从教材�
 
 ## 🚀 快速使用
 
-首先申请阿里云通义千问 [API Key](https://help.aliyun.com/zh/model-studio/developer-reference/get-api-key)，然后选择使用本地安装
+首先申请阿里云通义千问 [API Key](https://help.aliyun.com/zh/model-studio/developer-reference/get-api-key)，然后选择使用本地安装或使用 docker 安装：
 
-### 本地安装
+### 方式一：本地安装
 
 #### 安装依赖
 
-请确保已安装 Anaconda (或 Miniconda) 和 Rust ，然后执行：
+请确保已安装 [Anaconda](https://www.anaconda.com/) (或 [Miniconda](https://docs.conda.io/en/miniconda.html))、[Neo4j](https://neo4j.com/) 和 [Rust](https://www.rust-lang.org/) ，然后执行：
 
 ```bash
 git clone git@github.com:CPU-DS/CourseGraph.git
@@ -42,27 +42,39 @@ maturin develop
 cd ..
 ```
 
-> linux 下还需安装 libreoffice 以完成文档转换，以 Debian 系为例: `sudo apt install libreoffice`
-
-然后定位到文件 `examples/get_knowledge_graph.py` 中
-
-#### 修改图数据库信息
-
-图数据库使用 Neo4j，需要提供连接地址和账号密码，如未安装请参考 [Neo4j 文档](https://neo4j.com/docs/operations-manual/current/installation/)
-
-#### 执行
+Linux 下还需安装 libreoffice 以完成文档转换，以 Debian 系为例：
 
 ```bash
+sudo apt install libreoffice
+```
+
+#### 执行示例
+
+提供 Neo4j 连接地址、用户名和密码，然后执行：
+
+```bash
+python examples/get_knowledge_graph.py -u http://localhost:7474 -n neo4j -p neo4j
+```
+
+### 方式二：使用 Docker 安装
+
+```bash
+git clone git@github.com:wangtao2001/CourseGraph.git
+cd CourseGraph
+export DASHSCOPE_API_KEY=
+docker-compose -f docker/docker-compose.yml up -d
 python examples/get_knowledge_graph.py
 ```
 
 ## 📚 文档
 
-可以在 `docs` 目录下查看文档, 也可以访问 [在线文档](https://CPU-DS.github.io/CourseGraph/) (由于项目功能仍处于快速开发中，故在线文档暂时还没有准备好)。如果你希望自定义在线文档请依照以下步骤：
+可以在 `docs` 目录下查看文档, 也可以访问 [在线文档](https://CPU-DS.github.io/CourseGraph/) (由于项目功能仍处于快速开发中，故在线文档暂时还没有准备好)。
+
+如果你希望自定义在线文档请依照以下步骤：
 
 #### 依赖安装和预览
 
-文档使用 [VitePress](https://vitepress.dev/) 构建, 需安装 Node.js 18 或以上版本，然后执行：
+文档使用 [VitePress](https://vitepress.dev/) 构建, 需安装 [Node.js](https://nodejs.org/) 18 或以上版本，然后执行：
 
 ```bash
 cd docs
@@ -70,14 +82,11 @@ npm i
 npm run docs:dev
 ```
 
-使用浏览器打开 [http://localhost:5173/](http://localhost:5173/) 即可进行预览
+使用浏览器打开 [http://localhost:5173/](http://localhost:5173/) 即可进行预览。
 
-#### 部署
-
-在线文档使用 Github Actions + Github Pages 部署，描述文件在 `.github/workflows/docs.yaml`
 
 ## 🛠️ 贡献、协议和引用
 
 欢迎提交 [PR](https://github.com/CPU-DS/CourseGraph/pulls) 或 [Issues](https://github.com/CPU-DS/CourseGraph/issues)，也欢迎参与任何形式的贡献。
 
-本项目基于 MIT 协议开源。同时若觉得 CourseGraph 项目有助于你的工作，也请参考 [CITATION.cff](CITATION.cff) 文件 (或点击 Repository 右侧的 `Cite this repository` 按钮) 进行引用。
+本项目基于 [MIT 协议](LICENSE) 开源。同时若觉得 CourseGraph 项目有助于你的工作，也请参考 [CITATION.cff](CITATION.cff) 文件 (或点击 Repository 右侧的 `Cite this repository` 按钮) 进行引用。

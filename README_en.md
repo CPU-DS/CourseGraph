@@ -21,13 +21,13 @@ CourseGraph utilizes large language models and various prompt optimization techn
 
 ## 🚀 Quick Start
 
-First, obtain an Alibaba Cloud Tongyi Qianwen [API Key](https://help.aliyun.com/zh/model-studio/developer-reference/get-api-key?spm=a2c4g.11186623.0.0.1be847bbvv6p4o), then choose local installation
+First, obtain an Alibaba Cloud Tongyi Qianwen [API Key](https://help.aliyun.com/zh/model-studio/developer-reference/get-api-key?spm=a2c4g.11186623.0.0.1be847bbvv6p4o), then choose local installation or docker installation:
 
-### Local Installation
+### Option 1: Local Installation
 
 #### Install Dependencies
 
-Ensure Anaconda (or Miniconda) and Rust are installed, then execute:
+Ensure [Anaconda](https://www.anaconda.com/) (or [Miniconda](https://docs.conda.io/en/miniconda.html)), [Neo4j](https://neo4j.com/) and [Rust](https://www.rust-lang.org/) are installed, then execute:
 
 ```bash
 git clone git@github.com:CPU-DS/CourseGraph.git
@@ -42,17 +42,26 @@ maturin develop
 cd ..
 ```
 
-> On Linux, libreoffice is required for document conversion. For Debian-based systems: `sudo apt install libreoffice`
+On Linux, libreoffice is required for document conversion. For Debian-based systems: 
 
-Then locate the file `examples/get_knowledge_graph.py`
-
-#### Configure Graph Database
-
-The project uses Neo4j as the graph database. You'll need to provide the connection address and credentials. If not installed, please refer to the [Neo4j documentation](https://neo4j.com/docs/operations-manual/current/installation/)
+```bash
+sudo apt install libreoffice
+```
 
 #### Execute
 
+Provide the Neo4j connection address, username, and password, then execute:
 ```bash
+python examples/get_knowledge_graph.py -u http://localhost:7474 -n neo4j -p neo4j
+```
+
+### Option 2: Docker Installation
+
+```bash
+git clone git@github.com:wangtao2001/CourseGraph.git
+cd CourseGraph
+export DASHSCOPE_API_KEY=
+docker-compose -f docker/docker-compose.yml up -d
 python examples/get_knowledge_graph.py
 ```
 
@@ -62,7 +71,7 @@ Documentation can be found in the `docs` directory, or you can visit the [online
 
 #### Install Dependencies and Preview
 
-The documentation is built with [VitePress](https://vitepress.dev/), requiring Node.js 18 or above. Execute:
+The documentation is built with [VitePress](https://vitepress.dev/), requiring [Node.js](https://nodejs.org/) 18 or above. Execute:
 
 ```bash
 cd docs
@@ -70,14 +79,10 @@ npm i
 npm run docs:dev
 ```
 
-Open [http://localhost:5173/](http://localhost:5173/) in your browser to preview
-
-#### Deployment
-
-Online documentation is deployed using Github Actions + Github Pages, with the workflow file at `.github/workflows/docs.yaml`
+Open [http://localhost:5173/](http://localhost:5173/) in your browser to preview.
 
 ## 🛠️ Contributing, Protocol and Citation
 
 [PR](https://github.com/CPU-DS/CourseGraph/pulls) and [Issues](https://github.com/CPU-DS/CourseGraph/issues) are welcome, as well as any form of contribution.
 
-This project is open-sourced under the MIT license. If you find CourseGraph helpful for your work, please refer to [CITATION.cff](CITATION.cff) (or click the `Cite this repository` button on the right side of the Repository) to cite.
+This project is open-sourced under the [MIT license](LICENSE). If you find CourseGraph helpful for your work, please refer to [CITATION.cff](CITATION.cff) (or click the `Cite this repository` button on the right side of the Repository) to cite.

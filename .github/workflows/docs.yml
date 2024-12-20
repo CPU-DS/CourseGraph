@@ -14,6 +14,8 @@ on:
   push:
     paths:
       - 'docs/**'
+    tags-ignore: # 忽略 tag 为 v* 的提交
+      - 'v*'
 
 # 设置 GITHUB_TOKEN 的权限，以允许部署到 GitHub Pages
 permissions:

@@ -15,7 +15,7 @@ def set_logger(console: bool = False,
                level: str = 'TRACE',
                use_tqdm: bool = True,
                file_path: str = None,
-               format: str = None,
+               log_format: str = None,
                zip: str = None):
     """ 设置日志
 
@@ -25,7 +25,7 @@ def set_logger(console: bool = False,
         level (str, optional): 日志等级. Defaults to 'TRACE'.
         use_tqdm (bool, optional): 使用 tqdm.write 作为输出 sink (不支持 rich), 更好跟进度条共存. Defaults to True.
         file_path (str, optional): 文件路径. Defaults to None.
-        format (str, optional): 日志格式. Defaults to None.
+        log_format (str, optional): 日志格式. Defaults to None.
         zip (str, optional): 文件压缩格式. Defaults to False.
     """
     logger.remove()
@@ -35,12 +35,12 @@ def set_logger(console: bool = False,
     else:
         out = sys.stdout
 
-    if format is None:
-        format="{time:YYYY-MM-DD HH:mm:ss} | <lvl><normal>{level: <8}</normal></lvl> | {message}"
+    if not log_format:
+        log_format="{time:YYYY-MM-DD HH:mm:ss} | <lvl><normal>{level: <8}</normal></lvl> | {message}"
 
     if console:
-        logger.add(out, format=format, level=level, colorize=True,)
+        logger.add(out, format=log_format, level=level, colorize=True,)
     if file:
-        if file_path is None:
+        if not file_path:
             file_path = 'logs/{time}.log'
-        logger.add(file_path, format=format, retention=10, compression=zip, level=level)
+        logger.add(file_path, format=log_format, retention=10, compression=zip, level=level)
