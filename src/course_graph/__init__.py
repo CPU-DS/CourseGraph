@@ -5,3 +5,4 @@
 # Description: course_graph
 
 from .log import set_logger
+from .version import __version__

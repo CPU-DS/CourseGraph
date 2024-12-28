@@ -21,7 +21,7 @@ CourseGraph utilizes large language models and various prompt optimization techn
 
 ## 🚀 Quick Start
 
-First, obtain an Alibaba Cloud Tongyi Qianwen [API Key](https://help.aliyun.com/zh/model-studio/developer-reference/get-api-key?spm=a2c4g.11186623.0.0.1be847bbvv6p4o), then choose local installation or docker installation:
+First, obtain an Alibaba Cloud Tongyi Qianwen [API Key](https://help.aliyun.com/zh/model-studio/developer-reference/get-api-key?spm=a2c4g.11186623.0.0.1be847bbvv6p4o), then choose local installation or Docker installation:
 
 ### Option 1: Local Installation
 

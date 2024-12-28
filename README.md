@@ -21,7 +21,7 @@ CourseGraph 使用大模型，利用多种 prompt 优化技术, 自动从教材�
 
 ## 🚀 快速使用
 
-首先申请阿里云通义千问 [API Key](https://help.aliyun.com/zh/model-studio/developer-reference/get-api-key)，然后选择使用本地安装或使用 docker 安装：
+首先申请阿里云通义千问 [API Key](https://help.aliyun.com/zh/model-studio/developer-reference/get-api-key)，然后选择使用本地安装或使用 Docker 安装：
 
 ### 方式一：本地安装
 
