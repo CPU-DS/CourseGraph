@@ -11,7 +11,7 @@ from course_graph import set_logger
 import argparse
 
 parser = argparse.ArgumentParser()
-parser.add_argument('-u', '--url', default='http://localhost:7474', help='Neo4j server URL')
+parser.add_argument('-u', '--bolt_url', default='bolt://localhost:7687', help='Neo4j bolt URL')
 parser.add_argument('-n', '--user', default='neo4j', help='Neo4j username')
 parser.add_argument('-p', '--password', default='neo4j', help='Neo4j password')
 args = parser.parse_args()
@@ -19,7 +19,7 @@ args = parser.parse_args()
 set_logger(console=True, file=False)
 
 model = Qwen()
-neo = Neo4j(args.url, args.user, args.password)
+neo = Neo4j(args.bolt_url, args.user, args.password)
 
 with PDFParser('assets/深度学习入门：基于Python的理论与实现.pdf') as parser:
     document = parser.get_document()

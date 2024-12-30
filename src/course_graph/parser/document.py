@@ -324,11 +324,12 @@ class Document:
                     case BookMark():
                         bookmark_to_cypher(sub, bookmark.id)
                     case KPEntity():
+                        # 创建章节和知识点关联
                         cyphers.append(
                             f'MATCH (n1:章节 {{id: "{bookmark.id}"}}) MATCH (n2:知识点 {{id: "{sub.id}"}}) CREATE (n1)-[:包含知识点 {{id: "3:{shortuuid.uuid()}"}}]->(n2)'
                         )
 
-        for i, bookmark in enumerate(self.bookmarks):
+        for _, bookmark in enumerate(self.bookmarks):
             bookmark_to_cypher(bookmark, self.id)
         return cyphers
 
