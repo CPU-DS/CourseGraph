@@ -8,19 +8,23 @@ import openai
 from openai.types.chat import *
 from openai import NOT_GIVEN, NotGiven
 from abc import ABC
-from .config import LLM_CONFIG
 import os
 import requests
 import subprocess
 import time
-import shlex
 import ollama
+import base64
+import signal
+from pathlib import Path
+import weakref
+from .config import LLMConfig, VLLMConfig
+import shlex
 
 
 class LLM(ABC):
 
     def __init__(
-        self,
+        self
     ) -> None:
         """ 大模型抽象类
         """
@@ -32,13 +36,16 @@ class LLM(ABC):
         self.json: bool = False
         self.stop = None
         self.instruction = 'You are a helpful assistant.'
+        
+        self.extra_body = {}
+        self.config: LLMConfig = {}
+
 
     def chat_completion(
         self,
         messages: list[ChatCompletionMessageParam],
         tools: list[ChatCompletionToolParam] | NotGiven = NOT_GIVEN,
-        tool_choice: ChatCompletionToolChoiceOptionParam
-        | NotGiven = NOT_GIVEN,
+        tool_choice: ChatCompletionToolChoiceOptionParam | NotGiven = NOT_GIVEN,
         parallel_tool_calls: bool | NotGiven = NOT_GIVEN
     ) -> ChatCompletionMessage:
         """ 基于message中保存的历史消息进行对话, 请在外部保存历史记录, LLM 对象不负责保存
@@ -58,11 +65,11 @@ class LLM(ABC):
         return self.client.chat.completions.create(
             model=self.model,
             messages=messages,
-            top_p=LLM_CONFIG.top_p,
-            temperature=LLM_CONFIG.temperature,
-            presence_penalty=LLM_CONFIG.presence_penalty,
-            frequency_penalty=LLM_CONFIG.frequency_penalty,
-            max_tokens=LLM_CONFIG.max_tokens,
+            top_p=self.config.get('top_p', NOT_GIVEN),
+            temperature=self.config.get('temperature', NOT_GIVEN),
+            presence_penalty=self.config.get('presence_penalty', NOT_GIVEN),
+            frequency_penalty=self.config.get('frequency_penalty', NOT_GIVEN),
+            max_tokens=self.config.get('max_tokens', NOT_GIVEN),
             tools=tools,
             parallel_tool_calls=parallel_tool_calls,
             tool_choice=tool_choice,
@@ -73,7 +80,9 @@ class LLM(ABC):
             },
             stop=self.stop,
             extra_body={
-                'top_k': LLM_CONFIG.top_k
+                'top_k': self.config.get('top_k', NOT_GIVEN),
+                'repetition_penalty': self.config.get('repetition_penalty', NOT_GIVEN),
+                **self.extra_body
             }).choices[0].message
 
     def chat(self, message: str) -> str:
@@ -86,6 +95,41 @@ class LLM(ABC):
             str | ChatCompletionMessage: 模型输出
         """
         response = self.chat_completion(messages=[{'role': 'user', 'content': message}])
+        return response.content
+    
+    def image_chat(self, path: str | list[str], message: str) -> str:
+        """ 基于图片单轮对话
+
+        Args:
+            url (str): 图片路径
+            message (str): 用户输入
+
+        Returns:
+            str: 模型输出
+        """
+        if isinstance(path, str):
+            path = [path]
+        content = [
+            {
+                'type': 'image_url',
+                'image_url': {
+                    'url': (
+                        f"data:image/{Path(p).suffix[1:]};base64,{base64.b64encode(open(p, 'rb').read()).decode('utf-8')}"
+                        if os.path.exists(p) else p
+                    )
+                }
+            }
+            for p in path
+        ]
+
+        messages = [{
+            'role': "user",
+            'content': [
+                {'type': 'text', 'text': message},
+                *content
+            ]
+        }]
+        response = self.chat_completion(messages=messages)
         return response.content
 
 
@@ -130,7 +174,22 @@ class Qwen(OpenAI):
             api_key=api_key)
 
 
-class Serve:
+class DeepSeek(OpenAI):
+
+    def __init__(self,
+                 api_key: str = os.getenv("DEEPSEEK_API_KEY")):
+        """ DeepSeek 模型 API 服务
+
+        Args:
+            api_key (str, optional): API key. Defaults to os.getenv("DEEPSEEK_API_KEY").
+        """
+        super().__init__(
+            name='deepseek-chat',
+            base_url='https://api.deepseek.com/v1', 
+            api_key=api_key)
+
+
+class Server:
 
     def __init__(self,
                  command_list: list[str],
@@ -148,6 +207,8 @@ class Serve:
         Raises:
             TimeoutError: 服务启动超时
         """
+        self.__finalizer = weakref.finalize(self, self.close)
+        
         self.process = subprocess.Popen(
             command_list,
             stdout=subprocess.DEVNULL,
@@ -168,82 +229,84 @@ class Serve:
     def close(self):
         """ 关闭服务
         """
-        if self.process:
-            self.process.terminate()
+        if self.process and self.process.poll() is None:
+            self.process.send_signal(signal.SIGTERM)
             self.process.wait()
 
-    def __enter__(self) -> 'Serve':
+    def __enter__(self) -> 'Server':
         return self
 
     def __exit__(self, exc_type, exc_value, traceback) -> None:
         self.close()
 
 
-class VLLM(LLM, Serve):
+class VLLM(LLM, Server):
 
     def __init__(self,
-                 path: str,
+                 path_or_command: str,
                  *,
                  host: str = 'localhost',
                  port: int = 9017,
-                 starting_command: str = None,
+                 log: bool = True,
                  timeout: int = 60,
-                 log: bool = True):
+                 config: VLLMConfig = None):
         """ 使用VLLM加载模型
 
         Args:
-            path (str): 模型名称或路径
-            timeout (int, optional): 启动服务超时时间. Defaults to 60.
+            path_or_commands (str): 模型路径或自定义启动命令, 若使用命令启动, 可省略 host, port及 config 中的配置
             host (str, optional): 服务地址. Defaults to 'localhost'.
             port (int, optional): 服务端口. Defaults to 9017.
+            timeout (int, optional): 启动服务超时时间. Defaults to 60.
             log (bool, optional): 输出控制台日志. Defaults to True.
-            starting_command (str, optional): VLLM启动命令 (适合于需要自定义template的情况), 也可以使用默认命令, LLMConfig中的配置会自动加入. Defaults to None.
+            config (VLLMConfig, optional): VLLM配置. Defaults to None.
         """
         LLM.__init__(self)
-
+        
         self.host = host
         self.port = port
+        
+        if os.path.exists(path_or_command):
+            self.model = path_or_command
 
-        self.model = path
-        if starting_command is None:
-            command_list = shlex.split(f"""vllm serve {self.model}\
-                                            --host {self.host}\
-                                            --port {self.port}\
-                                            --gpu-memory-utilization {str(LLM_CONFIG.gpu_memory_utilization)}\
-                                            --tensor-parallel-size {str(LLM_CONFIG.tensor_parallel_size)}\
-                                            --max-model-len {str(LLM_CONFIG.max_model_len)}\
-                                            --enable-auto-tool-choice\
-                                            --tool-call-parser hermes\
-                                            --disable-log-requests""")
+            commands = [
+                "vllm", "serve", self.model,
+                "--host", self.host,
+                "--port", str(self.port),
+                "--enable-auto-tool-choice",
+                "--tool-call-parser", "hermes",
+                "--disable-log-requests",
+                "--trust-remote-code"
+            ]    
+
         else:
-            command_list = shlex.split(starting_command)
-            if "--gpu-memory-utilization" not in command_list:
-                command_list.extend([
-                    "--gpu-memory-utilization",
-                    str(LLM_CONFIG.gpu_memory_utilization)
+            commands = shlex.split(path_or_command)
+            self.model = commands[2]
+            
+            if "--host" not in commands:
+                commands.extend([
+                    "--host",
+                    host
                 ])
-            if "--tensor-parallel-size" not in command_list:
-                command_list.extend([
-                    "--tensor-parallel-size",
-                    str(LLM_CONFIG.tensor_parallel_size)
-                ])
-            if "--max-model-len" not in command_list:
-                command_list.extend(
-                    ["--max-model-len",
-                     str(LLM_CONFIG.max_model_len)])
-            try:
-                idx = command_list.index('--host')
-                self.host = command_list[idx + 1]
-            except ValueError:
                 self.host = host
-            try:
-                idx = command_list.index('--port')
-                self.port = command_list[idx + 1]
-            except ValueError:
+            else:
+                self.host = commands[commands.index('--host') + 1]
+            if "--port" not in commands:
+                commands.extend([
+                    "--port",
+                    str(port)
+                ])
                 self.port = port
-
-        Serve.__init__(self,
-                       command_list=command_list,
+            else:
+                self.port = int(commands[commands.index('--port') + 1])
+        
+        for key in config.keys():
+            commands.extend([
+                f"--{key.replace('_', '-')}",
+                str(config[key])
+            ])  
+    
+        Server.__init__(self,
+                       command_list=commands,
                        timeout=timeout,
                        log=log,
                        test_url=f'http://{self.host}:{self.port}/health')
@@ -252,7 +315,7 @@ class VLLM(LLM, Serve):
             api_key='EMPTY', base_url=f'http://{self.host}:{self.port}/v1')
 
 
-class Ollama(LLM, Serve):
+class Ollama(LLM, Server):
 
     def __init__(self,
                  name: str,
@@ -278,7 +341,7 @@ class Ollama(LLM, Serve):
         self.host = host
         self.port = port
 
-        Serve.__init__(self,
+        Server.__init__(self,
                        command_list=['ollama', 'serve'],
                        timeout=timeout,
                        test_url=f'http://{self.host}:{self.port}')

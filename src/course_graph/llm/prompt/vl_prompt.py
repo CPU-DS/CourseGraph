@@ -2,7 +2,7 @@
 # Create Date: 2024/07/11
 # Author: wangtao <wangtao.cpu@gmail.com>
 # File Name: course_graph/llm/vl_prompt.py
-# Description: 定义图文理解模型提示词
+# Description: 定义视觉模型提示词
 
 class VLPromptGenerator:
 
@@ -23,7 +23,7 @@ class VLPromptGenerator:
         return prompt, instruction
 
     @staticmethod
-    def get_ie_prompt() -> tuple[list, str]:
+    def get_ie_prompt() -> tuple[str, str]:
         """ 信息提取提示词
 
         Returns:

@@ -6,6 +6,5 @@
 
 from .ontology import ONTOLOGY
 from .llm import LLM, VLLM, Qwen, Ollama, OpenAI
-from .config import LLM_CONFIG, VLM_CONFIG
+from .config import LLMConfig, VLLMConfig
 from .type import Database
-from .vlm import VLM

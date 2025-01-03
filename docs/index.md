@@ -5,7 +5,7 @@ layout: home
 hero:
   name: "CourseGraph"
   text: "使用大模型自动构建课程知识图谱"
-  tagline: 使用语言和图文理解模型，完全实现自动化
+  tagline: 使用语言和视觉模型，完全实现自动化
   image:
     src: /logo.png
     alt: CourseGraph

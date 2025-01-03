@@ -8,7 +8,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pptx import Presentation
-from ..llm import VLM
+from ..llm import LLM
 from ..llm.prompt import VLPromptGenerator
 from .utils import pptx2imgs
 import shutil
@@ -94,7 +94,7 @@ class PPTX(Resource):
 
         Args:
             pptx_path (str): 文件路径
-            vl_prompt (VLPromptGenerator, optional): 图文理解模型提示词. Defaults to VLPromptGenerator().
+            vl_prompt (VLPromptGenerator, optional): 视觉模型提示词. Defaults to VLPromptGenerator().
         """
         super().__init__(pptx_path)
         self.pptx = Presentation(pptx_path)
@@ -129,12 +129,11 @@ class PPTX(Resource):
         idxs = [key for key, val in self.index_maps.items() if keyword in val]
         return _merge_index_slice(idxs, self.file_path)
 
-    def set_maps_by_vlm(
-        self, model: VLM) -> None:
-        """ 使用图文理解模型提取pptx主要内容
+    def set_maps_by_vlm(self, model: LLM) -> None:
+        """ 使用视觉模型提取pptx主要内容
 
         Args:
-            model (VisualLM): 图文理解模型
+            model (LLM): 视觉模型
         """
         cache_path = '.cache/pptx_imgs_cache'
         imgs = pptx2imgs(self.file_path, cache_path)
@@ -143,11 +142,11 @@ class PPTX(Resource):
             if idx == 0:
                 prompt_, instruction = self.vl_prompt.get_ie_prompt()
                 model.instruction = instruction
-                res = model.chat(img, prompt_)
+                res = model.image_chat(img, prompt_)
             else:
                 prompt_, instruction = self.vl_prompt.get_context_ie_prompt(res)  # 之前的回答作为上文信息，可以更好理解本张图片
                 model.instruction = instruction
-                res = model.chat([imgs[idx - 1], img], prompt_)
+                res = model.image_chat([imgs[idx - 1], img], prompt_)
             # 页数从1开始
             self.index_maps[idx + 1] = res
         # 删除缓存文件夹

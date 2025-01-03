@@ -14,7 +14,7 @@ from PIL import Image
 import numpy as np
 import cv2
 import re
-from ...llm import VLM, LLM
+from ...llm import LLM
 from ...llm.prompt import VLPromptGenerator, ParserPromptGenerator
 import os
 import shutil
@@ -23,6 +23,7 @@ from ..type import BookMark, PageIndex
 from shuangchentools.utils.file import clear_directory
 from typing import Callable
 from numpy import ndarray
+
 
 class PDFParser(Parser):
 
@@ -34,7 +35,7 @@ class PDFParser(Parser):
             structure_model: StructureModel = PaddleStructure(),
             parser_prompt: ParserPromptGenerator = ParserPromptGenerator(),
             vl_prompt: VLPromptGenerator = VLPromptGenerator(),
-            vlm: VLM = None,
+            vlm: LLM = None,
             llm: LLM = None,
             anchor_priority: bool = False,
             sharpen: Literal['USM', 'Laplacian'] = None,
@@ -49,8 +50,8 @@ class PDFParser(Parser):
             ocr_priority (bool, optional): 获取文字内容时优先使用 OCR模型, 否则优先直接读取. Defaults to False.
             structure_model (StructureModel, optional): 布局分析模型. Defaults to Paddle().
             parser_prompt (ParserPromptGenerator, optional): 解析提示词. Defaults to ParserPromptGenerator().
-            vl_prompt (VLPromptGenerator, optional): 图文理解模型提示词. Defaults to VLPromptGenerator().
-            vlm ( VLM, optional): 视觉模型. Default to None.
+            vl_prompt (VLPromptGenerator, optional): 视觉模型提示词. Defaults to VLPromptGenerator().
+            vlm ( LLM, optional): 视觉模型. Default to None.
             llm ( LLM, optional): 语言模型. Default to None.
             anchor_priority (bool, optional): 优先使用锚点定位. Defaults to False.
             sharpen (Literal['USM', 'Laplacian'] | None, optional): 锐化处理算法. Defaults to None.
@@ -118,12 +119,12 @@ class PDFParser(Parser):
 
     def get_catalogue_index_by_vlm(
             self,
-            vlm: VLM,
+            vlm: LLM,
             rate: float = 0.1) -> tuple[int, int]:
-        """ 通过图文理解模型寻找目录页, 返回目录页起始页和终止页页码 (从0开始编序)
+        """ 通过视觉模型寻找目录页, 返回目录页起始页和终止页页码 (从0开始编序)
 
         Args:
-            vlm (VLM): 图文理解模型
+            vlm (LLM): 视觉模型
             rate (float, optional): 查询前 ratio 比例的页面. Defaults to 0.1 即 10%.
 
         Returns:
@@ -136,7 +137,7 @@ class PDFParser(Parser):
             Image.fromarray(img).save(file_path)
             prompt_, instruction = self.vl_prompt.get_catalogue_prompt()
             vlm.instruction = instruction
-            res = vlm.chat(file_path, prompt_)
+            res = vlm.image_chat(file_path, prompt_)
             if res.startswith('是'):
                 catalogue.append(index)
         shutil.rmtree(self.cache_path)
@@ -409,7 +410,7 @@ class PDFParser(Parser):
             if file_path := save_block(block_, img, idx):
                 prompt, instruction = self.vl_prompt.get_ocr_prompt()
                 self.vlm.instruction = instruction
-                block_['text'] = self.vlm.chat(file_path, prompt)
+                block_['text'] = self.vlm.image_chat(file_path, prompt)
 
         for idx, block in enumerate(blocks):
             type_ = block['type']

@@ -9,6 +9,7 @@ from abc import ABC, abstractmethod
 from .document import Document
 from .type import BookMark, Content
 
+
 class Parser(ABC):
 
     def __init__(self, file_path: str) -> None:
