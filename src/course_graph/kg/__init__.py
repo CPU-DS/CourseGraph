@@ -3,3 +3,5 @@
 # Author: wangtao <wangtao.cpu@gmail.com>
 # File Name: course_graph/kg/__init__.py
 # Description: 知识图谱查询接口
+
+from .api import API

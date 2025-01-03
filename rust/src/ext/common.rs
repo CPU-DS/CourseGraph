@@ -87,7 +87,7 @@ pub fn find_longest_consecutive_sequence(nums: Vec<i32>) -> PyResult<(i32, i32)>
 }
 
 #[pyfunction]
-pub fn optimize_string_lengths(s: Vec<String>, n: i32) -> PyResult<Vec<String>> {
+pub fn optimize_strings_length(s: Vec<String>, n: i32) -> PyResult<Vec<String>> {
     let mut result: Vec<String> = Vec::new();
     let mut buffer = String::new();
 
@@ -121,6 +121,39 @@ pub fn optimize_string_lengths(s: Vec<String>, n: i32) -> PyResult<Vec<String>> 
     }
     if !buffer.is_empty() {
         result.push(buffer);
+    }
+
+    Ok(result)
+}
+
+#[pyfunction]
+pub fn merge_strings(s: Vec<String>, n: i32) -> PyResult<Vec<String>> {
+    let mut result: Vec<String> = Vec::new();
+    let mut current = String::new();
+    let mut exceed = false; // 允许第一次超过范围
+
+    for string in s {
+        if !exceed {
+            if !current.is_empty() {
+                current.push_str("\n");
+            }
+            current.push_str(&string);
+
+            if current.chars().count() > n as usize {
+                exceed = true;
+                result.push(current);
+                current = String::new();
+            }
+        } else {
+            if !current.is_empty() {
+                result.push(current);
+            }
+            current = string;
+        }
+    }
+
+    if !current.is_empty() {
+        result.push(current);
     }
 
     Ok(result)

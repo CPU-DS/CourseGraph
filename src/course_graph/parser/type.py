@@ -5,10 +5,10 @@
 # Description: 定义各种中间类型
 
 from dataclasses import dataclass
-from .entity import KPEntity
 from ..resource import Resource
 from enum import Enum
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from ..resource import Slice
 
 
 class ContentType(Enum):
@@ -51,7 +51,7 @@ class BookMark:
     page_start: PageIndex
     page_end: PageIndex
     level: int
-    subs: list['BookMark'] | list[KPEntity]
+    subs: list['BookMark'] | list['KPEntity']
     resource: list[Resource]
 
     def set_page_end(self, page_end: PageIndex) -> None:
@@ -64,7 +64,7 @@ class BookMark:
         if self.subs and isinstance(self.subs[-1], BookMark):
             self.subs[-1].set_page_end(page_end)
 
-    def get_kps(self) -> list[KPEntity]:
+    def get_kps(self) -> list['KPEntity']:
         """ 获取当前书签下的所有 知识点实体
 
         Returns:
@@ -93,3 +93,34 @@ class BookMark:
 \t subs=[\t{s}]'''
         else:
             return  f'BookMark(title="{self.title}", ...)'
+        
+@dataclass
+class KPEntity:
+    id: str
+    name: str
+    type: str
+    relations: list['KPRelation'] = field(default_factory=list)
+    attributes: dict[str, list] = field(default_factory=dict)  # 同一个属性可能会存在多个属性值, 后续选择一个最好的值
+    best_attributes: dict[str, str] = field(default_factory=dict)
+    resourceSlices: list[Slice] = field(default_factory=list)
+
+    def __repr__(self, detail: bool = True) -> str:
+        if detail:
+            s = ', \n\t\t'.join([relation.__repr__() for relation in self.relations])
+            return f'''KPEntity(name="{self.name}", 
+\t type="{self.type}", 
+\t attributes={self.attributes}, 
+\t best_attributes={self.best_attributes})
+\t relations=[{s}]'''
+        else:
+            return f'KPEntity(name="{self.name}", ...)'
+
+
+@dataclass
+class KPRelation:
+    id: str
+    type: str
+    tail: KPEntity
+
+    def __repr__(self) -> str:
+        return f'''KPRelation(type="{self.type}", tail={self.tail.__repr__(False)})'''

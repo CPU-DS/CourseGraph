@@ -52,7 +52,7 @@ sudo apt install libreoffice
 
 Provide the Neo4j connection address, username, and password, then execute:
 ```bash
-python examples/get_knowledge_graph.py -u http://localhost:7474 -n neo4j -p neo4j
+python examples/get_knowledge_graph.py -u bolt://localhost:7687 -n neo4j -p neo4j
 ```
 
 ### Option 2: Docker Installation

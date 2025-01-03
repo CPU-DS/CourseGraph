@@ -53,7 +53,7 @@ sudo apt install libreoffice
 提供 Neo4j 连接地址、用户名和密码，然后执行：
 
 ```bash
-python examples/get_knowledge_graph.py -u http://localhost:7474 -n neo4j -p neo4j
+python examples/get_knowledge_graph.py -u bolt://localhost:7687 -n neo4j -p neo4j
 ```
 
 ### 方式二：使用 Docker 安装

@@ -16,10 +16,9 @@ import os
 from .config import config
 from .utils import instance_method_transactional
 from ..resource import ResourceMap
-from .type import BookMark
-from .entity import KPEntity, KPRelation
+from .type import BookMark, KPEntity, KPRelation
 from tqdm import tqdm
-from course_graph_ext import optimize_string_lengths
+from course_graph_ext import merge_strings
 
 if TYPE_CHECKING:
     from .parser import Parser
@@ -248,7 +247,7 @@ class Document:
                     continue
                 contents = self.parser.get_contents(bookmark)
                 kps: list[KPEntity] = []
-                contents = optimize_string_lengths([content.content for content in contents], n=400)
+                contents = merge_strings([content.content for content in contents], n=400)
                 for content in contents:
                     if len(content) != 0:
                         logger.info('输入片段: \n' + content)

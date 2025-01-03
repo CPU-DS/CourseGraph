@@ -46,7 +46,7 @@ def find_longest_consecutive_sequence(
     """
     pass
 
-def optimize_string_lengths(strings: list[str], n: int) -> list[str]:
+def optimize_strings_length(strings: list[str], n: int) -> list[str]:
     """ 将数组中的字符串到调整到目标长度附近
 
     Args:
@@ -55,5 +55,17 @@ def optimize_string_lengths(strings: list[str], n: int) -> list[str]:
 
     Returns:
         list[str]: 调整后的字符串数组
+    """
+    pass
+
+def merge_strings(strings: list[str], n: int) -> list[str]:
+    """ 将字符串数组合并到目标长度附近
+
+    Args:
+        strings (list[str]): 字符串数组
+        n (int): 目标长度
+
+    Returns:
+        list[str]: 合并后的字符串数组
     """
     pass

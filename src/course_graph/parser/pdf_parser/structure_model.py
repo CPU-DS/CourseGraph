@@ -98,7 +98,7 @@ class LayoutYOLO(StructureModel):
         for item in result:
             item['bbox'] = (item['box']['x1'], item['box']['y1'],
                             item['box']['x2'], item['box']['y2'])
-        h, w, _ = img.shape
+        _, w, _ = img.shape
         res = sorted_layout_boxes(result, w)
 
         # 后处理 (接受元组类型)

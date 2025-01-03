@@ -45,7 +45,7 @@ class PaddleOCR(OCRModel):
         sts = []
         for line in self.paddle.ocr(img_path)[0]:
             sts.append(line[1][0])
-        return '\n'.join(sts)
+        return ''.join(sts)
 
 
 class GOT(OCRModel):
@@ -85,7 +85,7 @@ class GOT(OCRModel):
         with open(os.devnull, 'w') as devnull, redirect_stdout(devnull):
             timmout = False 
             start_time = time.time()
-            res = self.model.chat_crop(self.tokenizer, img_path, ocr_type='ocr')
+            res = self.model.chat(self.tokenizer, img_path, ocr_type='ocr')
             if time.time() - start_time > 30:
                 timmout = True
             res = res.replace('\n', '').replace('\u3000', ' ')

@@ -20,7 +20,9 @@ import os
 import shutil
 from course_graph_ext import get_list_from_string, find_longest_consecutive_sequence
 from ..type import BookMark, PageIndex
-
+from shuangchentools.utils.file import clear_directory
+from typing import Callable
+from numpy import ndarray
 
 class PDFParser(Parser):
 
@@ -34,8 +36,9 @@ class PDFParser(Parser):
             vl_prompt: VLPromptGenerator = VLPromptGenerator(),
             vlm: VLM = None,
             llm: LLM = None,
-            anchor: bool = False,
-            sharpen: Literal['USM', 'Laplacian'] | None = None,
+            anchor_priority: bool = False,
+            sharpen: Literal['USM', 'Laplacian'] = None,
+            enhance_fn: Callable[[ndarray], ndarray] = None,
             **kwargs
     ) -> None:
         """ pdf文档解析器
@@ -49,8 +52,9 @@ class PDFParser(Parser):
             vl_prompt (VLPromptGenerator, optional): 图文理解模型提示词. Defaults to VLPromptGenerator().
             vlm ( VLM, optional): 视觉模型. Default to None.
             llm ( LLM, optional): 语言模型. Default to None.
-            anchor (bool, optional): 优先使用锚点定位. Defaults to False.
+            anchor_priority (bool, optional): 优先使用锚点定位. Defaults to False.
             sharpen (Literal['USM', 'Laplacian'] | None, optional): 锐化处理算法. Defaults to None.
+            enhance_fn (Callable[[ndarray], ndarray], optional): 图像增强函数. Defaults to None.
             **kwargs (dict, optional): 其它细粒度控制参数.
         """
         super().__init__(pdf_path)
@@ -65,12 +69,16 @@ class PDFParser(Parser):
         self.vlm = vlm
         self.llm = llm
 
-        self.anchor = anchor
+        self.anchor_priority = anchor_priority
         self.sharpen = sharpen
-        
+        self.enhance_fn = enhance_fn
         self.kwargs = kwargs
 
         self.outline: list[list] = self._get_outline()
+        
+        self.cache_path = '.cache/pdf_cache'
+        if not os.path.exists(self.cache_path):
+            os.makedirs(self.cache_path)
 
     def _get_outline(self) -> list[list]:
         """ 从 pdf 中读取大纲层级
@@ -81,7 +89,7 @@ class PDFParser(Parser):
         outline = []
         for item in self._pdf.get_toc(simple=False):
             h = self._pdf[item[2] - 1].get_pixmap().height  # 宽高一律采用像素层面
-            if self.anchor:
+            if self.anchor_priority:
                 match item[3]['kind']:
                     case 4:
                         try:
@@ -106,6 +114,7 @@ class PDFParser(Parser):
         """ 关闭文档
         """
         self._pdf.close()
+        shutil.rmtree(self.cache_path)
 
     def get_catalogue_index_by_vlm(
             self,
@@ -120,20 +129,17 @@ class PDFParser(Parser):
         Returns:
             tuple[int, int]: 目录页起始页和终止页页码
         """
-        cache_path = '.cache/pdf_cache'
-        if not os.path.exists(cache_path):
-            os.mkdir(cache_path)
         catalogue = []
         for index in range(int(self._pdf.page_count * rate)):
             img = self._get_page_img(index, zoom=2)
-            file_path = os.path.join(cache_path, f'{index}.png')
+            file_path = os.path.join(self.cache_path, f'{index}.png')
             Image.fromarray(img).save(file_path)
             prompt_, instruction = self.vl_prompt.get_catalogue_prompt()
             vlm.instruction = instruction
             res = vlm.chat(file_path, prompt_)
             if res.startswith('是'):
                 catalogue.append(index)
-        shutil.rmtree(cache_path)
+        shutil.rmtree(self.cache_path)
 
         return find_longest_consecutive_sequence(catalogue)
 
@@ -333,6 +339,10 @@ class PDFParser(Parser):
         zoom = self.kwargs.get('zoom', 2)
         pdf_page = self._pdf[page_index]
         img = self._get_page_img(page_index, zoom=zoom)
+
+        if self.enhance_fn is not None: # 自定义增强函数
+            img = self.enhance_fn(img)
+        
         img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         
         h, w, _ = img.shape
@@ -354,10 +364,6 @@ class PDFParser(Parser):
         # 非文本区域使用 img 对象
         blocks = self.structure_model(img_sharpen)
 
-        cache_path = '.cache/pdf_cache'
-        if not os.path.exists(cache_path):
-            os.makedirs(cache_path)
-
         def save_block(block_: StructureResult, img_: ndarray, idx: int) -> None | str:
             wt, ht = self.kwargs.get('wt', 20), self.kwargs.get('ht', 5)  # 切割子图, 向左右扩充wt, 向上扩充ht
             x1, y1, x2, y2 = block_['bbox']
@@ -375,7 +381,7 @@ class PDFParser(Parser):
             bordered_img = Image.new('RGB', new_size, 'white')
             bordered_img.paste(cropped_img, (border_size, border_size))
             
-            path = os.path.join(cache_path, f'{idx}_{str(shortuuid.uuid())}_{type_}.png')
+            path = os.path.join(self.cache_path, f'{idx}_{str(shortuuid.uuid())}_{type_}.png')
             bordered_img.save(path)
             return path
 
@@ -426,8 +432,8 @@ class PDFParser(Parser):
                 if block['type'] == 'title':
                     content.type = ContentType.Title  # 除了title其余全部当作正文对待
                 contents.append(content)
-
-        shutil.rmtree(cache_path)
+                
+        clear_directory(self.cache_path, sub_directory=False)
 
         return Page(page_index=page_index + 1, contents=contents)
 
