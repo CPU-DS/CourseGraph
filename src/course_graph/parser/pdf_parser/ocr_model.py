@@ -12,6 +12,7 @@ from contextlib import redirect_stdout
 import os
 import re
 import time
+from ...llm import Qwen
 
 logging.getLogger("transformers").setLevel(logging.CRITICAL)
 
@@ -101,3 +102,16 @@ class GOT(OCRModel):
                 else:
                     res = self.unreadable_pattern.sub('', res)  # 过滤掉不可读的文本
             return res
+
+class QwenOCR(OCRModel):
+
+    def __init__(self, api_key: str = os.getenv("DASHSCOPE_API_KEY")) -> None:
+        """ qwen-vl-ocr 模型 ref: https://help.aliyun.com/zh/model-studio/user-guide/qwen-vl-ocr
+        
+        Args:
+            api_key (str, optional): API key. Defaults to os.getenv("DASHSCOPE_API_KEY").
+        """
+        self.model = Qwen(name='qwen-vl-ocr', api_key=api_key)
+
+    def predict(self, img_path: str) -> str:
+        return self.model.image_chat([img_path], 'Read all the text in the image.')

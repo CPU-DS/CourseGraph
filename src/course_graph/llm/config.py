@@ -18,4 +18,5 @@ class LLMConfig(TypedDict, total=False):
 class VLLMConfig(TypedDict, total=False):
     gpu_memory_utilization: float
     tensor_parallel_size: int
+    pipeline_parallel_size: int
     max_model_len: int
