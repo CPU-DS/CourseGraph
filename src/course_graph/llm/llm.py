@@ -7,7 +7,7 @@
 import openai
 from openai.types.chat import *
 from openai import NOT_GIVEN, NotGiven
-from abc import ABC
+from abc import ABC, abstractmethod
 import os
 import requests
 import subprocess
@@ -15,9 +15,9 @@ import time
 import ollama
 import base64
 import signal
-from pathlib import Path
+import pathlib
 import weakref
-from .config import LLMConfig, VLLMConfig
+from .types import LLMConfig, VLLMConfig
 import shlex
 
 
@@ -35,10 +35,20 @@ class LLM(ABC):
 
         self.json: bool = False
         self.stop = None
-        self.instruction = 'You are a helpful assistant.'
+        self._instruction = 'You are a helpful assistant.'
         
         self.extra_body = {}
         self.config: LLMConfig = {}
+        
+    @property
+    def instruction(self) -> str:
+        return self._instruction
+    
+    @instruction.setter
+    def instruction(self, value: str) -> None:
+        if len(value) == 0:
+            return
+        self._instruction = value
 
 
     def chat_completion(
@@ -114,7 +124,7 @@ class LLM(ABC):
                 'type': 'image_url',
                 'image_url': {
                     'url': (
-                        f"data:image/{Path(p).suffix[1:]};base64,{base64.b64encode(open(p, 'rb').read()).decode('utf-8')}"
+                        f"data:image/{pathlib.Path(p).suffix[1:]};base64,{base64.b64encode(open(p, 'rb').read()).decode('utf-8')}"
                         if os.path.exists(p) else p
                     )
                 }
@@ -233,17 +243,44 @@ class Server:
             self.process.send_signal(signal.SIGTERM)
             self.process.wait()
 
-    def __enter__(self) -> 'Server':
-        return self
+           
+class Input(ABC):
+    def __init__(self):
+        pass
+    
+    @abstractmethod
+    def validate(self) -> bool:
+        raise NotImplementedError
 
-    def __exit__(self, exc_type, exc_value, traceback) -> None:
-        self.close()
+    
+class Path(Input):
+    def __init__(self, path: str):
+        super().__init__()
+        if self.validate():
+            self.path = path
+        else:
+            raise FileNotFoundError
+            
+    def validate(self) -> bool:
+        return os.path.exists(self.path)
+
+   
+class Command(Input):
+    def __init__(self, command: str):
+        super().__init__()
+        if self.validate():
+            self.command = command
+        else:
+            raise ValueError
+            
+    def validate(self) -> bool:
+        return bool(self.command.strip())
 
 
 class VLLM(LLM, Server):
 
     def __init__(self,
-                 path_or_command: str,
+                 input: Input,
                  *,
                  host: str = 'localhost',
                  port: int = 9017,
@@ -253,7 +290,7 @@ class VLLM(LLM, Server):
         """ 使用VLLM加载模型
 
         Args:
-            path_or_commands (str): 模型路径或自定义启动命令, 若使用命令启动, 可省略 host, port及 config 中的配置
+            input (Input): 模型路径 Path 或自定义启动命令 Command, 若使用命令启动, 可省略 host, port及 config 中的配置
             host (str, optional): 服务地址. Defaults to 'localhost'.
             port (int, optional): 服务端口. Defaults to 9017.
             timeout (int, optional): 启动服务超时时间. Defaults to 60.
@@ -265,39 +302,41 @@ class VLLM(LLM, Server):
         self.host = host
         self.port = port
         
-        if os.path.exists(path_or_command):
-            self.model = path_or_command
-
-            commands = [
-                "vllm", "serve", self.model,
-                "--host", self.host,
-                "--port", str(self.port),
-                "--enable-auto-tool-choice",
-                "--tool-call-parser", "hermes",
-                "--disable-log-requests",
-                "--trust-remote-code"
-            ]    
-
-        else:
-            commands = shlex.split(path_or_command)
-            self.model = commands[2]
-            
-            if "--host" not in commands:
-                commands.extend([
-                    "--host",
-                    host
-                ])
-                self.host = host
-            else:
-                self.host = commands[commands.index('--host') + 1]
-            if "--port" not in commands:
-                commands.extend([
-                    "--port",
-                    str(port)
-                ])
-                self.port = port
-            else:
-                self.port = int(commands[commands.index('--port') + 1])
+        match input:
+            case Path(path):
+                self.model = path
+                
+                commands = [
+                    "vllm", "serve", self.model,
+                    "--host", self.host,
+                    "--port", str(self.port),
+                    "--enable-auto-tool-choice",
+                    "--tool-call-parser", "hermes",
+                    "--disable-log-requests",
+                    "--trust-remote-code"
+                ]  
+            case Command(command):
+                commands = shlex.split(command)
+                self.model = commands[2]
+                
+                if "--host" not in commands:
+                    commands.extend([
+                        "--host",
+                        host
+                    ])
+                    self.host = host
+                else:
+                    self.host = commands[commands.index('--host') + 1]
+                if "--port" not in commands:
+                    commands.extend([
+                        "--port",
+                        str(port)
+                    ])
+                    self.port = port
+                else:
+                    self.port = int(commands[commands.index('--port') + 1])
+            case _:
+                raise ValueError
         
         for key in config.keys():
             commands.extend([
@@ -313,6 +352,12 @@ class VLLM(LLM, Server):
 
         self.client = openai.OpenAI(
             api_key='EMPTY', base_url=f'http://{self.host}:{self.port}/v1')
+
+    def __enter__(self) -> 'VLLM':
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback) -> None:
+        self.close()
 
 
 class Ollama(LLM, Server):

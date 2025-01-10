@@ -4,9 +4,9 @@
 # File Name: course_graph/parser/docx_parser.py
 # Description: 定义docx文档解析器
 
-from .type import BookMark, PageIndex
+from .types import BookMark, PageIndex
 from .parser import Parser
-from .type import Content, ContentType
+from .types import Content, ContentType
 import docx
 import shortuuid
 from xml.dom.minidom import parseString

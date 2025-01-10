@@ -12,7 +12,14 @@ import numpy as np
 from glob import glob
 from typing import Literal
 from abc import ABC, abstractmethod
-from ..type import Database
+from dataclasses import dataclass
+from pymongo.collection import Collection
+
+
+@dataclass
+class Database:
+    faiss: Faiss
+    mongo: Collection
 
 
 class ExamplePromptStrategy(ABC):

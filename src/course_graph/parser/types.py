@@ -4,7 +4,6 @@
 # File Name: course_graph/parser/type.py
 # Description: 定义各种中间类型
 
-from dataclasses import dataclass
 from ..resource import Resource
 from enum import Enum
 from dataclasses import dataclass, field
@@ -92,16 +91,18 @@ class BookMark:
 \t resource={self.resource}),
 \t subs=[\t{s}]'''
         else:
-            return  f'BookMark(title="{self.title}", ...)'
-        
+            return f'BookMark(title="{self.title}", ...)'
+
+
 @dataclass
 class KPEntity:
     id: str
     name: str
     type: str
+    marginalized: bool = False
     relations: list['KPRelation'] = field(default_factory=list)
-    attributes: dict[str, list] = field(default_factory=dict)  # 同一个属性可能会存在多个属性值, 后续选择一个最好的值
-    best_attributes: dict[str, str] = field(default_factory=dict)
+    cached_attributes: dict[str, list] = field(default_factory=dict)  # 同一个属性可能会存在多个属性值, 后续选择一个最好的值
+    attributes: dict[str, str] = field(default_factory=dict)
     resourceSlices: list[Slice] = field(default_factory=list)
 
     def __repr__(self, detail: bool = True) -> str:
@@ -109,8 +110,8 @@ class KPEntity:
             s = ', \n\t\t'.join([relation.__repr__() for relation in self.relations])
             return f'''KPEntity(name="{self.name}", 
 \t type="{self.type}", 
-\t attributes={self.attributes}, 
-\t best_attributes={self.best_attributes})
+\t cached_attributes={self.cached_attributes}, 
+\t attributes={self.attributes})
 \t relations=[{s}]'''
         else:
             return f'KPEntity(name="{self.name}", ...)'

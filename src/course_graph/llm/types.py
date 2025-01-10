@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # Create Date: 2024/07/11
 # Author: wangtao <wangtao.cpu@gmail.com>
-# File Name: course_graph/llm/config.py
-# Description: 定义大模型配置
+# File Name: course_graph/llm/type.py
+# Description: 定义大模型中间类
 
 from typing import TypedDict
 

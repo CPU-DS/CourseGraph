@@ -8,7 +8,7 @@ from .structure_model import *
 from .ocr_model import *
 import shortuuid
 from ..parser import Parser
-from ..type import Page, Content, ContentType
+from ..types import Page, Content, ContentType
 import fitz
 from PIL import Image
 import numpy as np
@@ -19,7 +19,7 @@ from ...llm.prompt import VLPromptGenerator, ParserPromptGenerator
 import os
 import shutil
 from course_graph_ext import get_list_from_string, find_longest_consecutive_sequence
-from ..type import BookMark, PageIndex
+from ..types import BookMark, PageIndex
 from shuangchentools.utils.file import clear_directory
 from typing import Callable
 from numpy import ndarray

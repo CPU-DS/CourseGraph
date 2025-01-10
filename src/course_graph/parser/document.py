@@ -5,7 +5,7 @@
 # Description: 定义文档以及抽取知识图谱相关方法
 
 from ..llm import LLM, ONTOLOGY
-from ..llm.prompt import ExtractPromptGenerator, ExamplePromptGenerator
+from ..llm.prompt import PromptGenerator, ExamplePromptGenerator
 import shortuuid
 from loguru import logger
 from collections import Counter
@@ -13,10 +13,10 @@ from typing import TYPE_CHECKING, Union
 import random
 import pickle
 import os
-from .config import config
+from .config import CONFIG
 from .utils import instance_method_transactional
 from ..resource import ResourceMap
-from .type import BookMark, KPEntity, KPRelation
+from .types import BookMark, KPEntity, KPRelation
 from tqdm import tqdm
 from course_graph_ext import merge_strings
 
@@ -100,7 +100,7 @@ class Document:
     def set_knowledgepoints_by_llm(
             self,
             llm: LLM,
-            prompt: ExtractPromptGenerator = ExamplePromptGenerator(),
+            prompt: PromptGenerator = ExamplePromptGenerator(),
             self_consistency: bool = False,
             samples: int = 5,
             top: float = 0.5,
@@ -117,11 +117,8 @@ class Document:
         """
 
         @instance_method_transactional('knowledgepoints')
-        def get_knowledgepoints(self,  # 这里需要传递self的原因是instance_method_transactional本来只能装饰实例方法
-                                content: str,
-                                self_consistency=False,
-                                samples: int = 5,
-                                top: float = 0.5) -> list[KPEntity]:
+        def get_knowledgepoints(self: 'Document',  # 这里需要传递self的原因是instance_method_transactional本来只能装饰实例方法
+                                content: str) -> list[KPEntity]:
             # 实体抽取
             message, instruction = prompt.get_ner_prompt(content)
             llm.instruction = instruction
@@ -157,24 +154,23 @@ class Document:
             logger.success(f'最终获取知识点实体: ' + str(entities))
             # 分支结束得到 entities {'entity_type': ['entity1', 'entity2']}
             
-            kps: list[KPEntity] = []
+            center_kps: list[KPEntity] = []  # only for center entity
             for entity_type, entity_list in entities.items():
                 for entity_name in entity_list:  # entity_type 不再作为单独出现而是作为属性
                     # 复用知识点实体
-                    for kp in self.knowledgepoints:
-                        if entity_name == kp.name:  # 后续这里可能还有更多的判断 (共指消解)
-                            kps.append(kp)
-                            break
+                    if kp := next((kp for kp in self.knowledgepoints if kp.name == name), None):
+                        kp.marginalized = False
+                        center_kps.append(kp)
                     else:
                         kp = KPEntity(id='2:' + str(shortuuid.uuid()), name=entity_name, type=entity_type)
                         self.knowledgepoints.append(kp)
-                        kps.append(kp)
+                        center_kps.append(kp)
     
             # 属性抽取
-            if len(kps) == 0:
+            if len(center_kps) == 0:
                 pass
             else:
-                message, instruction = prompt.get_ae_prompt(content, [kp.name for kp in kps])  # 只使用 name
+                message, instruction = prompt.get_ae_prompt(content, [kp.name for kp in center_kps])  # 只使用 name
                 llm.instruction = instruction
                 resp = llm.chat(message)
                 attrs: dict = prompt.post_process(resp) or {}
@@ -182,59 +178,58 @@ class Document:
 
                 for name, attr in attrs.items():
                     # 使用 name 匹配
-                    if matching_kp := next((kp for kp in kps if kp.name == name), None):
+                    if matching_kp := next((kp for kp in center_kps if kp.name == name), None):
                         # 更新相应的属性值
                         if isinstance(attr, dict):
                             for attr_name, value in attr.items():
-                                matching_kp.attributes.setdefault(attr_name, []).append(value)
+                                matching_kp.cached_attributes.setdefault(attr_name, []).append(value)
 
-            # 关系抽取
-            if len(kps) <= 1:
-                pass
+            message, instruction = prompt.get_re_prompt(content, [kp.name for kp in center_kps]) # 只使用 name
+            llm.instruction = instruction
+            if not self_consistency:
+                resp = llm.chat(message)
+                relations = prompt.post_process(resp) or []
             else:
-                message, instruction = prompt.get_re_prompt(content, [kp.name for kp in kps])
-                llm.instruction = instruction
-                if not self_consistency:
+                all_relations = []
+                for idx in range(samples):
                     resp = llm.chat(message)
-                    relations: list = prompt.post_process(resp) or []
-                else:
-                    all_relations = []
-                    for idx in range(samples):
-                        resp = llm.chat(message)
-                        logger.info(f'第{idx}次采样: ' + resp)
-                        relations: list = prompt.post_process(resp) or []
+                    logger.info(f'第{idx}次采样: ' + resp)
+                    relations = prompt.post_process(resp) or []
 
-                        logger.info(f'获取知识点实体: ' + str(entities))
-                        all_relations.extend(relations)
-                    relations = [
-                        dict(relation)
-                        for relation, count in Counter(frozenset(relation.items()) for relation in all_relations).items()  if count > (samples * top)
-                    ]
+                    logger.info(f'获取知识点实体: ' + str(entities))
+                    all_relations.extend(relations)
+                relations = [
+                    dict(relation)
+                    for relation, count in Counter(frozenset(relation.items()) for relation in all_relations).items()  if count > (samples * top)
+                ]
                 
                 logger.success(f'最终获取关系三元组: ' + str(relations))
                 # 分支结束得到 relations [{'head':'', 'relation':'', 'tail':''}]
 
                 for rela in relations:
                     head, tail = None, None
-                    for entity in kps:
-                        if entity.name == rela.get('head', None): # 使用 name 匹配
-                            head = entity
-                            break
-                    for entity in kps:
-                        if entity.name == rela.get('tail', None):
-                            tail = entity
-                            break
-                    if head and tail:
+                    if (head_name := rela.get('head')):
+                        kp = next((kp for kp in center_kps if kp.name == head_name), None)
+                        if not kp:
+                            kp = KPEntity(id='2:' + str(shortuuid.uuid()), name=head_name, type='', marginalized=True)
+                            self.knowledgepoints.append(kp)
+                            head = kp
+                    if (tail_name := rela.get('tail')):
+                        kp = next((kp for kp in center_kps if kp.name == tail_name), None)
+                        if not kp:
+                            kp = KPEntity(id='2:' + str(shortuuid.uuid()), name=tail_name, type='', marginalized=True)
+                            self.knowledgepoints.append(kp)
+                            tail = kp
+                    if head and tail:   
                         for relation in head.relations:
-                            if relation.type == rela.get('relation', None) and relation.tail.name == tail.name:  # 确保没有重复的关系
+                            if relation.type == rela.get('relation') and relation.tail.name == tail.name:  # 确保没有重复的关系
                                 break
-                        else:
-                            head.relations.append(
-                                KPRelation(id='3:' + str(shortuuid.uuid()),
-                                           type=rela['relation'],
-                                           tail=tail))
-
-            return kps
+                            else:
+                                head.relations.append(
+                                    KPRelation(id='3:' + str(shortuuid.uuid()),
+                                               type=rela['relation'],
+                                               tail=tail))
+            return center_kps
 
         # 知识抽取
         for index, bookmark in tqdm(enumerate(self.flatten_bookmarks()), total=len(self.flatten_bookmarks()), desc='知识抽取'):
@@ -243,7 +238,7 @@ class Document:
                 if index < self.checkpoint['extract_index'] and checkpoint:
                     logger.info('已跳过')
                     continue
-                if bookmark.title in config.ignore_page:
+                if bookmark.title in CONFIG['IGNORE_PAGE']:
                     logger.info('已跳过')
                     continue
                 contents = self.parser.get_contents(bookmark)
@@ -255,10 +250,7 @@ class Document:
                         try:
                             entities: list[KPEntity] = get_knowledgepoints(
                                 self,
-                                content,
-                                self_consistency=self_consistency,
-                                samples=samples,
-                                top=top)
+                                content)
                         except Exception as e:
                             raise e
                         else:
@@ -268,18 +260,21 @@ class Document:
 
         # 属性值总结
         for entity in tqdm(self.knowledgepoints, desc='属性总结'):
-            for attr, value_list in entity.attributes.items():
+            for attr, value_list in entity.cached_attributes.items():
                 if len(value_list) == 1:
-                    entity.best_attributes[attr] = value_list[0]
+                    entity.attributes[attr] = value_list[0]
                 else:
                     prompt_, instruction = prompt.get_best_attr_prompt(
                         entity.name, attr, value_list)
                     llm.instruction = instruction
                     resp = llm.chat(prompt_)
-                    entity.best_attributes[attr] = resp
+                    entity.attributes[attr] = resp
                 logger.success(
-                    f'实体: {entity.name}, 属性: {attr}, 值: {entity.attributes[attr]}'
+                    f'实体: {entity.name}, 属性: {attr}, 值: {entity.cached_attributes[attr]}'
                 )
+                
+        # A.对边缘化的知识点进行处理 存放在 self.knowledgepoints 中但不属于层级中
+        # B.共指消解
 
     def to_cyphers(self) -> list[str]:
         """ 将图谱转换为 cypher CREATE 语句
@@ -287,15 +282,15 @@ class Document:
         Returns:
             list[str]: 多条 cypher 语句
         """
-        relas = list(ONTOLOGY.relations.keys())
-        attrs = list(ONTOLOGY.attributes.keys())
+        relas = list(ONTOLOGY['relations'].keys())
+        attrs = list(ONTOLOGY['attributes'].keys())
         cyphers = [
             f'CREATE (:文档 {{id: "{self.id}", name: "{self.name}"}}' + ')'
         ]
         # 创建所有知识点实体和实体属性
         for entity in self.knowledgepoints:
             res = [str(sl) for sl in entity.resourceSlices]
-            attr_string = [f'{attr}: "{entity.best_attributes.get(attr, "")}"' for attr in attrs]
+            attr_string = [f'{attr}: "{entity.attributes.get(attr, "")}"' for attr in attrs]
             cyphers.append(
                 f'CREATE (:知识点 {{id: "{entity.id}", name: "{entity.name}", type: "{entity.type}", resource: {res},  {",".join(attr_string)}}})'
             )
@@ -308,7 +303,7 @@ class Document:
                     )
 
         def bookmark_to_cypher(bookmark: BookMark, parent_id: str):
-            if bookmark.title in config.ignore_page:
+            if bookmark.title in CONFIG['IGNORE_PAGE']:
                 return
             # 创建章节实体
             res = [str(resource) for resource in bookmark.resource]
@@ -358,7 +353,7 @@ class Document:
             match node:
                 case Document():
                     for bookmark in node.bookmarks:
-                        if bookmark in config.ignore_page:
+                        if bookmark.title in CONFIG['IGNORE_PAGE']:
                             pass
                         add_relation(node.id, '文档', node.name, bookmark.id, '章节',bookmark.title, '子章节')
                         dfs(bookmark)
@@ -382,58 +377,11 @@ class Document:
                 'entity_type': '知识点/' + kp.type,
                 'entity_name': kp.name,
             }
-            for attr in list(ONTOLOGY.attributes.keys()):
-                attribute[attr] = kp.best_attributes.get(attr, '')
+            for attr in list(ONTOLOGY['attributes'].keys()):
+                attribute[attr] = kp.attributes.get(attr, '')
             entity_attributes.append(attribute)
 
         return relations, entity_attributes #, relation_attributes
-    
-    def to_topic_template(self) -> None:
-        """ 将图谱转换为主题模板
-
-        Returns:
-            list[list]: 每个子数组包含三个元素：遍历路径、关系列表、属性列表
-        """
-        relations = []
-        attrs = []
-        def dfs(node: Union[Document, BookMark, KPEntity], path: list = None) -> list[list]:
-            if path is None:
-                path = []
-            paths = []
-            current_path = path + [node]
-            
-            match node:
-                case Document():
-                    for bookmark in node.bookmarks:
-                        if bookmark not in config.ignore_page:
-                            paths.extend(dfs(bookmark, current_path))
-                case BookMark():
-                    if not node.subs:
-                        paths.append(current_path)
-                    for sub in node.subs:
-                        paths.extend(dfs(sub, current_path))
-                case KPEntity():
-                    paths.append(current_path)
-                    for relation_type in list(ONTOLOGY.relations.keys()):
-                        tails = [r.tail.name for r in node.relations if r.type == relation_type]
-                        if tails:
-                            relations.append(";".join(tails))
-                        else:
-                            relations.append(None)
-                    
-                    for attr_type in list(ONTOLOGY.attributes.keys()):
-                        attr_value = node.best_attributes.get(attr_type, '')
-                        if attr_value:
-                            attrs.append(attr_value)
-                        else:
-                            attrs.append(None)
-            return paths
-        paths = dfs(self)
-        only_names = []
-
-        for index in range(len(paths)):
-            only_names.append([[ getattr(node, 'name', getattr(node, 'title', None)) for node in paths[index]], relations[index], attrs[index]])
-        return only_names
 
     def set_resource(self, resource_map: 'ResourceMap') -> None:
         """ 为知识点设置相应的资源

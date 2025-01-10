@@ -7,7 +7,7 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
 from .document import Document
-from .type import BookMark, Content
+from .types import BookMark, Content
 
 
 class Parser(ABC):

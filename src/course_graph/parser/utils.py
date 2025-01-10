@@ -8,7 +8,7 @@ import copy
 from functools import wraps
 
 def instance_method_transactional(*instance_variables):
-    """  装饰实例方法, 指定实例属性名称, 在方法抛出异常的时候回滚对这些属性的更改, 然后继续抛出异常。
+    """ 装饰实例方法, 指定实例属性名称, 在方法抛出异常的时候回滚对这些属性的更改, 然后继续抛出异常。
 
     Args:
         *variables (str): 需要回滚的变量名称
