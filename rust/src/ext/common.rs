@@ -128,33 +128,104 @@ pub fn optimize_strings_length(s: Vec<String>, n: i32) -> PyResult<Vec<String>> 
 
 #[pyfunction]
 pub fn merge_strings(s: Vec<String>, n: i32) -> PyResult<Vec<String>> {
-    let mut result: Vec<String> = Vec::new();
-    let mut current = String::new();
-    let mut exceed = false; // 允许第一次超过范围
+    let n = n as usize;
+    let mut result = Vec::new();
+    let mut buffer = String::new();
+
+    fn split_into_chunks(s: &str, n: usize) -> Vec<String> {
+        let mut chunks = Vec::new();
+        let sentences: Vec<&str> = s.split('。').collect();
+        let mut current = String::new();
+
+        for sentence in sentences {
+            let trimmed = sentence.trim();
+            if trimmed.is_empty() {
+                continue;
+            }
+
+            let sentence_with_period = format!("{}。", trimmed);
+
+            if sentence_with_period.len() >= n {
+                if !current.is_empty() {
+                    chunks.push(current.clone());
+                    current.clear();
+                }
+                chunks.push(sentence_with_period);
+                continue;
+            }
+
+            if current.len() + sentence_with_period.len() >= n {
+                if !current.is_empty() {
+                    chunks.push(current.clone());
+                    current = sentence_with_period;
+                }
+            } else {
+                current.push_str(&sentence_with_period);
+            }
+        }
+
+        if !current.is_empty() {
+            chunks.push(current);
+        }
+        chunks
+    }
 
     for string in s {
-        if !exceed {
-            if !current.is_empty() {
-                current.push_str("\n");
+        if string.len() >= n {
+            if !buffer.is_empty() {
+                result.push(buffer.clone());
+                buffer.clear();
             }
-            current.push_str(&string);
 
-            if current.chars().count() > n as usize {
-                exceed = true;
-                result.push(current);
-                current = String::new();
-            }
+            let chunks = split_into_chunks(&string, n);
+            result.extend(chunks);
         } else {
-            if !current.is_empty() {
-                result.push(current);
+            if buffer.is_empty() {
+                buffer = string.clone();
+            } else {
+                buffer.push('\n');
+                buffer.push_str(&string);
             }
-            current = string;
+
+            if buffer.len() >= n {
+                result.push(buffer.clone());
+                buffer.clear();
+            }
         }
     }
 
-    if !current.is_empty() {
-        result.push(current);
+    if !buffer.is_empty() {
+        result.push(buffer);
     }
 
-    Ok(result)
+    let mut final_result = Vec::new();
+    let mut temp = String::new();
+
+    for string in result {
+        if string.len() >= n {
+            if !temp.is_empty() {
+                final_result.push(temp.clone());
+                temp.clear();
+            }
+            final_result.push(string);
+        } else {
+            if temp.is_empty() {
+                temp = string.clone();
+            } else {
+                temp.push('\n');
+                temp.push_str(&string);
+            }
+
+            if temp.len() >= n {
+                final_result.push(temp.clone());
+                temp.clear();
+            }
+        }
+    }
+
+    if !temp.is_empty() {
+        final_result.push(temp);
+    }
+
+    Ok(final_result)
 }

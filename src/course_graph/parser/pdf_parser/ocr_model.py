@@ -46,8 +46,8 @@ class PaddleOCR(OCRModel):
         sts = []
         for line in self.paddle.ocr(img_path)[0]:
             sts.append(line[1][0])
-        return ''.join(sts)
-
+        res = re.sub(r'[^\S\n]+', '', ''.join(sts))
+        return res
 
 class GOT(OCRModel):
 
