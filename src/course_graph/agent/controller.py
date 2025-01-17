@@ -8,7 +8,8 @@ from .agent import Agent
 import copy
 import json
 from .types import Result, ContextVariables
-
+from typing import Callable
+import inspect
 
 class Controller:
 
@@ -32,11 +33,12 @@ class Controller:
             agent (Agent): 新 Agent
         """
         match agent.instruction:
-            case str() as instruction:
-                pass
+            case Callable() as instruction:
+                parameters = inspect.signature(instruction).parameters
+                args = (self.context_variables,) if len(parameters) == 1 else ()
+                agent.llm.instruction = instruction(*args)
             case _:
-                instruction = agent.instruction(self.context_variables)
-        agent.llm.instruction = instruction
+                agent.llm.instruction = agent.instruction
 
     def __call__(self, agent: Agent, message: str = None) -> tuple[Agent, str]:
         return self.run(agent=agent, message=message)
@@ -52,7 +54,7 @@ class Controller:
             (Agent, str): Agent 和最终的输出
         """
         self.set_agent_instruction(agent)
-        if message is None:
+        if not message:
             agent.add_assistant_message(agent.name)
         assistant_output = agent.chat(message)
         while assistant_output.tool_calls:  # None 或者空数组
@@ -85,11 +87,12 @@ class Controller:
 
                     agent.add_tool_call_message(result.content, item.id)
                     if result.agent is not None:
-                        if result.messages:
+                        if result.message:
                             result.agent.messages.extend(copy.deepcopy(agent.messages))
                         agent = result.agent
-                    # 更新上下文变量
+
                     self.context_variables.update(result.context_variables)
+                    self.set_agent_instruction(agent)
 
             assistant_output = agent.chat()
 

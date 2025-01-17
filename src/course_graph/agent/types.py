@@ -17,10 +17,10 @@ class ContextVariables:
 
     def __init__(self, initial_vars: dict = None) -> None:
 
-        if initial_vars is None:
-            self._vars = {}
-        else:
+        if initial_vars:
             self._vars = initial_vars
+        else:
+            self._vars = {}
 
     def __getitem__(self, key: Any) -> Any:
         return self._vars[key]

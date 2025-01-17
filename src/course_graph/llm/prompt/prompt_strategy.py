@@ -80,7 +80,7 @@ class SentenceEmbeddingStrategy(ExamplePromptStrategy):
     def __init__(self,
                  embed_model_path: str,
                  mongo_url: str = 'mongodb://localhost:27017/',
-                 faiss_path: str = 'course_graph/database/faiss_index',
+                 faiss_path: str = 'src/course_graph/database/faiss_index',
                  topk: int = 3,
                  avoid_first: bool = False) -> None:
         """ 基于句嵌入相似度的示例检索策略

@@ -24,7 +24,7 @@ class Agent:
             functions: list[Callable] = None,
             tool_choice: str | NotGiven | Literal['required', 'auto', 'none'] = NOT_GIVEN,
             parallel_tool_calls: bool | NotGiven = NOT_GIVEN,
-            instruction: str | Callable[[ContextVariables], str] = 'You are a helpful assistant.'
+            instruction: str | Callable[[ContextVariables], str] | Callable[[], str] = 'You are a helpful assistant.'
     ) -> None:
         """ 智能体类
 
@@ -33,7 +33,7 @@ class Agent:
         functions: (list[Callable], optional): 工具函数. Defaults to None.
         parallel_tool_calls: (bool, optional): 允许工具并行调用. Defaults to False.
         tool_choice: (Literal['required', 'auto', 'none'] | NotGiven, optional). 强制使用工具函数, 选择模式或提供函数名称. Defaults to NOT_GIVEN.
-        instruction (str | Callable[[ContextVariables], str], optional): 指令. Defaults to 'You are a helpful assistant.'.
+        instruction (str | Callable[[ContextVariables], str] | Callable[[], str], optional): 指令. Defaults to 'You are a helpful assistant.'.
         """
         self.name = name
         self.llm = llm
@@ -108,8 +108,7 @@ class Agent:
         message = {'content': message, 'role': 'assistant'}
         self.messages.append(message)
 
-    def add_tool_call_message(self, tool_content: str,
-                              tool_call_id: str) -> None:
+    def add_tool_call_message(self, tool_content: str, tool_call_id: str) -> None:
         """ 添加工具调用记录
 
         Args:

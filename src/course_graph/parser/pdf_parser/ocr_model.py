@@ -43,11 +43,12 @@ class PaddleOCR(OCRModel):
         self.paddle = Paddle(lang="ch", show_log=False, use_angle_cls=True)
 
     def predict(self, img_path: str) -> str:
-        sts = []
-        for line in self.paddle.ocr(img_path)[0]:
-            sts.append(line[1][0])
-        res = re.sub(r'[^\S\n]+', '', ''.join(sts))
-        return res
+        res = self.paddle.ocr(img_path)[0]
+        if res is not None:
+            sts = [line[1][0] for line in res]
+            return re.sub(r'[^\S\n]+', '', ''.join(sts))
+        return ''
+        
 
 class GOT(OCRModel):
 

@@ -306,15 +306,16 @@ class VLLM(LLM, Server):
             case Path(path):
                 self.model = path
                 
-                commands = [
-                    "vllm", "serve", self.model,
-                    "--host", self.host,
-                    "--port", str(self.port),
-                    "--enable-auto-tool-choice",
-                    "--tool-call-parser", "hermes",
-                    "--disable-log-requests",
-                    "--trust-remote-code"
-                ]  
+                command = f"""
+                    vllm serve {self.model}\
+                        --host {self.host}\
+                        --port {self.port}\
+                        --enable-auto-tool-choice\
+                        --tool-call-parser hermes\
+                        --disable-log-requests\
+                        --trust-remote-code
+                """
+                commands = shlex.split(command)
             case Command(command):
                 commands = shlex.split(command)
                 self.model = commands[2]

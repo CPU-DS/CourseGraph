@@ -2,7 +2,7 @@
 
 <ArticleMetadata/>
 
-> 该框架受到了 openai [swarm](https://github.com/openai/swarm) 项目的启发
+> 该框架受到了 OpenAI [swarm](https://github.com/openai/swarm) 项目的启发
 
 `course_graph.agent` 是一款通用的多智能体编排框架, 不仅支持多智能体的 **主动切换**, 也可以使用 **人工编排**, 从而形成工作流。`course_graph.agent` 也拥有比 swarm 更好的 function2json 的能力。基于 `course_graph.llm` , 该框架也支持调用更多类型的大模型。
 
@@ -185,7 +185,7 @@ controller = Controller(context_variables={'current_time': '2024/09/01'})
 
 #### instruction中使用
 
-在创建 `Agent` 对象时, `instruction` 不仅可以是一个字符串，也可以是一个函数，但这个函数 **只能** 拥有一个 `ContextVariables` 类型的形参且 **必需** 返回一个字符串。
+在创建 `Agent` 对象时, `instruction` 不仅可以是一个字符串，也可以是一个函数，但这个函数 **必需** 返回一个字符串, 同时可以额外传递一个`ContextVariables` 类型的形参。
 
 ``` python
 from course_graph.agent import ContextVariables
@@ -203,7 +203,7 @@ assistant = Agent(name="assistant",
 
 #### 外部工具中使用
 
-在定义外部工具函数时, 可以额外拥有一个 `ContextVariables` 类型的形参。同样的, 控制器也会在调用这些函数的时候自动注入上下文变量。
+在定义外部工具函数时, 也可以传递一个 `ContextVariables` 类型的形参。同样的, 控制器也会在调用这些函数的时候自动注入上下文变量。
 
 虽然不需要在文档中描述这个形参, 但是 **必需** 标注这个形参的类型为 `ContextVariables` 类型:
 

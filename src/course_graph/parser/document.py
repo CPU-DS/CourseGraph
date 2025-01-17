@@ -16,7 +16,7 @@ import os
 from .config import CONFIG
 from .utils import instance_method_transactional
 from ..resource import ResourceMap
-from .types import BookMark, KPEntity, KPRelation
+from .types import BookMark, KPEntity, KPRelation, ContentType
 from tqdm import tqdm
 from course_graph_ext import merge_strings
 
@@ -104,6 +104,7 @@ class Document:
             self_consistency: bool = False,
             samples: int = 5,
             top: float = 0.5,
+            text_length: int = 400,
             checkpoint: bool = False) -> None:
         """ 使用 LLM 抽取知识点存储到 BookMark 中
 
@@ -113,6 +114,7 @@ class Document:
             self_consistency (bool, optional): 是否采用自我一致性策略 (需要更多的模型推理次数). Defaults to False.
             samples (int, optional): 采用自我一致性策略的采样次数. Defaults to 5.
             top (float, optional): 采用自我一致性策略时，出现次数超过 top * samples 时才会被采纳，范围为 [0, 1]. Defaults to 0.5.
+            text_length (int, optional): 合并文本的长度. Defaults to 400.
             checkpoint (bool, optional): 如果保存有断点信息, 是否继续从断点处运行. Defaults to False.
         """
 
@@ -243,7 +245,14 @@ class Document:
                     continue
                 contents = self.parser.get_contents(bookmark)
                 kps: list[KPEntity] = []
-                contents = merge_strings([content.content for content in contents], n=400)
+                texts = []
+                for idx, content in enumerate(contents):
+                    texts.append(content.content)
+                    if content.type == ContentType.Title:
+                        texts[-1] += '\n'
+                    elif idx != len(contents) - 1 and contents[idx + 1].type == ContentType.Title:
+                        texts[-1] += '\n'
+                contents = merge_strings(texts, n=text_length)  # 优化换行位置
                 for content in contents:
                     if len(content) != 0:
                         logger.info('输入片段: \n' + content)

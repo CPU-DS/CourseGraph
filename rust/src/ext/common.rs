@@ -94,7 +94,7 @@ pub fn optimize_strings_length(s: Vec<String>, n: i32) -> PyResult<Vec<String>> 
     for string in s {
         if string.chars().count() < n as usize {
             buffer.push_str(&string);
-            buffer.push_str("\n");
+            // buffer.push_str("\n");
             if buffer.chars().count() >= n as usize {
                 let trimmed = buffer.trim_end().to_string();
                 result.push(trimmed);
@@ -127,105 +127,62 @@ pub fn optimize_strings_length(s: Vec<String>, n: i32) -> PyResult<Vec<String>> 
 }
 
 #[pyfunction]
-pub fn merge_strings(s: Vec<String>, n: i32) -> PyResult<Vec<String>> {
-    let n = n as usize;
+pub fn merge_strings(texts: Vec<String>, n: i32) -> PyResult<Vec<String>> {
     let mut result = Vec::new();
-    let mut buffer = String::new();
+    let mut chunks = Vec::new();
 
-    fn split_into_chunks(s: &str, n: usize) -> Vec<String> {
-        let mut chunks = Vec::new();
-        let sentences: Vec<&str> = s.split('。').collect();
-        let mut current = String::new();
-
-        for sentence in sentences {
-            let trimmed = sentence.trim();
-            if trimmed.is_empty() {
-                continue;
-            }
-
-            let sentence_with_period = format!("{}。", trimmed);
-
-            if sentence_with_period.len() >= n {
-                if !current.is_empty() {
-                    chunks.push(current.clone());
-                    current.clear();
-                }
-                chunks.push(sentence_with_period);
-                continue;
-            }
-
-            if current.len() + sentence_with_period.len() >= n {
-                if !current.is_empty() {
-                    chunks.push(current.clone());
-                    current = sentence_with_period;
-                }
-            } else {
-                current.push_str(&sentence_with_period);
-            }
-        }
-
-        if !current.is_empty() {
-            chunks.push(current);
-        }
-        chunks
+    // 分割并收集所有文本片段
+    for text in texts {
+        chunks.extend(
+            text.split('。')
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty()),
+        );
     }
 
-    for string in s {
-        if string.len() >= n {
-            if !buffer.is_empty() {
-                result.push(buffer.clone());
-                buffer.clear();
+    // 为不以句号结尾的片段添加句号
+    chunks = chunks
+        .into_iter()
+        .map(|chunk| {
+            if !chunk.ends_with('。') {
+                chunk + "。"
+            } else {
+                chunk
             }
+        })
+        .collect();
 
-            let chunks = split_into_chunks(&string, n);
-            result.extend(chunks);
+    let mut current = String::new();
+    let mut is_first_exceed = true;
+
+    for chunk in chunks {
+        let current_len = current.chars().count();
+        let chunk_len = chunk.chars().count();
+
+        if current_len + chunk_len < n as usize {
+            current.push_str(&chunk);
+        } else if current_len + chunk_len == n as usize {
+            current.push_str(&chunk);
+            result.push(current);
+            current = String::new();
+            is_first_exceed = true;
         } else {
-            if buffer.is_empty() {
-                buffer = string.clone();
+            if is_first_exceed {
+                is_first_exceed = false;
+                current.push_str(&chunk);
             } else {
-                buffer.push('\n');
-                buffer.push_str(&string);
-            }
-
-            if buffer.len() >= n {
-                result.push(buffer.clone());
-                buffer.clear();
+                if !current.is_empty() {
+                    result.push(current);
+                }
+                current = chunk;
+                is_first_exceed = true;
             }
         }
     }
 
-    if !buffer.is_empty() {
-        result.push(buffer);
+    if !current.is_empty() {
+        result.push(current);
     }
 
-    let mut final_result = Vec::new();
-    let mut temp = String::new();
-
-    for string in result {
-        if string.len() >= n {
-            if !temp.is_empty() {
-                final_result.push(temp.clone());
-                temp.clear();
-            }
-            final_result.push(string);
-        } else {
-            if temp.is_empty() {
-                temp = string.clone();
-            } else {
-                temp.push('\n');
-                temp.push_str(&string);
-            }
-
-            if temp.len() >= n {
-                final_result.push(temp.clone());
-                temp.clear();
-            }
-        }
-    }
-
-    if !temp.is_empty() {
-        final_result.push(temp);
-    }
-
-    Ok(final_result)
+    Ok(result)
 }

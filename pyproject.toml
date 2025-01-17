@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "course_graph"
 version = "0.1.0"
-description = "Automatic Construction of Course Knowledge Graphs Using Large Models"
+description = "Automatic Construction of Course Knowledge Graphs via LLMs"
 authors = [
     "wangtao2001 <wangtao.cpu@gmail.com>",
     "houfengzhen <houfz@cpu.edu.cn>",
