@@ -187,14 +187,16 @@ class Qwen(OpenAI):
 class DeepSeek(OpenAI):
 
     def __init__(self,
+                 name: str = 'deepseek-chat',
                  api_key: str = os.getenv("DEEPSEEK_API_KEY")):
         """ DeepSeek 模型 API 服务
 
         Args:
+            name (str, optional): 模型名称. Defaults to deepseek-chat.
             api_key (str, optional): API key. Defaults to os.getenv("DEEPSEEK_API_KEY").
         """
         super().__init__(
-            name='deepseek-chat',
+            name=name,
             base_url='https://api.deepseek.com/v1', 
             api_key=api_key)
 
@@ -256,9 +258,8 @@ class Input(ABC):
 class Path(Input):
     def __init__(self, path: str):
         super().__init__()
-        if self.validate():
-            self.path = path
-        else:
+        self.path = path
+        if not self.validate():
             raise FileNotFoundError
             
     def validate(self) -> bool:
@@ -303,7 +304,7 @@ class VLLM(LLM, Server):
         self.port = port
         
         match input:
-            case Path(path):
+            case Path(path=path):
                 self.model = path
                 
                 command = f"""
@@ -339,11 +340,12 @@ class VLLM(LLM, Server):
             case _:
                 raise ValueError
         
-        for key in config.keys():
-            commands.extend([
-                f"--{key.replace('_', '-')}",
-                str(config[key])
-            ])  
+        if config:
+            for key in config.keys():
+                commands.extend([
+                    f"--{key.replace('_', '-')}",
+                    str(config[key])
+                ])  
     
         Server.__init__(self,
                        command_list=commands,
