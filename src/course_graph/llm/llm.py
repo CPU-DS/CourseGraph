@@ -148,14 +148,14 @@ class OpenAI(LLM):
     def __init__(self,
                  name: str,
                  *,
-                 base_url: str = None,
-                 api_key: str = None):
+                 api_key: str,
+                 base_url: str = None,):
         """ OpenAI 模型 API 服务
 
         Args:
             name (str): 模型名称
+            api_key (str): API key.
             base_url (str, optional): 地址. Defaults to None.
-            api_key (str, optional): API key. Defaults to None.
         """
         super().__init__()
 
@@ -171,12 +171,12 @@ class Qwen(OpenAI):
     def __init__(self,
                  name: str = 'qwen-max',
                  *,
-                 api_key: str = os.getenv("DASHSCOPE_API_KEY")):
+                 api_key: str = os.getenv('DASHSCOPE_API_KEY')):
         """ Qwen 系列模型 API 服务
 
         Args:
             name (str, optional): 模型名称. Defaults to qwen-max.
-            api_key (str, optional): API key. Defaults to os.getenv("DASHSCOPE_API_KEY").
+            api_key (str, optional): API key. Defaults to os.getenv('DASHSCOPE_API_KEY').
         """
         super().__init__(
             name=name,
@@ -188,16 +188,34 @@ class DeepSeek(OpenAI):
 
     def __init__(self,
                  name: str = 'deepseek-chat',
-                 api_key: str = os.getenv("DEEPSEEK_API_KEY")):
+                 *,
+                 api_key: str = os.getenv('DEEPSEEK_API_KEY')):
         """ DeepSeek 模型 API 服务
 
         Args:
             name (str, optional): 模型名称. Defaults to deepseek-chat.
-            api_key (str, optional): API key. Defaults to os.getenv("DEEPSEEK_API_KEY").
+            api_key (str, optional): API key. Defaults to os.getenv('DEEPSEEK_API_KEY').
         """
         super().__init__(
             name=name,
             base_url='https://api.deepseek.com/v1', 
+            api_key=api_key)
+
+
+class OpenRouter(OpenAI):
+    def __init__(self, 
+                 name, 
+                 *, 
+                 api_key: str = os.getenv('OPENROUTER_API_KEY')):
+        """ OpenRouter API 服务
+
+        Args:
+            name (str): 模型名称.
+            api_key (str, optional): API key. Defaults to os.getenv('OPENROUTER_API_KEY').
+        """
+        super().__init__(
+            name=name, 
+            base_url='https://openrouter.ai/api/v1', 
             api_key=api_key)
 
 
