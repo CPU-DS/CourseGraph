@@ -51,7 +51,7 @@ class Controller:
             message (str, optional): 用户输入. Defaults to None.
 
         Returns:
-            (Agent, str): Agent 和最终的输出
+            (Agent, str): 最终激活的 Agent 和输出
         """
         self.set_agent_instruction(agent)
         if not message:

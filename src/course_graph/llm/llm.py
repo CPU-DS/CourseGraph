@@ -19,26 +19,29 @@ import pathlib
 import weakref
 from .types import LLMConfig, VLLMConfig
 import shlex
+from typing import Literal
 
 
 class LLM(ABC):
 
     def __init__(
-        self
+        self,
+        model: str,
+        client: openai.OpenAI
     ) -> None:
         """ 大模型抽象类
         """
         ABC.__init__(self)
 
-        self.model: str | None = None  # 需要在子类中额外初始化
-        self.client: openai.OpenAI | None = None
+        self.model = model
+        self.client = client
 
         self.json: bool = False
         self.stop = None
-        self._instruction = 'You are a helpful assistant.'
-        
         self.extra_body = {}
         self.config: LLMConfig = {}
+        
+        self._instruction = 'You are a helpful assistant.'
         
     @property
     def instruction(self) -> str:
@@ -95,19 +98,45 @@ class LLM(ABC):
                 **self.extra_body
             }).choices[0].message
 
-    def chat(self, message: str) -> str:
+
+class OpenAI(LLM):
+
+    def __init__(self,
+                 name: str,
+                 *,
+                 api_key: str,
+                 base_url: str = None):
+        """ OpenAI 模型 API 服务
+
+        Args:
+            name (str): 模型名称
+            api_key (str): API key.
+            base_url (str, optional): 地址. Defaults to None.
+        """ 
+        super().__init__(
+            model=name,
+            client=openai.OpenAI(
+                api_key=api_key,
+                base_url=base_url,
+            )
+        )
+
+
+    
+    def chat(self, message: str) -> tuple[str, str] | tuple[str, None]:
         """ 模型的单轮对话
 
         Args:
             message (str): 用户输入
 
         Returns:
-            str | ChatCompletionMessage: 模型输出
+            tuple[str, str]: 模型输出, 推理过程
         """
         response = self.chat_completion(messages=[{'role': 'user', 'content': message}])
-        return response.content
+        return response.content, response.reasoning_content if hasattr(response, 'reasoning_content') else None
     
-    def image_chat(self, path: str | list[str], message: str) -> str:
+    
+    def image_chat(self, path: str | list[str], message: str) -> tuple[str, str] | tuple[str, None]:
         """ 基于图片单轮对话
 
         Args:
@@ -115,7 +144,7 @@ class LLM(ABC):
             message (str): 用户输入
 
         Returns:
-            str: 模型输出
+            tuple[str, str]: 模型输出, 推理过程
         """
         if isinstance(path, str):
             path = [path]
@@ -140,30 +169,7 @@ class LLM(ABC):
             ]
         }]
         response = self.chat_completion(messages=messages)
-        return response.content
-
-
-class OpenAI(LLM):
-
-    def __init__(self,
-                 name: str,
-                 *,
-                 api_key: str,
-                 base_url: str = None,):
-        """ OpenAI 模型 API 服务
-
-        Args:
-            name (str): 模型名称
-            api_key (str): API key.
-            base_url (str, optional): 地址. Defaults to None.
-        """
-        super().__init__()
-
-        self.model = name
-        self.client = openai.OpenAI(
-            api_key=api_key,
-            base_url=base_url,
-        )
+        return response.content, None
 
 
 class Qwen(OpenAI):
@@ -172,7 +178,7 @@ class Qwen(OpenAI):
                  name: str = 'qwen-max',
                  *,
                  api_key: str = os.getenv('DASHSCOPE_API_KEY')):
-        """ Qwen 系列模型 API 服务
+        """ 阿里云大模型 API 服务
 
         Args:
             name (str, optional): 模型名称. Defaults to qwen-max.
@@ -187,13 +193,13 @@ class Qwen(OpenAI):
 class DeepSeek(OpenAI):
 
     def __init__(self,
-                 name: str = 'deepseek-chat',
+                 name: Literal['deepseek-chat', 'deepseek-reasoner'] = 'deepseek-chat',
                  *,
                  api_key: str = os.getenv('DEEPSEEK_API_KEY')):
         """ DeepSeek 模型 API 服务
 
         Args:
-            name (str, optional): 模型名称. Defaults to deepseek-chat.
+            name (Literal['deepseek-chat', 'deepseek-reasoner'], optional): 模型名称. Defaults to deepseek-chat.
             api_key (str, optional): API key. Defaults to os.getenv('DEEPSEEK_API_KEY').
         """
         super().__init__(
@@ -263,43 +269,11 @@ class Server:
             self.process.send_signal(signal.SIGTERM)
             self.process.wait()
 
-           
-class Input(ABC):
-    def __init__(self):
-        pass
-    
-    @abstractmethod
-    def validate(self) -> bool:
-        raise NotImplementedError
 
-    
-class Path(Input):
-    def __init__(self, path: str):
-        super().__init__()
-        self.path = path
-        if not self.validate():
-            raise FileNotFoundError
-            
-    def validate(self) -> bool:
-        return os.path.exists(self.path)
-
-   
-class Command(Input):
-    def __init__(self, command: str):
-        super().__init__()
-        if self.validate():
-            self.command = command
-        else:
-            raise ValueError
-            
-    def validate(self) -> bool:
-        return bool(self.command.strip())
-
-
-class VLLM(LLM, Server):
+class VLLM(OpenAI, Server):
 
     def __init__(self,
-                 input: Input,
+                 path: str,
                  *,
                  host: str = 'localhost',
                  port: int = 9017,
@@ -309,70 +283,51 @@ class VLLM(LLM, Server):
         """ 使用VLLM加载模型
 
         Args:
-            input (Input): 模型路径 Path 或自定义启动命令 Command, 若使用命令启动, 可省略 host, port及 config 中的配置
+            path (str): 模型路径
             host (str, optional): 服务地址. Defaults to 'localhost'.
             port (int, optional): 服务端口. Defaults to 9017.
             timeout (int, optional): 启动服务超时时间. Defaults to 60.
             log (bool, optional): 输出控制台日志. Defaults to True.
             config (VLLMConfig, optional): VLLM配置. Defaults to None.
         """
-        LLM.__init__(self)
         
         self.host = host
         self.port = port
         
-        match input:
-            case Path(path=path):
-                self.model = path
-                
-                command = f"""
-                    vllm serve {self.model}\
-                        --host {self.host}\
-                        --port {self.port}\
-                        --enable-auto-tool-choice\
-                        --tool-call-parser hermes\
-                        --disable-log-requests\
-                        --trust-remote-code
-                """
-                commands = shlex.split(command)
-            case Command(command):
-                commands = shlex.split(command)
-                self.model = commands[2]
-                
-                if "--host" not in commands:
-                    commands.extend([
-                        "--host",
-                        host
-                    ])
-                    self.host = host
-                else:
-                    self.host = commands[commands.index('--host') + 1]
-                if "--port" not in commands:
-                    commands.extend([
-                        "--port",
-                        str(port)
-                    ])
-                    self.port = port
-                else:
-                    self.port = int(commands[commands.index('--port') + 1])
-            case _:
-                raise ValueError
+        self.model = input
         
+        command = f"""
+            vllm serve {self.model}\
+                --host {self.host}\
+                --port {self.port}\
+                --disable-log-requests\
+                --trust-remote-code
+        """
+        commands = shlex.split(command)
+            
         if config:
             for key in config.keys():
-                commands.extend([
-                    f"--{key.replace('_', '-')}",
-                    str(config[key])
-                ])  
+                if type(config[key]) == bool:
+                    commands.extend([
+                        f"--{key.replace('_', '-')}"
+                    ])
+                else:
+                    commands.extend([
+                        f"--{key.replace('_', '-')}",
+                        str(config[key])
+                    ])
+
     
         Server.__init__(self,
                        command_list=commands,
                        timeout=timeout,
                        log=log,
                        test_url=f'http://{self.host}:{self.port}/health')
-
-        self.client = openai.OpenAI(
-            api_key='EMPTY', base_url=f'http://{self.host}:{self.port}/v1')
+        
+        OpenAI.__init__(self,
+                        name=self.model,
+                        api_key='EMPTY',
+                        base_url=f'http://{self.host}:{self.port}/v1')
 
     def __enter__(self) -> 'VLLM':
         return self
@@ -381,7 +336,7 @@ class VLLM(LLM, Server):
         self.close()
 
 
-class Ollama(LLM, Server):
+class Ollama(OpenAI, Server):
 
     def __init__(self,
                  name: str,
@@ -397,7 +352,6 @@ class Ollama(LLM, Server):
             host (str, optional): 服务地址. Defaults to 'localhost'.
             port (int, optional): 服务端口. Defaults to 9017.
         """
-        LLM.__init__(self)
         self.model = name
 
         available_models = [m['name'] for m in ollama.list()['models']]
@@ -411,7 +365,7 @@ class Ollama(LLM, Server):
                        command_list=['ollama', 'serve'],
                        timeout=timeout,
                        test_url=f'http://{self.host}:{self.port}')
-        self.client = openai.OpenAI(
-            api_key='EMPTY',
-            base_url=f'http://{self.host}:{self.port}/v1',
-        )
+        OpenAI.__init__(self,
+                        name=self.model,
+                        api_key='EMPTY',
+                        base_url=f'http://{self.host}:{self.port}/v1')

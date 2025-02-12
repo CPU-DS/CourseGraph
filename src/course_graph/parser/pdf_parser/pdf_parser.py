@@ -158,7 +158,7 @@ class PDFParser(Parser):
         lines_without_index = [line[0] for line in lines]
         prompt, instruction = self.parser_prompt.get_outline_prompt(lines_without_index)
         llm.instruction = instruction
-        res = llm.chat(prompt)
+        res, _ = llm.chat(prompt)
         r2 = get_list_from_string(res)
 
         outline: list = []
@@ -191,7 +191,7 @@ class PDFParser(Parser):
                 [content.content for content in page.contents]).strip()
             prompt, instruction = self.parser_prompt.get_directory_prompt(text_contents)
             llm.instruction = instruction
-            res = llm.chat(prompt).replace("，", ",")
+            res, _ = llm.chat(prompt).replace("，", ",")
             lines.extend(get_list_from_string(res))
         self._set_outline(lines, offset, llm)
 
@@ -401,7 +401,7 @@ class PDFParser(Parser):
                         try:
                             prompt_, instruction_ = self.parser_prompt.get_ocr_aided_prompt(res)
                             self.llm.instruction = instruction_
-                            res = self.llm.chat(prompt_)
+                            res, _ = self.llm.chat(prompt_)
                         finally:
                             pass  # 使用大模型矫正这一步不是必须的
                     block_['text'] = res

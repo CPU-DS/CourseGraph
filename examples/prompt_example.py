@@ -6,10 +6,10 @@
 
 from course_graph.parser import PDFParser
 from course_graph.database import Neo4j
-from course_graph.llm import VLLM, Path
+from course_graph.llm import VLLM
 from course_graph.llm.prompt import ExamplePromptGenerator, SentenceEmbeddingStrategy
 
-model = VLLM(Path('model/Qwen/Qwen2-7B-Instruct'))
+model = VLLM(path='model/Qwen/Qwen2-7B-Instruct')
 neo = Neo4j('http://10.4.3.67:7474', 'neo4j', 'neo4j')
 strategy = SentenceEmbeddingStrategy(
     embed_model_path='model/lier007/xiaobu-embedding-v2')

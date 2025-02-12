@@ -129,7 +129,7 @@ class Document:
                 # 默认策略：实体生成数量过多则重试，否则随机选择5个
                 retry = 0
                 while True:
-                    resp = llm.chat(message)
+                    resp, _ = llm.chat(message)
                     entities: dict = prompt.post_process(resp) or {}
                     if all(len(value) < 8 for value in entities.values()) or retry >= 3:
                         break
@@ -141,7 +141,7 @@ class Document:
                 # 自我一致性验证
                 all_entities: list[dict] = []
                 for idx in range(samples):
-                    resp = llm.chat(message)
+                    resp, _ = llm.chat(message)
                     logger.info(f'第{idx}次采样: ' + resp)
                     entities: dict = prompt.post_process(resp) or {}
         
@@ -174,7 +174,7 @@ class Document:
             else:
                 message, instruction = prompt.get_ae_prompt(content, [kp.name for kp in center_kps])  # 只使用 name
                 llm.instruction = instruction
-                resp = llm.chat(message)
+                resp, _ = llm.chat(message)
                 attrs: dict = prompt.post_process(resp) or {}
                 logger.success(f'获取知识点属性: ' + str(attrs))
 
@@ -189,12 +189,12 @@ class Document:
             message, instruction = prompt.get_re_prompt(content, [kp.name for kp in center_kps]) # 只使用 name
             llm.instruction = instruction
             if not self_consistency:
-                resp = llm.chat(message)
+                resp, _ = llm.chat(message)
                 relations = prompt.post_process(resp) or []
             else:
                 all_relations = []
                 for idx in range(samples):
-                    resp = llm.chat(message)
+                    resp, _ = llm.chat(message)
                     logger.info(f'第{idx}次采样: ' + resp)
                     relations = prompt.post_process(resp) or []
 
@@ -276,7 +276,7 @@ class Document:
                     prompt_, instruction = prompt.get_best_attr_prompt(
                         entity.name, attr, value_list)
                     llm.instruction = instruction
-                    resp = llm.chat(prompt_)
+                    resp, _ = llm.chat(prompt_)
                     entity.attributes[attr] = resp
                 logger.success(
                     f'实体: {entity.name}, 属性: {attr}, 值: {entity.cached_attributes[attr]}'

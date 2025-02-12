@@ -20,3 +20,8 @@ class VLLMConfig(TypedDict, total=False):
     tensor_parallel_size: int
     pipeline_parallel_size: int
     max_model_len: int
+    enable_auto_tool_choice: bool
+    tool_call_parser: str
+    enable_reasoning: bool
+    reasoning_parser: str
+    chat_template: str

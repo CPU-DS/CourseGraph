@@ -4,14 +4,7 @@
 # File Name: course_graph/llm/ontology.py
 # Description: 知识图谱本体设计
 
-from typing import TypedDict
-
-class OntologyType(TypedDict):
-    entities: dict[str, str]
-    relations: dict[str, str]
-    attributes: dict[str, str]
-
-ONTOLOGY: OntologyType = {  # 针对知识点层级
+ONTOLOGY = {  # 针对知识点层级
     'entities': {
         '知识点': '特定领域或学科中的知识单元，需要具有一定的深度与广度，是一个相对自包含的完整结构'
     },

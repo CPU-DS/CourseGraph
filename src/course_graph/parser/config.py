@@ -4,11 +4,6 @@
 # File Name: course_graph/parser/config.py
 # Description: 定义知识图谱抽取配置
 
-from typing import TypedDict
-
-class ConfigType(TypedDict):
-    IGNORE_PAGE: list[str]
-
-CONFIG: ConfigType = {
+CONFIG = {
     'IGNORE_PAGE': []
 }
