@@ -1,0 +1,2 @@
+cd rust
+maturin develop

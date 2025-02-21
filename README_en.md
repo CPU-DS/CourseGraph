@@ -27,7 +27,7 @@ First, obtain an Alibaba Cloud Tongyi Qianwen [API Key](https://help.aliyun.com/
 
 #### Install Dependencies
 
-Ensure [Anaconda](https://www.anaconda.com/) (or [Miniconda](https://docs.conda.io/en/miniconda.html)), [Neo4j](https://neo4j.com/) and [Rust](https://www.rust-lang.org/) are installed, then execute:
+Ensure [Anaconda](https://www.anaconda.com/) (or [Miniconda](https://docs.anaconda.com/miniconda/)), [Neo4j](https://neo4j.com/) and [Rust](https://www.rust-lang.org/) are installed, then execute:
 
 ```bash
 git clone git@github.com:CPU-DS/CourseGraph.git
@@ -37,9 +37,7 @@ conda activate cg
 pip install poetry
 poetry config virtualenvs.create false
 poetry install
-cd rust
-maturin develop
-cd ..
+sh rust/make.sh
 ```
 
 On Linux, libreoffice is required for document conversion. For Debian-based systems: 
@@ -50,9 +48,9 @@ sudo apt install libreoffice
 
 #### Execute
 
-Provide the Neo4j connection address, username, and password, then execute:
+Provide the Neo4j connection password and the path to the file to be extracted, then execute:
 ```bash
-python examples/get_knowledge_graph.py -u bolt://localhost:7687 -n neo4j -p neo4j
+python examples/get_knowledge_graph.py -p neo4j -f assets/deep-learning-from-scratch.pdf
 ```
 
 ### Option 2: Docker Installation
@@ -60,9 +58,8 @@ python examples/get_knowledge_graph.py -u bolt://localhost:7687 -n neo4j -p neo4
 ```bash
 git clone git@github.com:wangtao2001/CourseGraph.git
 cd CourseGraph
-export DASHSCOPE_API_KEY=
 docker-compose -f docker/docker-compose.yml up -d
-python examples/get_knowledge_graph.py
+python examples/get_knowledge_graph.py -f assets/deep-learning-from-scratch.pdf
 ```
 
 ## 📚 Documentation
@@ -85,4 +82,6 @@ Open [http://localhost:5173/](http://localhost:5173/) in your browser to preview
 
 [PR](https://github.com/CPU-DS/CourseGraph/pulls) and [Issues](https://github.com/CPU-DS/CourseGraph/issues) are welcome, as well as any form of contribution.
 
-This project is open-sourced under the [MIT license](LICENSE). If you find CourseGraph helpful for your work, please refer to [CITATION.cff](CITATION.cff) (or click the `Cite this repository` button on the right side of the Repository) to cite.
+This project is open-sourced under the [MIT license](LICENSE). 
+
+If you find CourseGraph helpful for your work, please click the `Cite this repository` button on the right side of the Repository to cite.

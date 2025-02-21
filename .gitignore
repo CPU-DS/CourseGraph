@@ -44,13 +44,12 @@ cache
 .cache
 logs
 model
+assets
+rust/target
+experimental/data/*
+!experimental/data/example/
 
 *.ps1
 .ipynb_checkpoints
 src/course_graph/database/faiss_index
 libreoffice_convert.log
-
-rust/target
-
-experimental/data/*
-!experimental/data/example/

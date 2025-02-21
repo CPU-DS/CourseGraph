@@ -8,22 +8,26 @@ from py2neo import Graph
 from tqdm import tqdm
 from .singleton import singleton
 
+PROTOCOLS = ['bolt', 'http', 'https', 'neo4j']
+DEFAULT_PROTOCOL = PROTOCOLS[0]
 
 @singleton
 class Neo4j:
 
-    def __init__(self, bolt_url: str, username: str, password: str) -> None:
+    def __init__(self, url: str, username: str, password: str) -> None:
         """ 连接到 Neo4j 数据库
 
         Args:
-            bolt_url (str): bolt 协议地址
+            url (str): 连接地址
             username (str): 用户名
             password (str): 密码
         """
-        self.bolt_url = bolt_url
+        if not any(url.startswith(protocol) for protocol in PROTOCOLS):
+            url = f'{DEFAULT_PROTOCOL}://{url}'
+        self.url = url
         self.username = username
         self.password = password
-        self.graph = Graph(bolt_url, auth=(username, password), name='neo4j')
+        self.graph = Graph(url, auth=(username, password), name='neo4j')
 
     def run(self, cyphers: str | list[str]):
         """ 执行一条或多条 cypher 语句

@@ -71,6 +71,15 @@ assistant = Agent(name="assistant",
 ```python
 assistant.add_too_functions(get_weather)
 ```
+
+当然，在函数定义时就可以声明其为一个工具函数:
+
+```python
+@assistant.tool
+def get_weather(location):
+    ...
+```
+
 > [!IMPORTANT]
 > 工具函数应该是一个已经被定义的函数对象且上述语句所在的作用域需要具有对其拥有访问权限。
 

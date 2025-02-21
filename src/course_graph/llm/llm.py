@@ -17,9 +17,8 @@ import base64
 import signal
 import pathlib
 import weakref
-from .types import LLMConfig, VLLMConfig
+from .config import LLMConfig, VLLMConfig
 import shlex
-from typing import Literal
 
 
 class LLM(ABC):
@@ -27,7 +26,7 @@ class LLM(ABC):
     def __init__(
         self,
         model: str,
-        client: openai.OpenAI
+        client: openai.OpenAI,
     ) -> None:
         """ 大模型抽象类
         """
@@ -36,10 +35,8 @@ class LLM(ABC):
         self.model = model
         self.client = client
 
-        self.json: bool = False
-        self.stop = None
         self.extra_body = {}
-        self.config: LLMConfig = {}
+        self.config = {}
         
         self._instruction = 'You are a helpful assistant.'
         
@@ -88,10 +85,10 @@ class LLM(ABC):
             tool_choice=tool_choice,
             response_format={
                 'type': 'json_object'
-            } if self.json else {
+            } if self.config.get('json', False) else {
                 'type': 'text'
             },
-            stop=self.stop,
+            stop=self.config.get('stop', NOT_GIVEN),
             extra_body={
                 'top_k': self.config.get('top_k', NOT_GIVEN),
                 'repetition_penalty': self.config.get('repetition_penalty', NOT_GIVEN),
@@ -172,59 +169,6 @@ class OpenAI(LLM):
         return response.content, None
 
 
-class Qwen(OpenAI):
-
-    def __init__(self,
-                 name: str = 'qwen-max',
-                 *,
-                 api_key: str = os.getenv('DASHSCOPE_API_KEY')):
-        """ 阿里云大模型 API 服务
-
-        Args:
-            name (str, optional): 模型名称. Defaults to qwen-max.
-            api_key (str, optional): API key. Defaults to os.getenv('DASHSCOPE_API_KEY').
-        """
-        super().__init__(
-            name=name,
-            base_url='https://dashscope.aliyuncs.com/compatible-mode/v1',
-            api_key=api_key)
-
-
-class DeepSeek(OpenAI):
-
-    def __init__(self,
-                 name: Literal['deepseek-chat', 'deepseek-reasoner'] = 'deepseek-chat',
-                 *,
-                 api_key: str = os.getenv('DEEPSEEK_API_KEY')):
-        """ DeepSeek 模型 API 服务
-
-        Args:
-            name (Literal['deepseek-chat', 'deepseek-reasoner'], optional): 模型名称. Defaults to deepseek-chat.
-            api_key (str, optional): API key. Defaults to os.getenv('DEEPSEEK_API_KEY').
-        """
-        super().__init__(
-            name=name,
-            base_url='https://api.deepseek.com/v1', 
-            api_key=api_key)
-
-
-class OpenRouter(OpenAI):
-    def __init__(self, 
-                 name, 
-                 *, 
-                 api_key: str = os.getenv('OPENROUTER_API_KEY')):
-        """ OpenRouter API 服务
-
-        Args:
-            name (str): 模型名称.
-            api_key (str, optional): API key. Defaults to os.getenv('OPENROUTER_API_KEY').
-        """
-        super().__init__(
-            name=name, 
-            base_url='https://openrouter.ai/api/v1', 
-            api_key=api_key)
-
-
 class Server:
 
     def __init__(self,
@@ -279,7 +223,7 @@ class VLLM(OpenAI, Server):
                  port: int = 9017,
                  log: bool = True,
                  timeout: int = 60,
-                 config: VLLMConfig = None):
+                 vllm_config: VLLMConfig = None):
         """ 使用VLLM加载模型
 
         Args:
@@ -288,13 +232,13 @@ class VLLM(OpenAI, Server):
             port (int, optional): 服务端口. Defaults to 9017.
             timeout (int, optional): 启动服务超时时间. Defaults to 60.
             log (bool, optional): 输出控制台日志. Defaults to True.
-            config (VLLMConfig, optional): VLLM配置. Defaults to None.
+            vllm_config (VLLMConfig, optional): VLLM配置. Defaults to None.
         """
         
         self.host = host
         self.port = port
         
-        self.model = input
+        self.model = path
         
         command = f"""
             vllm serve {self.model}\
@@ -305,19 +249,18 @@ class VLLM(OpenAI, Server):
         """
         commands = shlex.split(command)
             
-        if config:
-            for key in config.keys():
-                if type(config[key]) == bool:
+        if vllm_config:
+            for key in vllm_config.keys():
+                if type(vllm_config[key]) == bool and vllm_config[key]:
                     commands.extend([
                         f"--{key.replace('_', '-')}"
                     ])
                 else:
                     commands.extend([
                         f"--{key.replace('_', '-')}",
-                        str(config[key])
+                        str(vllm_config[key])
                     ])
 
-    
         Server.__init__(self,
                        command_list=commands,
                        timeout=timeout,

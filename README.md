@@ -27,7 +27,7 @@ CourseGraph 使用大模型，利用多种 prompt 优化技术, 自动从教材�
 
 #### 安装依赖
 
-请确保已安装 [Anaconda](https://www.anaconda.com/) (或 [Miniconda](https://docs.conda.io/en/miniconda.html))、[Neo4j](https://neo4j.com/) 和 [Rust](https://www.rust-lang.org/) ，然后执行：
+请确保已安装 [Anaconda](https://www.anaconda.com/) (或 [Miniconda](https://docs.anaconda.com/miniconda/))、[Neo4j](https://neo4j.com/) 和 [Rust](https://www.rust-lang.org/) ，然后执行：
 
 ```bash
 git clone git@github.com:CPU-DS/CourseGraph.git
@@ -37,9 +37,7 @@ conda activate cg
 pip install poetry
 poetry config virtualenvs.create false
 poetry install
-cd rust
-maturin develop
-cd ..
+sh rust/make.sh
 ```
 
 Linux 下还需安装 libreoffice 以完成文档转换，以 Debian 系为例：
@@ -50,10 +48,10 @@ sudo apt install libreoffice
 
 #### 执行示例
 
-提供 Neo4j 连接地址、用户名和密码，然后执行：
+提供 Neo4j 连接密码和待抽取的文件路径，然后执行：
 
 ```bash
-python examples/get_knowledge_graph.py -u bolt://localhost:7687 -n neo4j -p neo4j
+python examples/get_knowledge_graph.py -p neo4j -f assets/deep-learning-from-scratch.pdf
 ```
 
 ### 方式二：使用 Docker 安装
@@ -61,9 +59,8 @@ python examples/get_knowledge_graph.py -u bolt://localhost:7687 -n neo4j -p neo4
 ```bash
 git clone git@github.com:wangtao2001/CourseGraph.git
 cd CourseGraph
-export DASHSCOPE_API_KEY=
 docker-compose -f docker/docker-compose.yml up -d
-python examples/get_knowledge_graph.py
+python examples/get_knowledge_graph.py -f assets/deep-learning-from-scratch.pdf
 ```
 
 ## 📚 文档
@@ -89,4 +86,6 @@ npm run docs:dev
 
 欢迎提交 [PR](https://github.com/CPU-DS/CourseGraph/pulls) 或 [Issues](https://github.com/CPU-DS/CourseGraph/issues)，也欢迎参与任何形式的贡献。
 
-本项目基于 [MIT 协议](LICENSE) 开源。同时若觉得 CourseGraph 项目有助于你的工作，也请参考 [CITATION.cff](CITATION.cff) 文件 (或点击 Repository 右侧的 `Cite this repository` 按钮) 进行引用。
+本项目基于 [MIT 协议](LICENSE) 开源。
+
+如果觉得 CourseGraph 项目有助于你的工作，请点击 Repository 右侧的 `Cite this repository` 按钮进行引用。

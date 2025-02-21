@@ -3,7 +3,7 @@ message: "If you use this software, please cite it as below."
 authors:
 - family-names: "Wang"
   given-names: "Tao"
-  orcid: "https://orcid.org/0009-0005-2306-8301"
+  orcid:
 - family-names: "Hou"
   given-names: "Fengzhen"
   orcid:

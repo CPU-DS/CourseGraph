@@ -16,11 +16,3 @@ class Response(BaseModel, Generic[T]):
     code: ResponseCode
     message: str
     data: T
-
-class Server(BaseModel):
-    serverUrl: str
-    serverUser: str
-    serverPassword: str
-    
-class Query(BaseModel):
-    id: str

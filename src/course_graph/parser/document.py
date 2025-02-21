@@ -18,7 +18,7 @@ from .utils import instance_method_transactional
 from ..resource import ResourceMap
 from .types import BookMark, KPEntity, KPRelation, ContentType
 from tqdm import tqdm
-from course_graph_ext import merge_strings
+from extension import merge_strings
 
 if TYPE_CHECKING:
     from .parser import Parser
@@ -124,7 +124,6 @@ class Document:
             # 实体抽取
             message, instruction = prompt.get_ner_prompt(content)
             llm.instruction = instruction
-            llm.json = False
             if not self_consistency:
                 # 默认策略：实体生成数量过多则重试，否则随机选择5个
                 retry = 0

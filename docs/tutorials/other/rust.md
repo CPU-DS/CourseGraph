@@ -21,7 +21,7 @@ Rust 扩展代码都应该放到 `rust/src/ext` 目录下, 具体实现可参考
 
 为了使得 IDE 获得更好的提示, 我们可以为这些函数编写 Python 接口, 但不用编写具体的实现。
 
-在 `rust/course_graph_ext.pyi` 文件中继续添加函数接口, 包含类型标注和函数注解等信息即可。
+在 `rust/extension.pyi` 文件中继续添加函数接口, 包含类型标注和函数注解等信息即可。
 
 ### 编译并安装
 
@@ -32,4 +32,4 @@ cd rust
 maturin develop
 ```
 
-所有编写的 Rust 扩展函数会安装到 `course_graph_ext` 包下。
+所有编写的 Rust 扩展函数会安装到 `extension` 包下。

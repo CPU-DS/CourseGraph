@@ -1,12 +1,12 @@
 [package]
-name = "course_graph_ext"
+name = "extension"
 version = "0.1.0"
 edition = "2021"
-include = ['src/**/*', 'Cargo.toml', 'course_graph_ext.pyi']
+include = ['src/**/*', 'Cargo.toml', 'extension.pyi']
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [lib]
-name = "course_graph_ext"
+name = "extension"
 crate-type = ["cdylib"]
 
 [dependencies]

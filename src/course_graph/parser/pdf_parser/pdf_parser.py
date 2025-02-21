@@ -18,7 +18,7 @@ from ...llm import LLM
 from ...llm.prompt import VLPromptGenerator, ParserPromptGenerator
 import os
 import shutil
-from course_graph_ext import get_list_from_string, find_longest_consecutive_sequence
+from extension import get_list_from_string, find_longest_consecutive_sequence
 from ..types import BookMark, PageIndex
 from shuangchentools.utils.file import clear_directory
 from typing import Callable

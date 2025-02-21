@@ -11,7 +11,7 @@ from paddleocr.ppstructure.recovery.recovery_to_doc import sorted_layout_boxes
 from paddleocr import PPStructure
 from doclayout_yolo import YOLOv10
 import json
-from course_graph_ext import structure_post_process
+from extension import structure_post_process
 
 
 class StructureResult(TypedDict, total=False):

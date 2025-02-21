@@ -122,7 +122,13 @@ class Agent:
             "tool_call_id": tool_call_id
         }
         self.messages.append(message)
-
+    
+    def tool(self, function: Callable) -> Callable:
+        """ 标记一个外部工具函数
+        """
+        self.add_tool_functions(function)
+        return function
+    
     def add_tools(self, *tools: 'Tool') -> 'Agent':
         """ 添加外部工具
 
