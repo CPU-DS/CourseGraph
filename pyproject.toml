@@ -52,6 +52,8 @@ fastapi = "^0.115.6"
 shuangchentools = "^0.0.6"
 qwen-vl-utils = "^0.0.8"
 trl = "^0.14.0"
+deprecated = "^1.2.18"
+singleton-decorator = "^1.0.0"
 
 
 [build-system]

@@ -19,6 +19,8 @@ from ..resource import ResourceMap
 from .types import BookMark, KPEntity, KPRelation, ContentType
 from tqdm import tqdm
 from extension import merge_strings
+from ..database import Neo4j
+from py2neo import Node, Relationship
 
 if TYPE_CHECKING:
     from .parser import Parser
@@ -283,61 +285,101 @@ class Document:
                 
         # A.对边缘化的知识点进行处理 存放在 self.knowledgepoints 中但不属于层级中
         # B.共指消解
+    
+    def set_resource(self, resource_map: 'ResourceMap') -> None:
+        """ 为知识点设置相应的资源
 
-    def to_cyphers(self) -> list[str]:
-        """ 将图谱转换为 cypher CREATE 语句
+        Args:
+            resource_map (ResourceMap): 资源映射关系
+        """
+        title, resource = resource_map.bookmark_title, resource_map.resource
+        bookmarks: list[BookMark] = []
+        titles = title.split("|")
+        for bk in self.flatten_bookmarks():
+            if bk.title in titles:
+                bookmarks.append(bk)
+        if len(bookmarks) > 0:
+            for bookmark in bookmarks:
+                bookmark.resource.append(resource)
+                # 为下面的知识点实体设置Resource Slice
+                for kp in bookmark.get_kps():
+                    slices = resource.get_slices(kp.name)
+                    logger.success(f'{kp.name}: {slices}')
+                    if slices:
+                        kp.resourceSlices.extend(slices)
 
-        Returns:
-            list[str]: 多条 cypher 语句
+    def to_graph(self, neo4j: Neo4j) -> None:
+        """ 将 document 对象转换为图谱
+        
+        Args:
+            neo4j (Neo4j): Neo4j 对象
+        
         """
         relas = list(ONTOLOGY['relations'].keys())
         attrs = list(ONTOLOGY['attributes'].keys())
-        cyphers = [
-            f'CREATE (:文档 {{id: "{self.id}", name: "{self.name}"}}' + ')'
-        ]
+        transaction = neo4j.begin()
+        id2node = {}
+        
+        # 创建文档实体
+        document_node = Node('文档', 
+                             id=self.id, 
+                             name=self.name)
+        transaction.create(document_node)
+        
         # 创建所有知识点实体和实体属性
         for entity in self.knowledgepoints:
             res = [str(sl) for sl in entity.resourceSlices]
-            attr_string = [f'{attr}: "{entity.attributes.get(attr, "")}"' for attr in attrs]
-            cyphers.append(
-                f'CREATE (:知识点 {{id: "{entity.id}", name: "{entity.name}", type: "{entity.type}", resource: {res},  {",".join(attr_string)}}})'
-            )
+            node = Node('知识点', 
+                        id=entity.id, 
+                        name=entity.name, 
+                        type=entity.type, 
+                        resource=res, 
+                        **{attr: entity.attributes.get(attr, '') for attr in attrs})
+            transaction.create(node)
+            id2node[entity.id] = node
+        
         # 创建所有知识点关联
         for entity in self.knowledgepoints:
             for relation in entity.relations:
                 if relation.type in relas:
-                    cyphers.append(
-                        f'MATCH (n1:知识点 {{id: "{entity.id}"}}) MATCH (n2:知识点 {{id: "{relation.tail.id}"}}) CREATE (n1)-[:{relation.type} {{id: "{relation.id}"}}]->(n2)'
-                    )
-
-        def bookmark_to_cypher(bookmark: BookMark, parent_id: str):
+                    transaction.create(Relationship(id2node[entity.id], 
+                                                    relation.type, 
+                                                    id2node[relation.tail.id], 
+                                                    id=relation.id))
+                    
+        def bookmark_to_graph(bookmark: BookMark, parent_node: Node):
             if bookmark.title in CONFIG['IGNORE_PAGE']:
                 return
             # 创建章节实体
-            res = [str(resource) for resource in bookmark.resource]
-            cyphers.append(
-                f'CREATE (:章节 {{id: "{bookmark.id}", name: "{bookmark.title}", page_start: {bookmark.page_start.index}, page_end: {bookmark.page_end.index}, resource: {res}}})'
-            )
-            # 创建章节和上级章节 (书籍) 关联, 所以不写类别
-            cyphers.append(
-                f'MATCH (n1 {{id: "{parent_id}"}}) MATCH (n2:章节 {{id: "{bookmark.id}"}}) CREATE (n1)-[:子章节 {{id: "3:{shortuuid.uuid()}"}}]->(n2)'
-            )
+            bookmark_node = Node('章节', 
+                                 id=bookmark.id, 
+                                 name=bookmark.title, 
+                                 page_start=bookmark.page_start.index, 
+                                 page_end=bookmark.page_end.index, 
+                                 resource=[str(resource) for resource in bookmark.resource])
+            transaction.create(bookmark_node)
+            # 创建章节和上级章节/文档关联
+            transaction.create(Relationship(parent_node, 
+                                            '子章节', 
+                                            bookmark_node, 
+                                            id=f'3:{shortuuid.uuid()}'))
+            # 创建章节和下级章节/知识点关联
             for sub in bookmark.subs:
                 match sub:
                     case BookMark():
-                        bookmark_to_cypher(sub, bookmark.id)
+                        bookmark_to_graph(sub, bookmark_node)
                     case KPEntity():
-                        # 创建章节和知识点关联
-                        cyphers.append(
-                            f'MATCH (n1:章节 {{id: "{bookmark.id}"}}) MATCH (n2:知识点 {{id: "{sub.id}"}}) CREATE (n1)-[:包含知识点 {{id: "3:{shortuuid.uuid()}"}}]->(n2)'
-                        )
-
+                        transaction.create(Relationship(bookmark_node, 
+                                                        '包含知识点', 
+                                                        id2node[sub.id], 
+                                                        id=f'3:{shortuuid.uuid()}'))
+        
         for _, bookmark in enumerate(self.bookmarks):
-            bookmark_to_cypher(bookmark, self.id)
-        return cyphers
-
+            bookmark_to_graph(bookmark, document_node)
+        transaction.commit()
+    
     def to_json(self) -> tuple[dict, dict]:
-        """ 将图谱转换为 json 格式
+        """ 将 document 对象转换为 json 格式
 
         Returns:
             tuple[dict, dict]: relations, entity_attributes 两个字段
@@ -390,25 +432,3 @@ class Document:
             entity_attributes.append(attribute)
 
         return relations, entity_attributes #, relation_attributes
-
-    def set_resource(self, resource_map: 'ResourceMap') -> None:
-        """ 为知识点设置相应的资源
-
-        Args:
-            resource_map (ResourceMap): 资源映射关系
-        """
-        title, resource = resource_map.bookmark_title, resource_map.resource
-        bookmarks: list[BookMark] = []
-        titles = title.split("|")
-        for bk in self.flatten_bookmarks():
-            if bk.title in titles:
-                bookmarks.append(bk)
-        if len(bookmarks) > 0:
-            for bookmark in bookmarks:
-                bookmark.resource.append(resource)
-                # 为下面的知识点实体设置Resource Slice
-                for kp in bookmark.get_kps():
-                    slices = resource.get_slices(kp.name)
-                    logger.success(f'{kp.name}: {slices}')
-                    if slices:
-                        kp.resourceSlices.extend(slices)

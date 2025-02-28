@@ -43,11 +43,12 @@ test
 cache
 .cache
 logs
-model
+models
 assets
 rust/target
 experimental/data/*
 !experimental/data/example/
+api_keys.json
 
 *.ps1
 .ipynb_checkpoints

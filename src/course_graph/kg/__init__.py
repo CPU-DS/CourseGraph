@@ -5,3 +5,4 @@
 # Description: 知识图谱查询接口
 
 from .api import API
+from .api_key import APIKeyManager

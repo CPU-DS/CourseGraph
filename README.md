@@ -51,7 +51,7 @@ sudo apt install libreoffice
 提供 Neo4j 连接密码和待抽取的文件路径，然后执行：
 
 ```bash
-python examples/get_knowledge_graph.py -p neo4j -f assets/deep-learning-from-scratch.pdf
+python examples/get_knowledge_graph_pdf.py -p neo4j -f assets/deep-learning-from-scratch.pdf
 ```
 
 ### 方式二：使用 Docker 安装
@@ -60,7 +60,7 @@ python examples/get_knowledge_graph.py -p neo4j -f assets/deep-learning-from-scr
 git clone git@github.com:wangtao2001/CourseGraph.git
 cd CourseGraph
 docker-compose -f docker/docker-compose.yml up -d
-python examples/get_knowledge_graph.py -f assets/deep-learning-from-scratch.pdf
+python examples/get_knowledge_graph_pdf.py -f assets/deep-learning-from-scratch.pdf
 ```
 
 ## 📚 文档

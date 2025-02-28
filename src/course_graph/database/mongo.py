@@ -6,7 +6,7 @@
 
 from pymongo import MongoClient
 from pymongo.collection import Collection
-from .singleton import singleton
+from singleton_decorator import singleton
 
 
 @singleton
