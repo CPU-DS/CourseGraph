@@ -16,3 +16,7 @@ class Response(BaseModel, Generic[T]):
     code: ResponseCode
     message: str
     data: T
+    
+class Page(BaseModel):
+    page_index: int
+    page_size: int

@@ -11,23 +11,25 @@ from ..database import Neo4j
 import uvicorn
 from .api_model import *
 from .api_key import APIKeyManager
-
+from concurrent.futures import ThreadPoolExecutor
+import asyncio
 api_key_header = APIKeyHeader(name='api-key', auto_error=False)
 
 
 class API:
     def __init__(self,
                  neo4j: Neo4j,
-                 api_key_manager: APIKeyManager,
+                 api_key_manager: APIKeyManager = None,
                  host: str = '0.0.0.0',
                  port: int = 8000,
-                 cors: bool = False
-                 ) -> None:
+                 cors: bool = False,
+                 pool_max_workers: int = 10
+        ) -> None:
         """ 初始化 API 服务
         
         Args:
             neo4j (Neo4j): Neo4j 数据库连接
-            api_key_manager (APIKeyManager): API Key 管理器
+            api_key_manager (APIKeyManager): API Key 管理器. Defaults to None.
             host (str, optional): API 服务地址. Defaults to '0.0.0.0'.
             port (int, optional): API 服务端口. Defaults to 8000.
             cors (bool, optional): 是否启用跨域. Defaults to False.
@@ -44,36 +46,79 @@ class API:
         self.neo4j = neo4j
         self.host = host
         self.port = port
-
-        def get_api_key(api_key: str = Security(api_key_header)):
-            if not api_key_manager.validate_key(api_key):
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail='Invalid API key'
-                )
-            return api_key
+        self.api_key_manager = api_key_manager
+        self.executor = ThreadPoolExecutor(max_workers=pool_max_workers)
 
         self.base_router = APIRouter(
-            prefix='/api',
+            prefix='/api'
+        )
+        self.echarts_router = APIRouter(
+            prefix='/echarts',
+            tags=['echarts']
         )
 
-        @self.base_router.post('/query/categories')
-        async def query_categories(_: str = Security(get_api_key)) -> Response:
-            return Response(
-                code=ResponseCode.SUCCESS,
-                message='Query categories success',
-                data=['课程', '章节', '知识点']
-            )
-
-        @self.base_router.post('/query/nodes')
-        async def query_nodes(_: str = Security(get_api_key)) -> Response:
-            pass
-
+        self.__init_echarts_router()
+        self.base_router.include_router(self.echarts_router)
         self.app.include_router(
             router=self.base_router
         )
+    
+    def __get_api_key(self, api_key: str = Security(api_key_header)):
+        if self.api_key_manager and not self.api_key_manager.validate_key(api_key):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail='Invalid API key'
+            )
+        return api_key
+    
+    def __init_echarts_router(self):
+        @self.echarts_router.post('/categories')
+        async def echarts_categories(_=Security(self.__get_api_key)) -> Response:
+            return Response(
+                code=ResponseCode.SUCCESS,
+                message='Query categories success',
+                data=[{'name': '文档'}, {'name': '章节'}, {'name': '知识点'}]
+            )
+
+        @self.echarts_router.post('/nodes')
+        async def echarts_nodes(page: Page, _=Security(self.__get_api_key)) -> Response:
+            nodes = await asyncio.get_event_loop().run_in_executor(
+                self.executor,
+                self.neo4j.match_nodes,
+                page.page_index * page.page_size,
+                page.page_size
+            )
+            label2idx = {
+                '文档': 0,
+                '章节': 1,
+                '知识点': 2
+            }
+            return Response(
+                code=ResponseCode.SUCCESS,
+                message='Query nodes success',
+                data=[{
+                    'category': label2idx[list(node.labels)[0]],
+                    **dict(node.items())
+                }for node in nodes]
+            )
+        
+        @self.echarts_router.post('/relations')
+        async def echarts_relations(page: Page, _=Security(self.__get_api_key)) -> Response:
+            relations = await asyncio.get_event_loop().run_in_executor(
+                self.executor,
+                self.neo4j.match_relations,
+                page.page_index * page.page_size,
+                page.page_size
+            )
+            return Response(
+                code=ResponseCode.SUCCESS,
+                message='Query relations success',
+                data=[{
+                    'source': relation.start_node.get('id'),
+                    'target': relation.end_node.get('id'),
+                } for relation in relations]
+            )
 
     def run(self):
-        """ 启动 API 服务
-        """
+        """ 启动 API 服务 """
         uvicorn.run(self.app, host=self.host, port=self.port)

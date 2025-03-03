@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # Create Date: 2025/02/27
 # Author: wangtao <wangtao.cpu@gmail.com>
-# File Name: course_graph/kg/api_keys.py
+# File Name: course_graph/kg/api_key.py
 # Description: API KEYS 管理
 
 from datetime import datetime
@@ -63,7 +63,7 @@ class APIKeyManager:
         self._load_keys()
 
     def generate_key(self, expires_at: datetime = None, metadata: dict = None) -> str:
-        """生成新的 API Key
+        """ 生成新的 API Key
         
         Args:
             expires_at (datetime, optional): 过期时间. Defaults to None.
@@ -78,7 +78,7 @@ class APIKeyManager:
         return key
     
     def add_key(self, key: str, expires_at: datetime = None, metadata = None) -> bool:
-        """手动添加一个新的 API Key
+        """ 手动添加一个新的 API Key
         
         Args:
             key (str): API Key 值
@@ -95,7 +95,7 @@ class APIKeyManager:
         return True
     
     def update_metadata(self, key: str, metadata: dict) -> bool:
-        """更新 API Key 的元数据
+        """ 新 API Key 的元数据
         
         Args:
             key (str): API Key 值
@@ -110,7 +110,7 @@ class APIKeyManager:
         return False
 
     def validate_key(self, key: str) -> bool:
-        """验证 API Key 是否有效
+        """ 验证 API Key 是否有效
         
         Args:
             key (str): API Key 值
@@ -134,7 +134,7 @@ class APIKeyManager:
         return True
 
     def revoke_key(self, key: str) -> bool:
-        """废弃 API Key
+        """ 废弃 API Key
         
         Args:
             key (str): API Key 值
@@ -148,12 +148,12 @@ class APIKeyManager:
         return False
 
     def _save_keys(self):
-        """保存密钥到文件"""
+        """ 保存密钥到文件 """
         with open(self.storage_path, 'w', encoding='UTF-8') as f:
             json.dump({k: v.to_dict() for k, v in self.keys.items()}, f, ensure_ascii=False)
 
     def _load_keys(self):
-        """从文件加载密钥"""
+        """ 从文件加载密钥 """
         try:
             with open(self.storage_path, 'r', encoding='UTF-8') as f:
                 data = json.load(f)
