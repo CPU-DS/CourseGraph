@@ -1,61 +1,66 @@
-[tool.poetry]
+[project]
 name = "course_graph"
 version = "0.1.0"
-description = "Automatic Construction of Course Knowledge Graphs via LLMs"
-authors = [
-    "wangtao2001 <wangtao.cpu@gmail.com>",
-    "houfengzhen <houfz@cpu.edu.cn>",
-]
-license = "MIT"
 readme = "README.md"
-homepage = "https://github.com/CPU-DS/CourseGraph"
+requires-python = ">=3.10"
+description = "Automatic Construction of Course Knowledge Graphs via LLMs"
+license = "MIT"
+authors = [
+    { name = "wangtao2001", email = "wangtao.cpu@gmail.com" },
+    { name = "houfengzhen", email = "houfz@cpu.edu.cn" },
+]
+dependencies = [
+    "torch== 2.4.0",
+    "accelerate>=0.34.0",
+    "openai>=1.43.1",
+    "comtypes==1.4.6",
+    "faiss-gpu==1.7.2",
+    "fitz==0.0.1.dev2",
+    "pymupdf==1.24.10",
+    "loguru==0.7.2",
+    "modelscope==1.16.1",
+    "opencv-python==4.10.0.84",
+    "py2neo==2021.2.4",
+    "python-docx==1.1.2",
+    "pytorch-crf==0.7.2",
+    "python-pptx-interface==0.0.12",
+    "sentence-transformers==3.0.1",
+    "setuptools==69.5.1",
+    "torchvision==0.19",
+    "tqdm==4.66.4",
+    "transformers>=4.43.3",
+    "vllm==0.6.1.post2",
+    "pymongo==4.8.0",
+    "paddleocr==2.8.1",
+    "paddlepaddle==2.6.1",
+    "ollama==0.3.3",
+    "json5==0.9.25",
+    "ray==2.35.0",
+    "verovio==4.3.1",
+    "maturin==1.7.4",
+    "patchelf==0.17.2.1",
+    "docstring-parser==0.16",
+    "doclayout-yolo==0.0.3",
+    "shortuuid>=1.0.13",
+    "jupyter>=1.1.1",
+    "dashscope>=1.20.13",
+    "tenacity>=9.0.0",
+    "fastapi>=0.115.6",
+    "shuangchentools>=0.0.6",
+    "qwen-vl-utils>=0.0.8",
+    "trl>=0.14.0",
+    "deprecated>=1.2.18",
+    "singleton-decorator>=1.0.0",
+]
 
+[project.scripts]
+course_graph = "course_graph:main"
 
-[tool.poetry.dependencies]
-python = "^3.10"
-torch = "2.4.0"
-accelerate = "^0.34.0"
-openai = "^1.43.1"
-comtypes = "1.4.6"
-faiss-gpu = "1.7.2"
-fitz = "0.0.1.dev2"
-pymupdf = "1.24.10"
-loguru = "0.7.2"
-modelscope = "1.16.1"
-opencv-python = "4.10.0.84"
-py2neo = "2021.2.4"
-python-docx = "1.1.2"
-pytorch-crf = "0.7.2"
-python-pptx-interface = "0.0.12"
-sentence-transformers = "3.0.1"
-setuptools = "69.5.1"
-torchvision = "0.19"
-tqdm = "4.66.4"
-transformers = "^4.43.3"
-vllm = "0.6.1.post2"
-pymongo = "4.8.0"
-paddleocr = "2.8.1"
-paddlepaddle = "2.6.1"
-ollama = "0.3.3"
-json5 = "0.9.25"
-ray = "2.35.0"
-verovio = "4.3.1"
-maturin = "1.7.4"
-patchelf = "0.17.2.1"
-docstring-parser = "^0.16"
-doclayout-yolo = "0.0.3"
-shortuuid = "^1.0.13"
-jupyter = "^1.1.1"
-dashscope = "^1.20.13"
-tenacity = "^9.0.0"
-fastapi = "^0.115.6"
-shuangchentools = "^0.0.6"
-qwen-vl-utils = "^0.0.8"
-trl = "^0.14.0"
-deprecated = "^1.2.18"
-singleton-decorator = "^1.0.0"
-
+[tool.maturin]
+module-name = "course_graph._core"
+python-packages = ["course_graph"]
+python-source = "src"
 
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"

@@ -39,13 +39,15 @@ _darcs
 **/node_modules
 yarn.lock
 
+.venv
+
 test
 cache
 .cache
 logs
 models
 assets
-rust/target
+target
 experimental/data/*
 !experimental/data/example/
 api_keys.json

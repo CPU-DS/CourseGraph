@@ -18,7 +18,7 @@ from .utils import instance_method_transactional
 from ..resource import ResourceMap
 from .types import BookMark, KPEntity, KPRelation, ContentType
 from tqdm import tqdm
-from extension import merge_strings
+from course_graph._core import merge_strings
 from ..database import Neo4j
 from py2neo import Node, Relationship
 

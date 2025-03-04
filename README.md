@@ -27,17 +27,12 @@ CourseGraph 使用大模型，利用多种 prompt 优化技术, 自动从教材�
 
 #### 安装依赖
 
-请确保已安装 [Anaconda](https://www.anaconda.com/) (或 [Miniconda](https://docs.anaconda.com/miniconda/))、[Neo4j](https://neo4j.com/) 和 [Rust](https://www.rust-lang.org/) ，然后执行：
+请确保已安装 [uv](https://docs.astral.sh/uv/)、[Neo4j](https://neo4j.com/) 和 [Rust](https://www.rust-lang.org/) ，然后执行：
 
 ```bash
 git clone git@github.com:CPU-DS/CourseGraph.git
 cd CourseGraph
-conda create -n cg python=3.10 -y
-conda activate cg
-pip install poetry
-poetry config virtualenvs.create false
-poetry install
-sh rust/make.sh
+uv sync
 ```
 
 Linux 下还需安装 libreoffice 以完成文档转换，以 Debian 系为例：
@@ -51,7 +46,7 @@ sudo apt install libreoffice
 提供 Neo4j 连接密码和待抽取的文件路径，然后执行：
 
 ```bash
-python examples/get_knowledge_graph_pdf.py -p neo4j -f assets/deep-learning-from-scratch.pdf
+uv examples/get_knowledge_graph_pdf.py -p neo4j -f assets/deep-learning-from-scratch.pdf
 ```
 
 ### 方式二：使用 Docker 安装
@@ -60,7 +55,7 @@ python examples/get_knowledge_graph_pdf.py -p neo4j -f assets/deep-learning-from
 git clone git@github.com:wangtao2001/CourseGraph.git
 cd CourseGraph
 docker-compose -f docker/docker-compose.yml up -d
-python examples/get_knowledge_graph_pdf.py -f assets/deep-learning-from-scratch.pdf
+uv examples/get_knowledge_graph_pdf.py -f assets/deep-learning-from-scratch.pdf
 ```
 
 ## 📚 文档
@@ -74,9 +69,8 @@ python examples/get_knowledge_graph_pdf.py -f assets/deep-learning-from-scratch.
 文档使用 [VitePress](https://vitepress.dev/) 构建, 需安装 [Node.js](https://nodejs.org/) 18 或以上版本，然后执行：
 
 ```bash
-cd docs
 npm i
-npm run docs:dev
+npm run dev
 ```
 
 使用浏览器打开 [http://localhost:5173/](http://localhost:5173/) 即可进行预览。

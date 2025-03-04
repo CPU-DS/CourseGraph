@@ -19,7 +19,7 @@ parser.add_argument('-p', '--password', default='neo4j')
 parser.add_argument('-f', '--file')
 
 args = parser.parse_args()
-assert args.file.endswith('.pdf'), 'Please input a pdf file.'
+assert args.file is not None and args.file.endswith('.pdf'), 'Please input a pdf file.'
 
 neo4j = Neo4j(args.url, args.user, args.password)
 model = Qwen()

@@ -1,0 +1,13 @@
+[package]
+name = "coursegraph"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "_core"
+crate-type = ["cdylib"]
+
+[dependencies]
+regex = "1"
+rand = "0.8"
+pyo3 = { version = "0.22.4", features = ["extension-module", "abi3-py39"] }

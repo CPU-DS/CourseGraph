@@ -27,11 +27,8 @@ WORKDIR /app
 
 COPY . .
 
-RUN pip3 install poetry \
-    && poetry config virtualenvs.create false \
-    && poetry install
+RUN pip3 install uv \
+    && uv sync
 
-RUN cd rust && maturin develop && cd ..
-
-RUN cd docs && npm install && cd ..
+RUN npm i
 EXPOSE 5173 

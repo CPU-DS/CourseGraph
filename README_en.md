@@ -27,17 +27,12 @@ First, obtain an Alibaba Cloud Tongyi Qianwen [API Key](https://help.aliyun.com/
 
 #### Install Dependencies
 
-Ensure [Anaconda](https://www.anaconda.com/) (or [Miniconda](https://docs.anaconda.com/miniconda/)), [Neo4j](https://neo4j.com/) and [Rust](https://www.rust-lang.org/) are installed, then execute:
+Ensure [uv](https://docs.astral.sh/uv/), [Neo4j](https://neo4j.com/) and [Rust](https://www.rust-lang.org/) are installed, then execute:
 
 ```bash
 git clone git@github.com:CPU-DS/CourseGraph.git
 cd CourseGraph
-conda create -n cg python=3.10 -y
-conda activate cg
-pip install poetry
-poetry config virtualenvs.create false
-poetry install
-sh rust/make.sh
+uv sync
 ```
 
 On Linux, libreoffice is required for document conversion. For Debian-based systems: 
@@ -50,7 +45,7 @@ sudo apt install libreoffice
 
 Provide the Neo4j connection password and the path to the file to be extracted, then execute:
 ```bash
-python examples/get_knowledge_graph_pdf.py -p neo4j -f assets/deep-learning-from-scratch.pdf
+uv examples/get_knowledge_graph_pdf.py -p neo4j -f assets/deep-learning-from-scratch.pdf
 ```
 
 ### Option 2: Docker Installation
@@ -59,7 +54,7 @@ python examples/get_knowledge_graph_pdf.py -p neo4j -f assets/deep-learning-from
 git clone git@github.com:wangtao2001/CourseGraph.git
 cd CourseGraph
 docker-compose -f docker/docker-compose.yml up -d
-python examples/get_knowledge_graph_pdf.py -f assets/deep-learning-from-scratch.pdf
+uv examples/get_knowledge_graph_pdf.py -f assets/deep-learning-from-scratch.pdf
 ```
 
 ## 📚 Documentation
@@ -71,9 +66,8 @@ Documentation can be found in the `docs` directory, or you can visit the [online
 The documentation is built with [VitePress](https://vitepress.dev/), requiring [Node.js](https://nodejs.org/) 18 or above. Execute:
 
 ```bash
-cd docs
 npm i
-npm run docs:dev
+npm run dev
 ```
 
 Open [http://localhost:5173/](http://localhost:5173/) in your browser to preview.

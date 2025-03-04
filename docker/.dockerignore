@@ -1,44 +1,58 @@
+.nfs*
+
+# compilation and distribution
 __pycache__
+_ext
 *.pyc
 *.pyd
 *.so
 *.dll
 *.egg-info/
-build/
-dist/
-wheels/
+build
+dist
+wheels
 
-
-.git/
-.gitignore
-.idea/
-.vscode/
-.cache/
-cache/
-test/
-logs/
-
-
-**/node_modules/
-yarn.lock
-
-
+# pytorch/python/numpy formats
 *.pth
 *.pkl
 *.npy
-*.onnx
-model/
 model_ts*.txt
 
+# onnx models
+*.onnx
 
-rust/target/
+# ipython/jupyter notebooks
+**/.ipynb_checkpoints
 
+# Editor temporaries
 *.swn
 *.swo
 *.swp
 *~
-.nfs*
-.ipynb_checkpoints/
-libreoffice_convert.log
 
-src/course_graph/database/faiss_index/ 
+# editor settings
+.idea
+.vscode
+_darcs
+
+# demo 
+**/node_modules
+yarn.lock
+
+.venv
+
+test
+cache
+.cache
+logs
+models
+assets
+target
+experimental/data/*
+!experimental/data/example/
+api_keys.json
+
+*.ps1
+.ipynb_checkpoints
+src/course_graph/database/faiss_index
+libreoffice_convert.log
