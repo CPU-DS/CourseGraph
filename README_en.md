@@ -21,17 +21,15 @@ CourseGraph utilizes large language models and various prompt optimization techn
 
 ## 🚀 Quick Start
 
-First, obtain an Alibaba Cloud Tongyi Qianwen [API Key](https://help.aliyun.com/zh/model-studio/developer-reference/get-api-key), then choose local installation or Docker installation:
+First, obtain an Alibaba Cloud Model Studio [API Key](https://help.aliyun.com/zh/model-studio/developer-reference/get-api-key), then choose local installation or Docker installation:
 
 ### Option 1: Local Installation
 
 #### Install Dependencies
 
-Ensure [uv](https://docs.astral.sh/uv/), [Neo4j](https://neo4j.com/) and [Rust](https://www.rust-lang.org/) are installed, then execute:
+Ensure [uv](https://docs.astral.sh/uv/), [neo4j](https://neo4j.com/) and [rust](https://www.rust-lang.org/) are installed, then execute:
 
 ```bash
-git clone git@github.com:CPU-DS/CourseGraph.git
-cd CourseGraph
 uv sync
 ```
 
@@ -51,8 +49,6 @@ uv run examples/get_knowledge_graph_pdf.py -p neo4j -f assets/deep-learning-from
 ### Option 2: Docker Installation
 
 ```bash
-git clone git@github.com:wangtao2001/CourseGraph.git
-cd CourseGraph
 docker-compose -f docker/docker-compose.yml up -d
 uv run examples/get_knowledge_graph_pdf.py -f assets/deep-learning-from-scratch.pdf
 ```
@@ -63,7 +59,7 @@ Documentation can be found in the `docs` directory, or you can visit the [online
 
 #### Install Dependencies and Preview
 
-The documentation is built with [VitePress](https://vitepress.dev/), requiring [Node.js](https://nodejs.org/) 18 or above. Execute:
+The documentation is built with [vitepress](https://vitepress.dev/), requiring [node.js](https://nodejs.org/) 18 or above. Execute:
 
 ```bash
 cd docs

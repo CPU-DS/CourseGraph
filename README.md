@@ -21,17 +21,15 @@ CourseGraph 使用大模型，利用多种 prompt 优化技术, 自动从教材�
 
 ## 🚀 快速使用
 
-首先申请阿里云通义千问 [API Key](https://help.aliyun.com/zh/model-studio/developer-reference/get-api-key)，然后选择使用本地安装或使用 Docker 安装：
+首先申请阿里云百炼 [API Key](https://help.aliyun.com/zh/model-studio/developer-reference/get-api-key)，然后选择使用本地安装或使用 Docker 安装：
 
 ### 方式一：本地安装
 
 #### 安装依赖
 
-请确保已安装 [uv](https://docs.astral.sh/uv/)、[Neo4j](https://neo4j.com/) 和 [Rust](https://www.rust-lang.org/) ，然后执行：
+请确保已安装 [uv](https://docs.astral.sh/uv/)、[neo4j](https://neo4j.com/) 和 [rust](https://www.rust-lang.org/) ，然后执行：
 
 ```bash
-git clone git@github.com:CPU-DS/CourseGraph.git
-cd CourseGraph
 uv sync
 ```
 
@@ -52,8 +50,6 @@ uv run examples/get_knowledge_graph_pdf.py -p neo4j -f assets/deep-learning-from
 ### 方式二：使用 Docker 安装
 
 ```bash
-git clone git@github.com:wangtao2001/CourseGraph.git
-cd CourseGraph
 docker-compose -f docker/docker-compose.yml up -d
 uv run examples/get_knowledge_graph_pdf.py -f assets/deep-learning-from-scratch.pdf
 ```
@@ -66,7 +62,7 @@ uv run examples/get_knowledge_graph_pdf.py -f assets/deep-learning-from-scratch.
 
 #### 依赖安装和预览
 
-文档使用 [VitePress](https://vitepress.dev/) 构建, 需安装 [Node.js](https://nodejs.org/) 18 或以上版本，然后执行：
+文档使用 [vitepress](https://vitepress.dev/) 构建, 需安装 [node.js](https://nodejs.org/) 18 或以上版本，然后执行：
 
 ```bash
 cd docs

@@ -18,7 +18,7 @@ from .utils import instance_method_transactional
 from ..resource import ResourceMap
 from .types import BookMark, KPEntity, KPRelation, ContentType
 from tqdm import tqdm
-from course_graph._core import merge_strings
+from course_graph._core import merge
 from ..database import Neo4j
 from py2neo import Node, Relationship
 
@@ -253,7 +253,7 @@ class Document:
                         texts[-1] += '\n'
                     elif idx != len(contents) - 1 and contents[idx + 1].type == ContentType.Title:
                         texts[-1] += '\n'
-                contents = merge_strings(texts, n=text_length)  # 优化换行位置
+                contents = merge(texts, n=text_length)  # 优化换行位置
                 for content in contents:
                     if len(content) != 0:
                         logger.info('输入片段: \n' + content)

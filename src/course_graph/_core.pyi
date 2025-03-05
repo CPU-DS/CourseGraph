@@ -1,15 +1,4 @@
-def get_title_from_latex(latex: str) -> list[str]:
-    """ 从 latex 源码中提取标题类型字符串
-
-    Args:
-        latex (str): latex 源码
-
-    Returns:
-        list[str]: 标题类型字符串
-    """
-    pass
-
-def get_list_from_string(text: str) -> list:
+def get_list(text: str) -> list:
     """ 括号匹配提取列表
 
     Args:
@@ -20,7 +9,7 @@ def get_list_from_string(text: str) -> list:
     """
     pass
 
-def structure_post_process(
+def structure(
         detections: list[tuple[str, tuple[float, ...]]],
         iou_threshold: float) -> list[tuple[str, tuple[float, ...]]]:
     """ 检测结果后处理
@@ -34,7 +23,7 @@ def structure_post_process(
     """
     pass
 
-def find_longest_consecutive_sequence(
+def get_longest_seq(
         nums: list[int]) -> tuple[int, int]:
     """ 找到一个最长的连续序列的起点和终点
 
@@ -46,7 +35,7 @@ def find_longest_consecutive_sequence(
     """
     pass
 
-def optimize_strings_length(strings: list[str], n: int) -> list[str]:
+def optimize_length(strings: list[str], n: int) -> list[str]:
     """ 将数组中的字符串到调整到目标长度附近
 
     Args:
@@ -58,7 +47,7 @@ def optimize_strings_length(strings: list[str], n: int) -> list[str]:
     """
     pass
 
-def merge_strings(strings: list[str], n: int) -> list[str]:
+def merge(strings: list[str], n: int) -> list[str]:
     """ 将字符串数组合并到目标长度附近
 
     Args:

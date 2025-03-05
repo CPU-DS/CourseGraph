@@ -1,39 +1,8 @@
-use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use rand::Rng;
-use regex::Regex;
 
 #[pyfunction]
-pub fn get_title_from_latex(latex: String) -> PyResult<Vec<String>> {
-    let mut titles = Vec::new();
-
-    let commands = vec![
-        "title",
-        "part",
-        "chapter",
-        "section",
-        "subsection",
-        "subsubsection",
-        "paragraph",
-        "subparagraph",
-    ];
-
-    for command in commands {
-        let pattern = format!(r"\\({})\{{(.*?)\}}", command);
-        let re = Regex::new(&pattern).map_err(|e| PyValueError::new_err(e.to_string()))?;
-
-        for caps in re.captures_iter(&latex) {
-            if let Some(title) = caps.get(1) {
-                titles.push(title.as_str().to_string());
-            }
-        }
-    }
-
-    Ok(titles)
-}
-
-#[pyfunction]
-pub fn get_list_from_string(text: &str) -> PyResult<Vec<String>> {
+pub fn get_list(text: &str) -> PyResult<Vec<String>> {
     let mut list_string = String::new();
     let mut stack = 0;
     let mut chars = text.chars();
@@ -59,7 +28,7 @@ pub fn get_list_from_string(text: &str) -> PyResult<Vec<String>> {
 }
 
 #[pyfunction]
-pub fn find_longest_consecutive_sequence(nums: Vec<i32>) -> PyResult<(i32, i32)> {
+pub fn get_longest_seq(nums: Vec<i32>) -> PyResult<(i32, i32)> {
     if nums.is_empty() {
         return Ok((-1, -1));
     }
@@ -88,7 +57,7 @@ pub fn find_longest_consecutive_sequence(nums: Vec<i32>) -> PyResult<(i32, i32)>
 }
 
 #[pyfunction]
-pub fn optimize_strings_length(s: Vec<String>, n: i32) -> PyResult<Vec<String>> {
+pub fn optimize_length(s: Vec<String>, n: i32) -> PyResult<Vec<String>> {
     let mut result: Vec<String> = Vec::new();
     let mut buffer = String::new();
 
@@ -128,7 +97,7 @@ pub fn optimize_strings_length(s: Vec<String>, n: i32) -> PyResult<Vec<String>> 
 }
 
 #[pyfunction]
-pub fn merge_strings(texts: Vec<String>, n: i32) -> PyResult<Vec<String>> {
+pub fn merge(texts: Vec<String>, n: i32) -> PyResult<Vec<String>> {
     let mut result = Vec::new();
     let mut chunks = Vec::new();
 
@@ -208,12 +177,12 @@ fn iou(box1: (f32, f32, f32, f32), box2: (f32, f32, f32, f32)) -> f32 {
     }
 }
 
-fn is_contained(box1: (f32, f32, f32, f32), box2: (f32, f32, f32, f32)) -> bool {
+fn contained(box1: (f32, f32, f32, f32), box2: (f32, f32, f32, f32)) -> bool {
     box1.0 <= box2.0 && box1.1 <= box2.1 && box1.2 >= box2.2 && box1.3 >= box2.3
 }
 
 #[pyfunction]
-pub fn structure_post_process(
+pub fn structure(
     detections: Vec<(String, (f32, f32, f32, f32))>,
     iou_threshold: f32,
 ) -> PyResult<Vec<(String, (f32, f32, f32, f32))>> {
@@ -237,9 +206,9 @@ pub fn structure_post_process(
                     keep = false;
                     break;
                 }
-            } else if is_contained(detection.1, other_detection.1) {
+            } else if contained(detection.1, other_detection.1) {
                 to_remove.push(other_detection);
-            } else if is_contained(other_detection.1, detection.1) {
+            } else if contained(other_detection.1, detection.1) {
                 keep = false;
                 break;
             }
@@ -259,11 +228,10 @@ pub fn structure_post_process(
 
 #[pymodule]
 fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
-    m.add_function(wrap_pyfunction!(get_title_from_latex, m)?)?;
-    m.add_function(wrap_pyfunction!(get_list_from_string, m)?)?;
-    m.add_function(wrap_pyfunction!(structure_post_process, m)?)?;
-    m.add_function(wrap_pyfunction!(find_longest_consecutive_sequence, m)?)?;
-    m.add_function(wrap_pyfunction!(optimize_strings_length, m)?)?;
-    m.add_function(wrap_pyfunction!(merge_strings, m)?)?;
+    m.add_function(wrap_pyfunction!(get_list, m)?)?;
+    m.add_function(wrap_pyfunction!(structure, m)?)?;
+    m.add_function(wrap_pyfunction!(get_longest_seq, m)?)?;
+    m.add_function(wrap_pyfunction!(optimize_length, m)?)?;
+    m.add_function(wrap_pyfunction!(merge, m)?)?;
     Ok(())
 }

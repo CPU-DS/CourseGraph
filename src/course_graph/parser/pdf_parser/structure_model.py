@@ -11,7 +11,7 @@ from paddleocr.ppstructure.recovery.recovery_to_doc import sorted_layout_boxes
 from paddleocr import PPStructure
 from doclayout_yolo import YOLOv10
 import json
-from course_graph._core import structure_post_process
+from course_graph._core import structure
 
 
 class StructureResult(TypedDict, total=False):
@@ -102,7 +102,7 @@ class LayoutYOLO(StructureModel):
         res = sorted_layout_boxes(result, w)
 
         # 后处理 (接受元组类型)
-        res = structure_post_process(detections=[(item['name'], item['bbox']) for item in res], iou_threshold=0.1)
+        res = structure(detections=[(item['name'], item['bbox']) for item in res], iou_threshold=0.1)
 
         return [
             {

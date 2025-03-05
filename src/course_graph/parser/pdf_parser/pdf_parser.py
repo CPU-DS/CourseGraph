@@ -18,7 +18,7 @@ from ...llm import LLM
 from ...llm.prompt import VLPromptGenerator, ParserPromptGenerator
 import os
 import shutil
-from course_graph._core import get_list_from_string, find_longest_consecutive_sequence
+from course_graph._core import get_list, get_longest_seq
 from ..types import BookMark, PageIndex
 from shuangchentools.utils.file import clear_directory
 from typing import Callable
@@ -142,7 +142,7 @@ class PDFParser(Parser):
                 catalogue.append(index)
         shutil.rmtree(self.cache_path)
 
-        return find_longest_consecutive_sequence(catalogue)
+        return get_longest_seq(catalogue)
 
     def _set_outline(self,
                      lines: list,
@@ -159,7 +159,7 @@ class PDFParser(Parser):
         prompt, instruction = self.parser_prompt.get_outline_prompt(lines_without_index)
         llm.instruction = instruction
         res, _ = llm.chat(prompt)
-        r2 = get_list_from_string(res)
+        r2 = get_list(res)
 
         outline: list = []
         for i in range(len(r2)):
@@ -192,7 +192,7 @@ class PDFParser(Parser):
             prompt, instruction = self.parser_prompt.get_directory_prompt(text_contents)
             llm.instruction = instruction
             res, _ = llm.chat(prompt).replace("，", ",")
-            lines.extend(get_list_from_string(res))
+            lines.extend(get_list(res))
         self._set_outline(lines, offset, llm)
 
     def set_outline_auto(self,
