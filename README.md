@@ -69,6 +69,7 @@ uv examples/get_knowledge_graph_pdf.py -f assets/deep-learning-from-scratch.pdf
 文档使用 [VitePress](https://vitepress.dev/) 构建, 需安装 [Node.js](https://nodejs.org/) 18 或以上版本，然后执行：
 
 ```bash
+cd docs
 npm i
 npm run dev
 ```

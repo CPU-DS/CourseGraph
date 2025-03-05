@@ -66,6 +66,7 @@ Documentation can be found in the `docs` directory, or you can visit the [online
 The documentation is built with [VitePress](https://vitepress.dev/), requiring [Node.js](https://nodejs.org/) 18 or above. Execute:
 
 ```bash
+cd docs
 npm i
 npm run dev
 ```

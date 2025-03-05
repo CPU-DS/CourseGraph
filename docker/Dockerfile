@@ -30,5 +30,5 @@ COPY . .
 RUN pip3 install uv \
     && uv sync
 
-RUN npm i
+RUN cd docs && npm i
 EXPOSE 5173 
