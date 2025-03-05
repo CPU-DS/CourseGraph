@@ -45,7 +45,7 @@ sudo apt install libreoffice
 
 Provide the Neo4j connection password and the path to the file to be extracted, then execute:
 ```bash
-uv examples/get_knowledge_graph_pdf.py -p neo4j -f assets/deep-learning-from-scratch.pdf
+uv run examples/get_knowledge_graph_pdf.py -p neo4j -f assets/deep-learning-from-scratch.pdf
 ```
 
 ### Option 2: Docker Installation
@@ -54,7 +54,7 @@ uv examples/get_knowledge_graph_pdf.py -p neo4j -f assets/deep-learning-from-scr
 git clone git@github.com:wangtao2001/CourseGraph.git
 cd CourseGraph
 docker-compose -f docker/docker-compose.yml up -d
-uv examples/get_knowledge_graph_pdf.py -f assets/deep-learning-from-scratch.pdf
+uv run examples/get_knowledge_graph_pdf.py -f assets/deep-learning-from-scratch.pdf
 ```
 
 ## 📚 Documentation

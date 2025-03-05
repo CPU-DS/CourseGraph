@@ -53,9 +53,6 @@ dependencies = [
     "singleton-decorator>=1.0.0",
 ]
 
-[project.scripts]
-course_graph = "course_graph:main"
-
 [tool.maturin]
 module-name = "course_graph._core"
 python-packages = ["course_graph"]
