@@ -17,6 +17,7 @@ CourseGraph utilizes large language models and various prompt optimization techn
 ## 📈 Future Development
 
 - Improve prompt engineering and explore using Agents for related tasks
+- Add more strategies for comparison experiments
 - Knowledge graph-based question answering (KBQA or Graph-RAG)
 
 ## 🚀 Quick Start
