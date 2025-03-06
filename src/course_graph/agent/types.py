@@ -5,7 +5,7 @@
 # Description: 定义各种中间类
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Optional, Any, Union, TypeVar, Generic, Callable
+from typing import TYPE_CHECKING, Optional, Any, Union, TypeVar
 
 if TYPE_CHECKING:
     from .agent import Agent

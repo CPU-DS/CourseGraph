@@ -4,7 +4,7 @@
 # File Name: course_graph/llm/__init__.py
 # Description: 大模型接口
 
-from .llm import LLM, VLLM, Ollama, OpenAI
+from .llm import LLM, VLLM, LLMBase
 from .api import *
 from .config import LLMConfig, VLLMConfig
 from .ontology import ONTOLOGY

@@ -2,12 +2,11 @@
 # Create Date: 2024/09/20
 # Author: wangtao <wangtao.cpu@gmail.com>
 # File Name: course_graph/llm/llm.py
-# Description: 定义兼容 openAI API 的大模型类
+# Description: 定义兼容 OpenAI API 的大模型类
 
-import openai
+from openai import OpenAI
 from openai.types.chat import *
 from openai import NOT_GIVEN, NotGiven
-from abc import ABC, abstractmethod
 import os
 import requests
 import subprocess
@@ -21,22 +20,21 @@ from .config import LLMConfig, VLLMConfig
 import shlex
 
 
-class LLM(ABC):
+class LLMBase:
 
     def __init__(
         self,
         model: str,
-        client: openai.OpenAI,
+        client: OpenAI,
     ) -> None:
-        """ 大模型抽象类
+        """ 大模型基类, 兼容 OpenAI API
         """
-        ABC.__init__(self)
 
         self.model = model
         self.client = client
 
         self.extra_body = {}
-        self.config = {}
+        self.config: LLMConfig = {}
         
         self._instruction = 'You are a helpful assistant.'
         
@@ -96,14 +94,14 @@ class LLM(ABC):
             }).choices[0].message
 
 
-class OpenAI(LLM):
+class LLM(LLMBase):
 
     def __init__(self,
                  name: str,
                  *,
                  api_key: str,
                  base_url: str = None):
-        """ OpenAI 模型 API 服务
+        """ 大模型封装类
 
         Args:
             name (str): 模型名称
@@ -112,14 +110,12 @@ class OpenAI(LLM):
         """ 
         super().__init__(
             model=name,
-            client=openai.OpenAI(
+            client=OpenAI(
                 api_key=api_key,
                 base_url=base_url,
             )
         )
 
-
-    
     def chat(self, message: str) -> tuple[str, str] | tuple[str, None]:
         """ 模型的单轮对话
 
@@ -131,7 +127,6 @@ class OpenAI(LLM):
         """
         response = self.chat_completion(messages=[{'role': 'user', 'content': message}])
         return response.content, response.reasoning_content if hasattr(response, 'reasoning_content') else None
-    
     
     def image_chat(self, path: str | list[str], message: str) -> tuple[str, str] | tuple[str, None]:
         """ 基于图片单轮对话
@@ -214,7 +209,7 @@ class Server:
             self.process.wait()
 
 
-class VLLM(OpenAI, Server):
+class VLLM(Server):
 
     def __init__(self,
                  path: str,
@@ -266,11 +261,28 @@ class VLLM(OpenAI, Server):
                        timeout=timeout,
                        log=log,
                        test_url=f'http://{self.host}:{self.port}/health')
+
+    def to_llm(self) -> LLM:
+        """ 获取一个 LLM 对象
+        """
+        return LLM(
+            name=self.model,
+            api_key='EMPTY',
+            base_url=f'http://{self.host}:{self.port}/v1'
+        )
+
+    def run(self) -> None:
+        """ 持续运行直到终止
+        """
+        def signal_handler(signum, frame):
+            self.close()          
+        signal.signal(signal.SIGINT, signal_handler)
+        signal.signal(signal.SIGTERM, signal_handler)
         
-        OpenAI.__init__(self,
-                        name=self.model,
-                        api_key='EMPTY',
-                        base_url=f'http://{self.host}:{self.port}/v1')
+        try:
+            signal.pause()
+        except KeyboardInterrupt:
+            self.close()
 
     def __enter__(self) -> 'VLLM':
         return self
@@ -278,37 +290,3 @@ class VLLM(OpenAI, Server):
     def __exit__(self, exc_type, exc_value, traceback) -> None:
         self.close()
 
-
-class Ollama(OpenAI, Server):
-
-    def __init__(self,
-                 name: str,
-                 *,
-                 host: str = 'localhost',
-                 port: int = 9017,
-                 timeout: int = 60):
-        """ ollama模型服务
-
-        Args:
-            name (str): 模型名称
-            timeout (int, optional): 启动服务超时时间. Defaults to 60.
-            host (str, optional): 服务地址. Defaults to 'localhost'.
-            port (int, optional): 服务端口. Defaults to 9017.
-        """
-        self.model = name
-
-        available_models = [m['name'] for m in ollama.list()['models']]
-        if name not in available_models and name:
-            ollama.pull(name)
-
-        self.host = host
-        self.port = port
-
-        Server.__init__(self,
-                       command_list=['ollama', 'serve'],
-                       timeout=timeout,
-                       test_url=f'http://{self.host}:{self.port}')
-        OpenAI.__init__(self,
-                        name=self.model,
-                        api_key='EMPTY',
-                        base_url=f'http://{self.host}:{self.port}/v1')

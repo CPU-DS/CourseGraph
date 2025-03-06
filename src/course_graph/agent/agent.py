@@ -4,7 +4,7 @@
 # File Name: course_graph/agent/agent.py
 # Description: 定义智能体
 
-from ..llm import LLM
+from ..llm import LLMBase
 from .tool import Tool
 from .types import ContextVariables
 from openai.types.chat import *
@@ -20,7 +20,7 @@ class Agent:
     def __init__(
             self,
             name: str,
-            llm: LLM,
+            llm: LLMBase,
             functions: list[Callable] = None,
             tool_choice: str | NotGiven | Literal['required', 'auto', 'none'] = NOT_GIVEN,
             parallel_tool_calls: bool | NotGiven = NOT_GIVEN,
@@ -29,7 +29,7 @@ class Agent:
         """ 智能体类
 
         Args: name (str): 名称 
-        llm (LLM): 大模型 
+        llm (LLMBase): 大模型 
         functions: (list[Callable], optional): 工具函数. Defaults to None.
         parallel_tool_calls: (bool, optional): 允许工具并行调用. Defaults to False.
         tool_choice: (Literal['required', 'auto', 'none'] | NotGiven, optional). 强制使用工具函数, 选择模式或提供函数名称. Defaults to NOT_GIVEN.
