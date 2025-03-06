@@ -48,10 +48,8 @@ logs
 models
 assets
 target
-experimental/data/*
-!experimental/data/example/
+experimental/data/origin_data/*.json
 api_keys.json
-
 *.ps1
 .ipynb_checkpoints
 src/course_graph/database/faiss_index
