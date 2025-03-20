@@ -11,10 +11,9 @@ import os
 import requests
 import subprocess
 import time
-import ollama
 import base64
 import signal
-import pathlib
+from pathlib import Path
 import weakref
 from .config import LLMConfig, VLLMConfig
 import shlex
@@ -123,7 +122,7 @@ class LLM(LLMBase):
             message (str): 用户输入
 
         Returns:
-            tuple[str, str]: 模型输出, 推理过程
+            tuple[str, str] | tuple[str, None]: 模型输出, 推理过程
         """
         response = self.chat_completion(messages=[{'role': 'user', 'content': message}])
         return response.content, response.reasoning_content if hasattr(response, 'reasoning_content') else None
@@ -136,7 +135,7 @@ class LLM(LLMBase):
             message (str): 用户输入
 
         Returns:
-            tuple[str, str]: 模型输出, 推理过程
+            tuple[str, str] | tuple[str, None]: 模型输出, 推理过程
         """
         if isinstance(path, str):
             path = [path]
@@ -145,7 +144,7 @@ class LLM(LLMBase):
                 'type': 'image_url',
                 'image_url': {
                     'url': (
-                        f"data:image/{pathlib.Path(p).suffix[1:]};base64,{base64.b64encode(open(p, 'rb').read()).decode('utf-8')}"
+                        f"data:image/{Path(p).suffix[1:]};base64,{base64.b64encode(open(p, 'rb').read()).decode('utf-8')}"
                         if os.path.exists(p) else p
                     )
                 }

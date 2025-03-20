@@ -5,22 +5,19 @@
 # Description: 原始数据概览
 
 
-import sys
-print(sys.executable)
-
 from pathlib import Path
 from glob import glob
 import json
 from tabulate import tabulate
 
-data_path = Path(__file__).parent.parent / 'data'
+data_path = 'experimental/data'
 
 
 def overview():
     node_details = {}
     relation_details = {}
     details = []
-    for file in glob(str(data_path / '*.json')):
+    for file in glob(data_path + '/*.json'):
         with open(file, 'r') as f:
             data = json.load(f)
             nodes_lens = [len(d['nodes']) for d in data]

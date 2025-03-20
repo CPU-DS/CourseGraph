@@ -51,8 +51,10 @@ target
 experimental/data/**/*.json
 experimental/data/**/*.txt
 !experimental/data/example/*.json
+experimental/**/pre_trained
 api_keys.json
 *.ps1
 .ipynb_checkpoints
 src/course_graph/database/faiss_index
 libreoffice_convert.log
+.cursorrules

@@ -4,12 +4,12 @@
 # File Name: course_graph/llm/api.py
 # Description: 三方大模型 API 接口
 
-from .llm import OpenAI
+from .llm import LLM
 import os
 from typing import Literal
 
 
-class Qwen(OpenAI):
+class Qwen(LLM):
 
     def __init__(self,
                  name: str = 'qwen-max',
@@ -27,7 +27,7 @@ class Qwen(OpenAI):
             api_key=api_key)
 
 
-class DeepSeek(OpenAI):
+class DeepSeek(LLM):
 
     def __init__(self,
                  name: Literal['deepseek-chat', 'deepseek-reasoner'] = 'deepseek-chat',
@@ -45,7 +45,7 @@ class DeepSeek(OpenAI):
             api_key=api_key)
 
 
-class OpenRouter(OpenAI):
+class OpenRouter(LLM):
     def __init__(self, 
                  name, 
                  *, 

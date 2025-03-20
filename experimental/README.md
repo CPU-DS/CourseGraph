@@ -1,0 +1,21 @@
+## 实验部分
+
+### 目录结构
+
+```bash
+experimental/
+├── data/               
+│   ├── *.json          # 所有可用数据
+│   ├── example/  
+│   │   └── *.json      # 示例数据
+│   └── origin_data/
+│       ├── *.json      # 原始数据
+│       ├── pipeline.py # 原始数据处理脚本
+│       └── txt/
+│           └── *.txt   # 原始纯文本数据
+├── README.md
+└── scripts/
+    ├── ner/            # 实体识别模型
+    ├── overview.py     # 数据概览
+    └── pre_trained/    # 预训练模型
+```

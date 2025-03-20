@@ -9,7 +9,7 @@ import json
 from glob import glob
 from pathlib import Path
 
-data_path = Path(__file__).parent
+data_path = 'experimental/data/origin_data'
 
 
 def serialize(file: str):
@@ -44,10 +44,9 @@ def serialize(file: str):
 
 
 def pipeline():
-    for file in glob(str(data_path / '*.json')):
-        base_name = Path(file).name
+    for file in glob(data_path + '/*.json'):
         texts = serialize(file)
-        with open(str(data_path.parent / base_name), 'w', encoding='utf-8') as f:
+        with open('experimental/data/' + Path(file).name, 'w', encoding='utf-8') as f:
             json.dump(texts, f, indent=4, ensure_ascii=False)
 
 
