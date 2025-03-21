@@ -1,7 +1,0 @@
-architecture: "BERT-BiLSTM-CRF"
-optimizer: "AdamW"
-scheduler: "linear_schedule_with_warmup"
-learning_rate: 5e-5
-epochs: 5
-batch_size: 2
-bert_model: "dienstag/chinese-bert-wwm-ext"

@@ -5,29 +5,29 @@
 # Description: 模型
 
 import torch.nn as nn
-from transformers import BertModel
+from transformers import BertModel, PreTrainedModel
 from torchcrf import CRF
 
 
-class BertBiLSTMCRF(nn.Module):
-    def __init__(self, bert_path, num_labels, hidden_dim=128, dropout=0.1):
-        super(BertBiLSTMCRF, self).__init__()
-        
-        self.bert = BertModel.from_pretrained(bert_path)
+class BertBiLSTMCRF(PreTrainedModel):
+    def __init__(self, config):
+        super(BertBiLSTMCRF, self).__init__(config)
+        self.num_labels = config.num_labels
+        self.bert = BertModel.from_pretrained(config._name_or_path)
         self.bert_dim = self.bert.config.hidden_size
-        self.hidden_dim = hidden_dim
-        self.num_labels = num_labels
+        self.hidden_dim = 128
+        
         self.lstm = nn.LSTM(
             input_size=self.bert_dim,
-            hidden_size=hidden_dim // 2,
+            hidden_size=self.hidden_dim // 2,
             batch_first=True,
             bidirectional=True
         )
-        self.hidden2label = nn.Linear(hidden_dim, num_labels)
-        self.dropout = nn.Dropout(dropout)
-        self.crf = CRF(num_labels, batch_first=True)
+        self.hidden2label = nn.Linear(self.hidden_dim, self.num_labels)
+        self.dropout = nn.Dropout(0.1)
+        self.crf = CRF(self.num_labels, batch_first=True)
     
-    def forward(self, input_ids, attention_mask, token_type_ids=None, labels=None):
+    def forward(self, input_ids=None, attention_mask=None, token_type_ids=None, labels=None, **kwargs):
         outputs = self.bert(
             input_ids=input_ids,
             attention_mask=attention_mask,
@@ -42,9 +42,10 @@ class BertBiLSTMCRF(nn.Module):
         
         emissions = self.hidden2label(lstm_output)
         
+        loss = None
         if labels is not None:
             loss = -self.crf(emissions, labels, mask=attention_mask.bool())
-            return loss
+            return {"loss": loss}
         else:
             pred_labels = self.crf.decode(emissions, mask=attention_mask.bool())
-            return pred_labels
+            return {"logits": emissions, "predictions": pred_labels}
