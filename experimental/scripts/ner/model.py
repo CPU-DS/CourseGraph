@@ -27,7 +27,7 @@ class BertBiLSTMCRF(nn.Module):
         self.dropout = nn.Dropout(dropout)
         self.crf = CRF(num_labels, batch_first=True)
     
-    def forward(self, input_ids, attention_mask, token_type_ids=None, tags=None):
+    def forward(self, input_ids, attention_mask, token_type_ids=None, labels=None):
         outputs = self.bert(
             input_ids=input_ids,
             attention_mask=attention_mask,
@@ -42,8 +42,8 @@ class BertBiLSTMCRF(nn.Module):
         
         emissions = self.hidden2label(lstm_output)
         
-        if tags is not None:
-            loss = -self.crf(emissions, tags, mask=attention_mask.bool())
+        if labels is not None:
+            loss = -self.crf(emissions, labels, mask=attention_mask.bool())
             return loss
         else:
             pred_labels = self.crf.decode(emissions, mask=attention_mask.bool())
