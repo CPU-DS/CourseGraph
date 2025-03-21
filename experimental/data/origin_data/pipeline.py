@@ -18,12 +18,12 @@ def serialize(file: str):
         data = json.load(f)
         for line in data:
             if len(result := line['annotations'][0]['result']) != 0:
-                nodes = []
+                entities = []
                 relations = []
                 id2name = {}
                 for r in result:
                     if r['type'] == 'labels':
-                        nodes.append({
+                        entities.append({
                             'start': r['value']['start'],
                             'end': r['value']['end'],
                             'text': r['value']['text'],
@@ -36,10 +36,12 @@ def serialize(file: str):
                                 'source': id2name[r['from_id']],
                                 'target': id2name[r['to_id']],
                                 'type': type_})
-                texts.append({
-                    'text': line['data']['text'],
-                    'nodes': nodes,
-                    'relations': relations})
+                text = line['data']['text']
+                if not text.startswith('/data/upload/'):
+                    texts.append({
+                        'text': text,
+                        'entities': entities,
+                        'relations': relations})
     return texts
 
 

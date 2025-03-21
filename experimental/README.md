@@ -19,3 +19,5 @@ experimental/
     ├── overview.py     # 数据概览
     └── pre_trained/    # 预训练模型
 ```
+
+### 数据格式说明

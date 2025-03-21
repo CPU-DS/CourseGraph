@@ -34,6 +34,7 @@ model_ts*.txt
 .idea
 .vscode
 _darcs
+.cursor
 
 # demo 
 **/node_modules
