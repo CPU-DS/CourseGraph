@@ -32,22 +32,21 @@ def load_data(example_file):
 
 
 def compute_metrics(eval_pred):
-    predictions, labels = eval_pred
-    if isinstance(predictions, tuple):
-        predictions = predictions[0]  # 如果模型返回的是元组，取第一个元素
+    pred_label_ids, label_ids = eval_pred.predictions, eval_pred.label_ids
     
-    # 忽略填充标记 -100
-    true_predictions = [
-        [id2label[p] for (p, l) in zip(prediction, label) if l != -100]
-        for prediction, label in zip(predictions, labels)
+    ignore_mask = label_ids != 0
+    pred_labels = [
+        [id2label[id_] for id_ in pred_label_ids[idx][mask].tolist()]
+        for idx, mask in enumerate(ignore_mask)
     ]
-    true_labels = [
-        [id2label[l] for (p, l) in zip(prediction, label) if l != -100]
-        for prediction, label in zip(predictions, labels)
+
+    labels = [
+        [id2label[id_] for id_ in label_ids[idx][mask].tolist()]
+        for idx, mask in enumerate(ignore_mask)
     ]
-    
+
     metric = load("seqeval")
-    results = metric.compute(predictions=true_predictions, references=true_labels)
+    results = metric.compute(predictions=pred_labels, references=labels)
     
     swanlab_results = {
         "precision": results["overall_precision"],
@@ -55,7 +54,7 @@ def compute_metrics(eval_pred):
         "f1": results["overall_f1"],
         "accuracy": results["overall_accuracy"],
     }
-    swanlab.log(swanlab_results, print_to_console=True)
+    swanlab.log(swanlab_results, print_to_console=True, zero_division=1)
     
     return results
 
@@ -113,7 +112,7 @@ def main(args):
     data_collator = DataCollatorForTokenClassification(tokenizer=tokenizer)
     
     training_args = TrainingArguments(
-        output_dir=args.checkpoint_dir,
+        output_dir=args.checkpoint,
         eval_strategy="epoch",
         save_strategy="epoch",
         learning_rate=args.lr,
@@ -121,11 +120,11 @@ def main(args):
         per_device_eval_batch_size=args.batch_size,
         num_train_epochs=args.epochs,
         weight_decay=0.01,
-        logging_dir=args.log_dir,
+        logging_dir=args.log,
         logging_steps=10,
         save_total_limit=3,  # 只保存最新的3个检查点
         load_best_model_at_end=True,
-        metric_for_best_model="f1",
+        metric_for_best_model="overall_f1",
         greater_is_better=True,
         no_cuda=False,
         fp16=True,      # 启用半精度训练
@@ -144,21 +143,21 @@ def main(args):
     )
     
     trainer.train()
-    trainer.save_model(os.path.join(args.checkpoint_dir, "final_model"))
+    trainer.save_model(os.path.join(args.checkpoint, "final_model"))
     
-    test_results = trainer.evaluate(test_dataset)
-    swanlab.log(**test_results)
+    # test_results = trainer.evaluate(test_dataset)
+    # swanlab.log(**test_results)
     swanlab.finish()
 
 
 if __name__ == "__main__":
     parser = ArgumentParser()
-    parser.add_argument("--data_path", '-data', type=str, default='experimental/data')
-    parser.add_argument("--bert_model_path", '-bert', type=str, default='experimental/scripts/pre_trained/dienstag/chinese-bert-wwm-ext')
-    parser.add_argument("--checkpoint_dir", '-ckpt', type=str, default='experimental/scripts/ner/checkpoints')
-    parser.add_argument("--log_dir", '-log', type=str, default='experimental/scripts/ner/logs')
+    parser.add_argument("--data_path", type=str, default='experimental/data')
+    parser.add_argument("--bert_model_path", type=str, default='experimental/scripts/pre_trained/dienstag/chinese-bert-wwm-ext')
+    parser.add_argument("--checkpoint", type=str, default='experimental/scripts/ner/checkpoints')
+    parser.add_argument("--log", type=str, default='experimental/scripts/ner/logs')
     parser.add_argument("--lr", type=float, default=5e-5)
     parser.add_argument("--epochs", type=int, default=5)
     parser.add_argument("--batch_size", type=int, default=2)
     args = parser.parse_args()
-    main(args) 
+    main(args)

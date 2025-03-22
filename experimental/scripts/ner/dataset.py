@@ -34,6 +34,7 @@ class NERDataset(Dataset):
         if isinstance(self.tokenizer, PreTrainedTokenizerFast):
             encoding = self.tokenizer(
                 text,
+                add_special_tokens=False,
                 max_length=self.max_len,
                 padding="max_length",
                 truncation=True,
@@ -48,16 +49,18 @@ class NERDataset(Dataset):
             
             token_labels = []
             for i, offset in enumerate(offset_mapping):
-                if offset[0] == 0 and offset[1] == 0:  # [CLS] 或 [SEP] 或 [PAD]
-                    token_labels.append(label2id["O"])
+                token = tokens[i]
+                if token in [self.tokenizer.cls_token, self.tokenizer.sep_token, self.tokenizer.pad_token]: 
+                    token_labels.append(label2id["IGNORE"])
                 else:
-                    if tokens[i].startswith("##"): # 子词
-                        token_labels.append(label2id["X"])
+                    if token.startswith("##"):
+                        token_labels.append(label2id["IGNORE"])
                     else:
                         token_labels.append(label2id[char_labels[offset[0]]])
         else:
             encoding = self.tokenizer(
                 text,
+                add_special_tokens=False,
                 max_length=self.max_len,
                 padding="max_length",
                 truncation=True,
@@ -72,11 +75,11 @@ class NERDataset(Dataset):
             char_idx = 0
             for token in tokens:
                 if token in [self.tokenizer.cls_token, self.tokenizer.sep_token, self.tokenizer.pad_token]:
-                    token_labels.append(label2id["O"])
+                    token_labels.append(label2id["IGNORE"])
                 else:
                     if token.startswith("##"):
                         token = token[2:]
-                        token_labels.append(label2id["X"])
+                        token_labels.append(label2id["IGNORE"])
                     else:
                         token_labels.append(label2id[char_labels[char_idx]])
                     char_idx += len(token)

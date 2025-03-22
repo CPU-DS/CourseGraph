@@ -7,6 +7,8 @@
 import torch.nn as nn
 from transformers import BertModel, PreTrainedModel
 from torchcrf import CRF
+import torch
+from torch.nn import functional as F
 
 
 class BertBiLSTMCRF(PreTrainedModel):
@@ -35,20 +37,26 @@ class BertBiLSTMCRF(PreTrainedModel):
         )
         
         bert_output = outputs.last_hidden_state
-        bert_output = self.dropout(bert_output)
+        bert_output = self.dropout(bert_output)  # (batch_size, max_len, hidden_size)
         
         lstm_output, _ = self.lstm(bert_output)
         lstm_output = self.dropout(lstm_output)
         
-        emissions = self.hidden2label(lstm_output)
+        emissions = self.hidden2label(lstm_output)  # (batch_size, max_len, num_labels)
         
-        loss = None
+        pred_label_ids = self.crf.decode(emissions, mask=attention_mask.bool())
+        pred_label_ids = torch.tensor(pred_label_ids, device=emissions.device)
+        pred_label_ids[pred_label_ids == 0] = 1 # 模型后处理，不允许预测出现 IGNORE
+        pred_label_ids = F.pad(pred_label_ids, (0, labels.shape[1] - pred_label_ids.shape[1]), value=0, mode="constant")
+        
         if labels is not None:
-            valid_mask = (labels >=0) & attention_mask.bool()
-            crf_labels = labels.clone()
-            crf_labels[labels < 0] = 0
-            loss = -self.crf(emissions, crf_labels, mask=valid_mask)
-            return {"loss": loss}
+            valid_mask = labels != 0
+            loss = -self.crf(emissions, labels, mask=valid_mask)
+            return {
+                "loss": loss,
+                "pred_label_ids": pred_label_ids
+            }
         else:
-            pred_labels = self.crf.decode(emissions, mask=attention_mask.bool())
-            return {"logits": emissions, "predictions": pred_labels}
+            return {
+                "pred_label_ids": pred_label_ids
+            }
