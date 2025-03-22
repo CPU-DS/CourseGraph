@@ -781,6 +781,7 @@ dependencies = [
     { name = "deprecated" },
     { name = "doclayout-yolo" },
     { name = "docstring-parser" },
+    { name = "evaluate" },
     { name = "faiss-gpu" },
     { name = "fastapi" },
     { name = "fitz" },
@@ -832,6 +833,7 @@ requires-dist = [
     { name = "deprecated", specifier = ">=1.2.18" },
     { name = "doclayout-yolo", specifier = "==0.0.3" },
     { name = "docstring-parser", specifier = "==0.16" },
+    { name = "evaluate", specifier = ">=0.4.3" },
     { name = "faiss-gpu", specifier = "==1.7.2" },
     { name = "fastapi", specifier = ">=0.115.6" },
     { name = "fitz", specifier = "==0.0.1.dev2" },
@@ -1156,6 +1158,28 @@ dependencies = [
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/83/27/f997c9da0e179986fadd6c8474d16743f1b3697c129c2fcd1e739cd038c2/etelemetry-0.3.1-py3-none-any.whl", hash = "sha256:a64f09bcd55cbfa5684e4d9fb6d1d6a018ab99d2ea28e638435c4c26e6814a6b", size = 6416 },
+]
+
+[[package]]
+name = "evaluate"
+version = "0.4.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "datasets" },
+    { name = "dill" },
+    { name = "fsspec", extra = ["http"] },
+    { name = "huggingface-hub" },
+    { name = "multiprocess" },
+    { name = "numpy" },
+    { name = "packaging" },
+    { name = "pandas" },
+    { name = "requests" },
+    { name = "tqdm" },
+    { name = "xxhash" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/5a/a0/10a56e0939ece94c54276e81459cb4101f46f0e9a6f54fc31a35f64e8854/evaluate-0.4.3.tar.gz", hash = "sha256:3a5700cf83aabee9549264e1e5666f116367c61dbd4d38352015e859a5e2098d", size = 65679 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a2/e7/cbca9e2d2590eb9b5aa8f7ebabe1beb1498f9462d2ecede5c9fd9735faaf/evaluate-0.4.3-py3-none-any.whl", hash = "sha256:47d8770bdea76e2c2ed0d40189273027d1a41ccea861bcc7ba12d30ec5d1e517", size = 84010 },
 ]
 
 [[package]]

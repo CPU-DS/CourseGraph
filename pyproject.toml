@@ -54,6 +54,7 @@ dependencies = [
     "seqeval>=1.2.2",
     "scikit-learn>=1.6.1",
     "swanlab>=0.5.2",
+    "evaluate>=0.4.3",
 ]
 
 [tool.maturin]

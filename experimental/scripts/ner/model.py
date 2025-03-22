@@ -44,7 +44,10 @@ class BertBiLSTMCRF(PreTrainedModel):
         
         loss = None
         if labels is not None:
-            loss = -self.crf(emissions, labels, mask=attention_mask.bool())
+            valid_mask = (labels >=0) & attention_mask.bool()
+            crf_labels = labels.clone()
+            crf_labels[labels < 0] = 0
+            loss = -self.crf(emissions, crf_labels, mask=valid_mask)
             return {"loss": loss}
         else:
             pred_labels = self.crf.decode(emissions, mask=attention_mask.bool())

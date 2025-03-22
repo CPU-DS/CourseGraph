@@ -20,9 +20,10 @@ from config import *
 from glob import glob
 import swanlab
 from datetime import datetime
-from datasets import load_metric
+from evaluate import load
 from swanlab.integration.transformers import SwanLabCallback
 from argparse import ArgumentParser
+import math
 
 
 def load_data(example_file):
@@ -45,7 +46,7 @@ def compute_metrics(eval_pred):
         for prediction, label in zip(predictions, labels)
     ]
     
-    metric = load_metric("seqeval")
+    metric = load("seqeval")
     results = metric.compute(predictions=true_predictions, references=true_labels)
     
     swanlab_results = {
@@ -82,7 +83,7 @@ def main(args):
     shuffle(all_data)
     
     train_size = int(0.8 * len(all_data))
-    val_size = int(0.1 * len(all_data))
+    val_size = int(math.ceil(0.1 * len(all_data)))
     train_data = all_data[:train_size]
     eval_data = all_data[train_size:train_size+val_size]
     test_data = all_data[train_size+val_size:]
@@ -98,15 +99,22 @@ def main(args):
     
     model = BertBiLSTMCRF(config)
     
+    for param in model.bert.parameters():
+        param.requires_grad = False
+    
     total_params = sum(p.numel() for p in model.parameters())
     trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    swanlab_callback.update_config({"total_params": total_params, "trainable_params": trainable_params})
+    swanlab_callback.update_config({
+        "total_params": total_params, 
+        "trainable_params": trainable_params,
+        "frozen_params": total_params - trainable_params
+    })
     
     data_collator = DataCollatorForTokenClassification(tokenizer=tokenizer)
     
     training_args = TrainingArguments(
         output_dir=args.checkpoint_dir,
-        evaluation_strategy="epoch",
+        eval_strategy="epoch",
         save_strategy="epoch",
         learning_rate=args.lr,
         per_device_train_batch_size=args.batch_size,
@@ -119,6 +127,9 @@ def main(args):
         load_best_model_at_end=True,
         metric_for_best_model="f1",
         greater_is_better=True,
+        no_cuda=False,
+        fp16=True,      # 启用半精度训练
+        dataloader_num_workers=4
     )
     
     trainer = Trainer(
@@ -126,7 +137,7 @@ def main(args):
         args=training_args,
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,
-        tokenizer=tokenizer,
+        processing_class=tokenizer,
         data_collator=data_collator,
         compute_metrics=compute_metrics,
         callbacks=[swanlab_callback]

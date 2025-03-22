@@ -81,11 +81,9 @@ class NERDataset(Dataset):
                         token_labels.append(label2id[char_labels[char_idx]])
                     char_idx += len(token)
         
-        tokens = self.tokenizer.convert_ids_to_tokens(input_ids)
-        for i, token in enumerate(tokens):
-            print(token, id2label[token_labels[i]])
         return {
             "input_ids": input_ids,
             "attention_mask": attention_mask,
+            "token_type_ids": [0] * len(input_ids),
             "labels": torch.tensor(token_labels)
         }
