@@ -45,8 +45,9 @@ def compute_metrics(eval_pred):
         for idx, mask in enumerate(ignore_mask)
     ]
 
-    metric = load("seqeval")
-    results = metric.compute(predictions=pred_labels, references=labels)
+    # metric = load("seqeval")
+    metric = load(os.path.join(os.path.dirname(__file__), "seqeval"))
+    results = metric.compute(predictions=pred_labels, references=labels, zero_division=1)
     
     swanlab_results = {
         "precision": results["overall_precision"],
@@ -54,7 +55,7 @@ def compute_metrics(eval_pred):
         "f1": results["overall_f1"],
         "accuracy": results["overall_accuracy"],
     }
-    swanlab.log(swanlab_results, print_to_console=True, zero_division=1)
+    swanlab.log(swanlab_results, print_to_console=True)
     
     return results
 
@@ -127,7 +128,7 @@ def main(args):
         metric_for_best_model="overall_f1",
         greater_is_better=True,
         no_cuda=False,
-        fp16=True,      # 启用半精度训练
+        fp16=True,  # 启用半精度训练
         dataloader_num_workers=4
     )
     
@@ -145,17 +146,18 @@ def main(args):
     trainer.train()
     trainer.save_model(os.path.join(args.checkpoint, "final_model"))
     
-    # test_results = trainer.evaluate(test_dataset)
-    # swanlab.log(**test_results)
+    test_results = trainer.evaluate(test_dataset)
+    swanlab.log(test_results)
     swanlab.finish()
 
 
 if __name__ == "__main__":
     parser = ArgumentParser()
-    parser.add_argument("--data_path", type=str, default='experimental/data')
-    parser.add_argument("--bert_model_path", type=str, default='experimental/scripts/pre_trained/dienstag/chinese-bert-wwm-ext')
-    parser.add_argument("--checkpoint", type=str, default='experimental/scripts/ner/checkpoints')
-    parser.add_argument("--log", type=str, default='experimental/scripts/ner/logs')
+    path = os.path.dirname(__file__)
+    parser.add_argument("--data_path", type=str, default=os.path.join(path, "data"))
+    parser.add_argument("--bert_model_path", type=str, default=os.path.join(path, "pre_trained/dienstag/chinese-bert-wwm-ext"))
+    parser.add_argument("--checkpoint", type=str, default=os.path.join(path, "checkpoints"))
+    parser.add_argument("--log", type=str, default=os.path.join(path, "logs"))
     parser.add_argument("--lr", type=float, default=5e-5)
     parser.add_argument("--epochs", type=int, default=5)
     parser.add_argument("--batch_size", type=int, default=2)

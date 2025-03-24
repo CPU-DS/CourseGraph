@@ -87,6 +87,6 @@ class NERDataset(Dataset):
         return {
             "input_ids": input_ids,
             "attention_mask": attention_mask,
-            "token_type_ids": [0] * len(input_ids),
+            "token_type_ids": torch.zeros_like(input_ids),
             "labels": torch.tensor(token_labels)
         }

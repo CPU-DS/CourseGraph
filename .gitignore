@@ -51,10 +51,12 @@ assets
 target
 experimental/data/**/*.json
 experimental/data/**/*.txt
-experimental/**/pre_trained
-experimental/**/checkpoints
-experimental/**/example*.json
 !experimental/data/example/*.json
+experimental/scripts/**/pre_trained
+experimental/scripts/**/checkpoints
+experimental/scripts/**/example*.json
+experimental/scripts/**/seqeval
+experimental/scripts/test*.py
 api_keys.json
 *.ps1
 .ipynb_checkpoints

@@ -29,7 +29,7 @@ class BertBiLSTMCRF(PreTrainedModel):
         self.dropout = nn.Dropout(0.1)
         self.crf = CRF(self.num_labels, batch_first=True)
     
-    def forward(self, input_ids=None, attention_mask=None, token_type_ids=None, labels=None, **kwargs):
+    def forward(self, input_ids, attention_mask, token_type_ids, labels=None, **kwargs):
         outputs = self.bert(
             input_ids=input_ids,
             attention_mask=attention_mask,
@@ -47,7 +47,7 @@ class BertBiLSTMCRF(PreTrainedModel):
         pred_label_ids = self.crf.decode(emissions, mask=attention_mask.bool())
         pred_label_ids = torch.tensor(pred_label_ids, device=emissions.device)
         pred_label_ids[pred_label_ids == 0] = 1 # 模型后处理，不允许预测出现 IGNORE
-        pred_label_ids = F.pad(pred_label_ids, (0, labels.shape[1] - pred_label_ids.shape[1]), value=0, mode="constant")
+        pred_label_ids = F.pad(pred_label_ids, (0, input_ids.shape[1] - pred_label_ids.shape[1]), value=0, mode="constant")
         
         if labels is not None:
             valid_mask = labels != 0

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Create Date: 2024/12/30 Good bye 2024!
+# Create Date: 2024/12/30 Goodbye 2024!
 # Author: wangtao <wangtao.cpu@gmail.com>
 # File Name: course_graph/kg/model.py
 # Description: API 模型

@@ -270,7 +270,7 @@ class VLLM(Server):
             base_url=f'http://{self.host}:{self.port}/v1'
         )
 
-    def run(self) -> None:
+    def run_loop(self) -> 'VLLM':
         """ 持续运行直到终止
         """
         def signal_handler(signum, frame):
@@ -282,6 +282,7 @@ class VLLM(Server):
             signal.pause()
         except KeyboardInterrupt:
             self.close()
+        return self
 
     def __enter__(self) -> 'VLLM':
         return self

@@ -20,4 +20,15 @@ experimental/
     └── pre_trained/    # 预训练模型
 ```
 
+### 实验准备
+
+#### Swanlab
+
+登录 [Swanlab](https://swanlab.cn)， 在[用户设置](https://swanlab.cn/space/~/settings)中获取 API Key 并配置环境变量
+```bash
+export SWANLAB_API_KEY=
+```
+
+#### 数据
+
 ### 数据格式说明
