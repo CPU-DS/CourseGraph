@@ -24,7 +24,7 @@ experimental/
 
 #### Swanlab
 
-登录 [Swanlab](https://swanlab.cn)， 在[用户设置](https://swanlab.cn/space/~/settings)中获取 API Key 并配置环境变量
+登录 [Swanlab](https://swanlab.cn)， 获取 API Key 并配置到环境变量中
 ```bash
 export SWANLAB_API_KEY=
 ```

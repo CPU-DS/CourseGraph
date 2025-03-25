@@ -21,9 +21,10 @@ def serialize(file: str):
                 entities = []
                 relations = []
                 id2name = {}
-                for r in result:
+                for r in result:  # 遍历结果
                     if r['type'] == 'labels':
                         entities.append({
+                            'id': r['id'],
                             'start': r['value']['start'],
                             'end': r['value']['end'],
                             'text': r['value']['text'],
@@ -33,6 +34,8 @@ def serialize(file: str):
                         type_ = r.get('labels', [None])[0]
                         if type_:
                             relations.append({
+                                'source_id': r['from_id'],
+                                'target_id': r['to_id'],
                                 'source': id2name[r['from_id']],
                                 'target': id2name[r['to_id']],
                                 'type': type_})
