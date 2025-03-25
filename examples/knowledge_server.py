@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Create Date: 2024/07/15
+# Create Date: 2025/03/25
 # Author: wangtao <wangtao.cpu@gmail.com>
 # File Name: examples/knowledge_server.py
 # Description: 知识图谱后端服务

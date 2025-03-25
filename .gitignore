@@ -51,7 +51,7 @@ target
 experimental/data/**/*.json
 experimental/data/**/*.txt
 !experimental/data/example/*.json
-experimental/scripts/**/pre_trained
+experimental/pre_trained
 experimental/scripts/**/checkpoints
 experimental/scripts/**/example*.json
 experimental/scripts/**/seqeval

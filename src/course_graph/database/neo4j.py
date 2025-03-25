@@ -24,6 +24,7 @@ class Neo4j(Graph):
             password (str): 密码
             graph_name (str, optional): 图数据库名称. Defaults to 'neo4j'.
         """
+        self.url = url
         if not any(url.startswith(protocol) for protocol in PROTOCOLS):
             url = f'{DEFAULT_PROTOCOL}://{url}'
         super().__init__(url, auth=(username, password), name=graph_name)
@@ -63,3 +64,6 @@ class Neo4j(Graph):
         if limit is not None:
             query = query.limit(limit)
         return query.all()
+
+    def __hash__(self):
+        return hash(self.url)
