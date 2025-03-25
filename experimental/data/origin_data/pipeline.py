@@ -21,7 +21,7 @@ def serialize(file: str):
                 entities = []
                 relations = []
                 id2name = {}
-                for r in result:  # 遍历结果
+                for r in result:  # 遍历所有标注结果
                     if r['type'] == 'labels':
                         entities.append({
                             'id': r['id'],

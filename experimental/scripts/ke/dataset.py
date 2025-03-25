@@ -47,6 +47,7 @@ class NERDataset(Dataset):
             tokens = self.tokenizer.convert_ids_to_tokens(input_ids)
             offset_mapping = encoding["offset_mapping"].squeeze().tolist()
 
+            # 从实体得到 token_labels
             token_labels = []
             for i, offset in enumerate(offset_mapping):
                 token = tokens[i]

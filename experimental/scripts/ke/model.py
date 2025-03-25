@@ -10,7 +10,6 @@ from torchcrf import CRF
 import torch
 from torch.nn import functional as F
 
-
 class BertBiLSTMCRF(PreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
