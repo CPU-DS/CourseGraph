@@ -61,6 +61,7 @@ test*.py
 api_keys.json
 *.ps1
 src/course_graph/database/faiss_index
+src/course_graph/database/milvus.db
 libreoffice_convert.log
 .cursorrules
 .ruff_cache
