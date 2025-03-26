@@ -9,29 +9,23 @@ import os
 from typing import Literal
 
 
-class Qwen(LLM):
 
+class Qwen(LLM):
     def __init__(self,
-                 name: str = 'qwen-max',
-                 *,
                  api_key: str = os.getenv('DASHSCOPE_API_KEY')):
         """ 阿里云大模型 API 服务
 
         Args:
-            name (str, optional): 模型名称. Defaults to qwen-max.
             api_key (str, optional): API key. Defaults to os.getenv('DASHSCOPE_API_KEY').
         """
         super().__init__(
-            name=name,
             base_url='https://dashscope.aliyuncs.com/compatible-mode/v1',
             api_key=api_key)
-
+        self.model = 'qwen-max'
+        
 
 class DeepSeek(LLM):
-
     def __init__(self,
-                 name: Literal['deepseek-chat', 'deepseek-reasoner'] = 'deepseek-chat',
-                 *,
                  api_key: str = os.getenv('DEEPSEEK_API_KEY')):
         """ DeepSeek 模型 API 服务
 
@@ -40,23 +34,33 @@ class DeepSeek(LLM):
             api_key (str, optional): API key. Defaults to os.getenv('DEEPSEEK_API_KEY').
         """
         super().__init__(
-            name=name,
             base_url='https://api.deepseek.com/v1', 
             api_key=api_key)
+        self.model: Literal['deepseek-chat', 'deepseek-reasoner'] = 'deepseek-chat'
 
 
 class OpenRouter(LLM):
-    def __init__(self, 
-                 name, 
-                 *, 
+    def __init__(self,
                  api_key: str = os.getenv('OPENROUTER_API_KEY')):
         """ OpenRouter API 服务
 
         Args:
-            name (str): 模型名称.
             api_key (str, optional): API key. Defaults to os.getenv('OPENROUTER_API_KEY').
         """
         super().__init__(
-            name=name, 
             base_url='https://openrouter.ai/api/v1', 
+            api_key=api_key)
+
+
+class Volcengine(LLM):
+    def __init__(self,
+                 api_key: str = os.getenv('ARK_API_KEY')):
+        """ 火山引擎 API 服务
+        
+        Args:
+            name (str): 模型名称.
+            api_key (str, optional): API key. Defaults to os.getenv('ARK_API_KEY').
+        """
+        super().__init__(
+            base_url='https://ark.cn-beijing.volces.com/api/v3',
             api_key=api_key)

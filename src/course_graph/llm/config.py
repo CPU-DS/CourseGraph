@@ -4,7 +4,7 @@
 # File Name: course_graph/llm/type.py
 # Description: 定义大模型配置
 
-from typing import TypedDict
+from typing import TypedDict, Literal
 
 class LLMConfig(TypedDict, total=False):
     temperature: float
@@ -25,5 +25,5 @@ class VLLMConfig(TypedDict, total=False):
     enable_auto_tool_choice: bool
     tool_call_parser: str
     enable_reasoning: bool
-    reasoning_parser: str
+    reasoning_parser: Literal['deepseek_r1']
     chat_template: str

@@ -6,7 +6,9 @@
 
 from openai import OpenAI
 from openai.types.chat import *
+from openai import NotFoundError
 from openai import NOT_GIVEN, NotGiven
+from typing import Generator
 import os
 import requests
 import subprocess
@@ -23,14 +25,21 @@ class LLMBase:
 
     def __init__(
         self,
-        model: str,
-        client: OpenAI,
-    ) -> None:
+        base_url: str,
+        api_key: str,
+    ):
         """ 大模型基类, 兼容 OpenAI API
+            
+        Args:
+            base_url (str): OpenAI Base URL
+            api_key (str): OpenAI API Key
         """
 
-        self.model = model
-        self.client = client
+        self.client = OpenAI(
+            base_url=base_url,
+            api_key=api_key,
+        )
+        self.model = ''
 
         self.extra_body = {}
         self.config: LLMConfig = {}
@@ -53,8 +62,9 @@ class LLMBase:
         messages: list[ChatCompletionMessageParam],
         tools: list[ChatCompletionToolParam] | NotGiven = NOT_GIVEN,
         tool_choice: ChatCompletionToolChoiceOptionParam | NotGiven = NOT_GIVEN,
-        parallel_tool_calls: bool | NotGiven = NOT_GIVEN
-    ) -> ChatCompletionMessage:
+        parallel_tool_calls: bool | NotGiven = NOT_GIVEN,
+        stream: bool = False
+    ) -> ChatCompletion:
         """ 基于message中保存的历史消息进行对话, 请在外部保存历史记录, LLM 对象不负责保存
 
         Args:
@@ -62,9 +72,10 @@ class LLMBase:
             tools (list[ChatCompletionToolParam] | NotGiven, optional): 外部tools. Defaults to NOT_GIVEN.
             tool_choice: (ChatCompletionToolChoiceOptionParam | NotGiven, optional): 强制使用外部工具. Defaults to NOT_GIVEN.
             parallel_tool_calls: (bool | NotGiven, optional): 允许工具并行调用. Defaults to NOT_GIVEN.
+            stream: (bool, optional): 是否流式输出. Defaults to False.
 
         Returns:
-            ChatCompletionMessage: 模型返回结果
+            ChatCompletion: 模型返回结果
         """
         # functions 废弃
         # 参考: https://platform.openai.com/docs/api-reference/chat/create
@@ -72,6 +83,7 @@ class LLMBase:
         return self.client.chat.completions.create(
             model=self.model,
             messages=messages,
+            stream=stream,
             top_p=self.config.get('top_p', NOT_GIVEN),
             temperature=self.config.get('temperature', NOT_GIVEN),
             presence_penalty=self.config.get('presence_penalty', NOT_GIVEN),
@@ -90,30 +102,28 @@ class LLMBase:
                 'top_k': self.config.get('top_k', NOT_GIVEN),
                 'repetition_penalty': self.config.get('repetition_penalty', NOT_GIVEN),
                 **self.extra_body
-            }).choices[0].message
+            })
 
 
 class LLM(LLMBase):
 
     def __init__(self,
-                 name: str,
-                 *,
                  api_key: str,
                  base_url: str = None):
         """ 大模型封装类
 
         Args:
-            name (str): 模型名称
             api_key (str): API key.
             base_url (str, optional): 地址. Defaults to None.
         """ 
         super().__init__(
-            model=name,
-            client=OpenAI(
-                api_key=api_key,
-                base_url=base_url,
-            )
+            api_key=api_key,
+            base_url=base_url
         )
+        try:
+            self.model_ids = [model.id for model in self.client.models.list().data]
+        except NotFoundError:
+            self.model_ids = []
 
     def chat(self, message: str) -> tuple[str, str] | tuple[str, None]:
         """ 模型的单轮对话
@@ -124,8 +134,24 @@ class LLM(LLMBase):
         Returns:
             tuple[str, str] | tuple[str, None]: 模型输出, 推理过程
         """
-        response = self.chat_completion(messages=[{'role': 'user', 'content': message}])
+        response = self.chat_completion(messages=[{'role': 'user', 'content': message}]).choices[0].message
         return response.content, response.reasoning_content if hasattr(response, 'reasoning_content') else None
+    
+    def stream_chat(self, message: str) -> Generator[str, None, None]:
+        """ 模型的单轮流式对话
+        
+        Args:
+            message (str): 用户输入
+
+        Returns:
+            Generator[str, None, None]: 模型输出
+        """
+        chunks = self.chat_completion(messages=[{'role': 'user', 'content': message}], stream=True)
+        for chunk in chunks:
+            response = chunk.choices[0].delta
+            content = response.reasoning_content if hasattr(response, 'reasoning_content') and len(response.reasoning_content) > 0 else response.content
+            if content:
+                yield content
     
     def image_chat(self, path: str | list[str], message: str) -> tuple[str, str] | tuple[str, None]:
         """ 基于图片单轮对话
@@ -159,7 +185,7 @@ class LLM(LLMBase):
                 *content
             ]
         }]
-        response = self.chat_completion(messages=messages)
+        response = self.chat_completion(messages=messages).choices[0].message
         return response.content, None
 
 
@@ -217,7 +243,7 @@ class VLLM(Server):
                  port: int = 9017,
                  log: bool = True,
                  timeout: int = 60,
-                 vllm_config: VLLMConfig = None):
+                 config: VLLMConfig = None):
         """ 使用VLLM加载模型
 
         Args:
@@ -226,7 +252,7 @@ class VLLM(Server):
             port (int, optional): 服务端口. Defaults to 9017.
             timeout (int, optional): 启动服务超时时间. Defaults to 60.
             log (bool, optional): 输出控制台日志. Defaults to True.
-            vllm_config (VLLMConfig, optional): VLLM配置. Defaults to None.
+            config (VLLMConfig, optional): VLLM配置. Defaults to None.
         """
         
         self.host = host
@@ -243,16 +269,16 @@ class VLLM(Server):
         """
         commands = shlex.split(command)
             
-        if vllm_config:
-            for key in vllm_config.keys():
-                if type(vllm_config[key]) == bool and vllm_config[key]:
+        if config:
+            for key in config.keys():
+                if type(config[key]) == bool and config[key]:
                     commands.extend([
                         f"--{key.replace('_', '-')}"
                     ])
                 else:
                     commands.extend([
                         f"--{key.replace('_', '-')}",
-                        str(vllm_config[key])
+                        str(config[key])
                     ])
 
         Server.__init__(self,
@@ -263,14 +289,16 @@ class VLLM(Server):
 
     def to_llm(self) -> LLM:
         """ 获取一个 LLM 对象
+
+        Returns:
+            LLM: LLM 对象
         """
         return LLM(
-            name=self.model,
             api_key='EMPTY',
             base_url=f'http://{self.host}:{self.port}/v1'
         )
 
-    def run_loop(self) -> 'VLLM':
+    def run_loop(self):
         """ 持续运行直到终止
         """
         def signal_handler(signum, frame):
@@ -282,7 +310,6 @@ class VLLM(Server):
             signal.pause()
         except KeyboardInterrupt:
             self.close()
-        return self
 
     def __enter__(self) -> 'VLLM':
         return self

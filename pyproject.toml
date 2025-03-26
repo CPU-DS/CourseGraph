@@ -4,7 +4,7 @@ version = "0.1.0"
 readme = "README.md"
 requires-python = ">=3.10"
 description = "Automatic Construction of Course Knowledge Graphs via LLMs"
-license = { text = "MIT" }
+license = { file = "LICENSE" }
 authors = [{ name = "Data Science Lab at China Pharmaceutical University" }]
 maintainers = [{ name = "wangtao2001", email = "wangtao.cpu@gmail.com" }]
 dependencies = [

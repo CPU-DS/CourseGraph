@@ -82,7 +82,7 @@ class Agent:
             self.messages,
             parallel_tool_calls=self.parallel_tool_calls,
             tools=tools,
-            tool_choice=self.tool_choice)
+            tool_choice=self.tool_choice).choices[0].message
         # 保存历史记录
         resp = response.model_dump()
         resp['name'] = self.name
