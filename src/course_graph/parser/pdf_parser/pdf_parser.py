@@ -137,7 +137,7 @@ class PDFParser(Parser):
             Image.fromarray(img).save(file_path)
             prompt_, instruction = self.vl_prompt.get_catalogue_prompt()
             vlm.instruction = instruction
-            res = vlm.image_chat(file_path, prompt_)
+            res, _ = vlm.image_chat(file_path, prompt_)
             if res.startswith('是'):
                 catalogue.append(index)
         shutil.rmtree(self.cache_path)
@@ -191,7 +191,8 @@ class PDFParser(Parser):
                 [content.content for content in page.contents]).strip()
             prompt, instruction = self.parser_prompt.get_directory_prompt(text_contents)
             llm.instruction = instruction
-            res, _ = llm.chat(prompt).replace("，", ",")
+            res, _ = llm.chat(prompt)
+            res = res.replace("，", ",")
             lines.extend(get_list(res))
         self._set_outline(lines, offset, llm)
 
@@ -370,7 +371,7 @@ class PDFParser(Parser):
             x1, y1, x2, y2 = block_['bbox']
             type_ = block_['type']
             # 扩充裁剪区域
-            x1, y1, x2, y2 = max(0, x1 - wt), max(0, y1 - ht), min(w, x2 + wt), min(h, y2 + ht)  # 防止越界
+            x1, y1, x2, y2 = max(0.0, x1 - wt), max(0.0, y1 - ht), min(float(w), x2 + wt), min(float(h), y2 + ht)  # 防止越界
             if (x2 - x1) < 5 or (y2 - y1) < 5:
                 return  # 区域过小
             if type_ == 'figure' and ((x2 - x1) < 150 or (y2 - y1) < 150):
@@ -410,7 +411,7 @@ class PDFParser(Parser):
             if file_path := save_block(block_, img, idx):
                 prompt, instruction = self.vl_prompt.get_ocr_prompt()
                 self.vlm.instruction = instruction
-                block_['text'] = self.vlm.image_chat(file_path, prompt)
+                block_['text'], _ = self.vlm.image_chat(path=file_path, message=prompt)
 
         for idx, block in enumerate(blocks):
             type_ = block['type']

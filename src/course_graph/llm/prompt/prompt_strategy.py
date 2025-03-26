@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # Create Date: 2024/07/13
 # Author: wangtao <wangtao.cpu@gmail.com>
-# File Name: course_graph/llm/prompt_strategy.py
+# File Name: course_graph/llm/prompt/prompt_strategy.py
 # Description: 定义提示词示例检索策略
 
 import os

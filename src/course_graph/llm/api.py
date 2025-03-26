@@ -30,7 +30,6 @@ class DeepSeek(LLM):
         """ DeepSeek 模型 API 服务
 
         Args:
-            name (Literal['deepseek-chat', 'deepseek-reasoner'], optional): 模型名称. Defaults to deepseek-chat.
             api_key (str, optional): API key. Defaults to os.getenv('DEEPSEEK_API_KEY').
         """
         super().__init__(
@@ -58,7 +57,6 @@ class Volcengine(LLM):
         """ 火山引擎 API 服务
         
         Args:
-            name (str): 模型名称.
             api_key (str, optional): API key. Defaults to os.getenv('ARK_API_KEY').
         """
         super().__init__(

@@ -48,7 +48,7 @@ class PaddleOCR(OCRModel):
             sts = [line[1][0] for line in res]
             return re.sub(r'[^\S\n]+', '', ''.join(sts))
         return ''
-        
+
 
 class GOT(OCRModel):
 
@@ -63,7 +63,7 @@ class GOT(OCRModel):
             low_cpu_mem_usage=True,
             use_safetensors=True,
             pad_token_id=self.tokenizer.eos_token_id).eval().to(device)
-        
+
         self.unreadable_pattern = re.compile(r'[\ue000-\uf8ff\ufff0-\uffff]')
 
     class OverrideGenerate:
@@ -78,6 +78,7 @@ class GOT(OCRModel):
                 kwargs['temperature'] = self.temperature
                 kwargs['do_sample'] = self.do_sample
                 return self.original_generate(*args, **kwargs)
+
             self.model.generate = new_generate
 
         def __exit__(self, exc_type, exc_val, exc_tb):
@@ -85,16 +86,16 @@ class GOT(OCRModel):
 
     def predict(self, img_path: str) -> str:
         with open(os.devnull, 'w') as devnull, redirect_stdout(devnull):
-            timmout = False 
+            timmout = False
             start_time = time.time()
             res, _ = self.model.chat(self.tokenizer, img_path, ocr_type='ocr')
             if time.time() - start_time > 30:
                 timmout = True
             res = res.replace('\n', '').replace('\u3000', ' ')
-            
+
             if self.unreadable_pattern.search(res) or timmout:
                 retry = 0
-                while retry < 3: # 不断尝试提高温度
+                while retry < 3:  # 不断尝试提高温度
                     with self.OverrideGenerate(self.model, temperature=1.0 * (retry + 1), do_sample=True):
                         res, _ = self.model.chat(self.tokenizer, img_path, ocr_type='ocr')
                     if not self.unreadable_pattern.search(res):
@@ -103,6 +104,7 @@ class GOT(OCRModel):
                 else:
                     res = self.unreadable_pattern.sub('', res)  # 过滤掉不可读的文本
             return res
+
 
 class QwenOCR(OCRModel):
 

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # Create Date: 2024/11/05
 # Author: wangtao <wangtao.cpu@gmail.com>
-# File Name: course_graph/llm/parser_prompt.py
+# File Name: course_graph/llm/prompt/parser_prompt.py
 # Description: 使用大模型解析文档相关提示词
 
 class ParserPromptGenerator:
@@ -22,7 +22,6 @@ class ParserPromptGenerator:
     3.保留原始内容：删除句子或段落中不必要的换行符，确保内容与之前的上下文顺畅连接。
     重要提示：仅回复更正后的文本。保留所有原始格式，包括换行符。不要包含任何介绍、解释或元数据。
     OCR结果为: {text}""", '你擅长帮助用户纠正从图片中提取的OCR文字错误。'
-
 
     @staticmethod
     def get_directory_prompt(content: str) -> tuple[str, str]:

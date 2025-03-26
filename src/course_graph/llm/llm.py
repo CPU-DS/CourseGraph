@@ -149,7 +149,7 @@ class LLM(LLMBase):
         chunks = self.chat_completion(messages=[{'role': 'user', 'content': message}], stream=True)
         for chunk in chunks:
             response = chunk.choices[0].delta
-            content = response.reasoning_content if hasattr(response, 'reasoning_content') and len(response.reasoning_content) > 0 else response.content
+            content = response.reasoning_content if hasattr(response, 'reasoning_content') and response.reasoning_content is not None else response.content
             if content:
                 yield content
     

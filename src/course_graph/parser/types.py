@@ -24,7 +24,7 @@ class Content:
     type: ContentType  # 只有title两类
     origin_type: str  # 和 bbox 同为目标检测结果
     content: str  # 文本
-    bbox: tuple[float]
+    bbox: tuple[float, ...]
 
 
 @dataclass
