@@ -48,7 +48,7 @@ class Agent:
         if functions:
             self.add_tool_functions(*functions)
 
-        if tool_choice != NOT_GIVEN and tool_choice not in ['required', 'auto', 'none']:
+        if tool_choice != NOT_GIVEN and tool_choice not in ['required', 'auto', 'none']:  # 需要注意工具无限循环
             self.tool_choice = {
                 "type": "function",
                 "function": {

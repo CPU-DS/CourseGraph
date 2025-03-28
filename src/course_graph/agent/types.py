@@ -5,7 +5,7 @@
 # Description: 定义各种中间类
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Optional, Any, Union, TypeVar
+from typing import TYPE_CHECKING, Optional, Any, Union, TypeVar, Dict, List, TypedDict
 
 if TYPE_CHECKING:
     from .agent import Agent
@@ -50,3 +50,51 @@ class Result:
     content: str = 'Function call successfully.'
     context_variables: ContextVariables | dict = ContextVariables()
     message: bool = True
+    
+    def __repr__(self):
+        return str({
+            'agent': self.agent.name,
+            'content': self.content,
+            'context_variables': self.context_variables,
+            'message': self.message
+        })
+    
+
+@dataclass
+class TraceEvent:
+    timestamp: float
+    agent_name: str
+
+@dataclass
+class TraceEventUserMessage(TraceEvent):
+    message: str
+
+@dataclass
+class TraceEventAgentMessage(TraceEvent):
+    message: str
+
+@dataclass
+class TraceEventAgentSwitch(TraceEvent):
+    to_agent: str
+    
+@dataclass
+class TraceEventToolCall(TraceEvent):
+    function: str
+    arguments: Dict[str, Any]
+
+@dataclass
+class TraceEventToolResult(TraceEvent):
+    function: str
+    result: Any
+
+@dataclass
+class TraceEventContextUpdate(TraceEvent):
+    old_context: ContextVariables
+    new_context: ContextVariables
+
+  
+class Trace(TypedDict):
+    trace_id: str
+    events: List[TraceEvent]
+    start_time: float
+    end_time: Optional[float]

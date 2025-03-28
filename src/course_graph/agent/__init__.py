@@ -7,4 +7,4 @@
 from .tool import Tool
 from .agent import Agent
 from .controller import Controller
-from .types import Result, ContextVariables
+from .types import Result, ContextVariables, TraceEvent

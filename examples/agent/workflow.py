@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # Create Date: 2024/11/03
 # Author: wangtao <wangtao.cpu@gmail.com>
-# File Name: examples/agent/workflow_orchestration.py
+# File Name: examples/agent/workflow.py
 # Description: 工作流编排
 
 from course_graph.llm import Qwen
@@ -69,4 +69,5 @@ def workflow(controller):
     pprint(en_res)
 
 
-workflow(controller)
+if __name__ == '__main__':
+    workflow(controller)

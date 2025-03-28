@@ -30,10 +30,10 @@ translator = Agent(name='translator',
 
 ```python
 from course_graph.agent import Controller
-controller = Controller()
+controller = Controller(max_turns=10)
 ```
 
-`Controller` 负责启动 `Agent` 并为 `Agent` 提供上下文、具体执行外部工具等功能。
+`Controller` 负责启动 `Agent` 并为 `Agent` 提供上下文、具体执行外部工具等功能, `max_turns` 参数代表运行最大轮数。
 
 ## 启动智能体
 
@@ -252,6 +252,23 @@ from course_graph.agent import Result
 
 result = Result(context_variables={'current_time': '2024/09/02'})
 ```
+
+## Trace
+
+Trace 功能, 可以记录智能体的对话、工具调用、上下文变量变化等历史。 `Controller` 的 `trace_callback` 参数可以传递一个回调函数, 当 trace 事件发生时, 会调用该回调函数。
+
+```python
+controller = Controller(trace_callback=pprint)
+```
+
+该回调函数需要接受一个 `TraceEvent` 类型的参数, 具体来说包含以下几种类型:
+
+- `TraceEventUserMessage`:   用户消息
+- `TraceEventAgentMessage`:  智能体消息
+- `TraceEventAgentSwitch`: 智能体切换
+- `TraceEventToolCall`: 工具调用
+- `TraceEventToolResult`: 工具调用结果
+- `TraceEventContextUpdate`: 上下文变量更新
 
 ## 多智能体编排
 

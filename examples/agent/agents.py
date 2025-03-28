@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # Create Date: 2024/10/16
 # Author: wangtao <wangtao.cpu@gmail.com>
-# File Name: examples/agent/agent_orchestration.py
+# File Name: examples/agent/agents.py
 # Description: 多智能体编排
 
 from course_graph.llm import Qwen
@@ -82,8 +82,9 @@ alarm_clock_agent = Agent(name='alarm clock agent',
                           functions=[add_alarm_clock],
                           instruction='你是一个负责帮用户定闹钟的智能体。')
 
-controller = Controller()
-_, resp = controller.run(
-    agent=core_agent,
-    message='帮我查询一下我这里的天气, 并查询一下我的日程信息。如果日程中有考试的话, 请帮我定一个闹钟, 时间是考试开始前的一个小时。')
-pprint(resp)
+if __name__ == '__main__':
+    controller = Controller()
+    _, resp = controller.run(
+        agent=core_agent,
+        message='帮我查询一下我这里的天气, 并查询一下我的日程信息。如果日程中有考试的话, 请帮我定一个闹钟, 时间是考试开始前的一个小时。')
+    pprint(resp)
