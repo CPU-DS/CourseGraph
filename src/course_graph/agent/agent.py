@@ -13,34 +13,44 @@ import docstring_parser
 from typing import Callable
 from typing import Literal
 from openai import NOT_GIVEN, NotGiven
+from .mcp import MCPServer
+import asyncio
 
 
 class Agent:
 
     def __init__(
             self,
-            name: str,
             llm: LLMBase,
+            name: str = 'Assistant',
             functions: list[Callable] = None,
             tool_choice: str | NotGiven | Literal['required', 'auto', 'none'] = NOT_GIVEN,
             parallel_tool_calls: bool | NotGiven = NOT_GIVEN,
-            instruction: str | Callable[[ContextVariables], str] | Callable[[], str] = 'You are a helpful assistant.'
+            instruction: str | Callable[[ContextVariables], str] | Callable[[], str] = 'You are a helpful assistant.',
+            mcp_server: list[MCPServer] = None,
+            mcp_impl: Literal['function_call'] = 'function_call'
     ) -> None:
         """ 智能体类
 
-        Args: name (str): 名称 
-        llm (LLMBase): 大模型 
-        functions: (list[Callable], optional): 工具函数. Defaults to None.
-        parallel_tool_calls: (bool, optional): 允许工具并行调用. Defaults to False.
-        tool_choice: (Literal['required', 'auto', 'none'] | NotGiven, optional). 强制使用工具函数, 选择模式或提供函数名称. Defaults to NOT_GIVEN.
-        instruction (str | Callable[[ContextVariables], str] | Callable[[], str], optional): 指令. Defaults to 'You are a helpful assistant.'.
+        Args: 
+            llm (LLMBase): 大模型 
+            name (str, optional): 名称. Defaults to 'Assistant'.
+            functions: (list[Callable], optional): 工具函数. Defaults to None.
+            parallel_tool_calls: (bool, optional): 允许工具并行调用. Defaults to False.
+            tool_choice: (Literal['required', 'auto', 'none'] | NotGiven, optional). 强制使用工具函数, 选择模式或提供函数名称. Defaults to NOT_GIVEN.
+            instruction (str | Callable[[ContextVariables], str] | Callable[[], str], optional): 指令. Defaults to 'You are a helpful assistant.'.
+            mcp_server: (list[MCPServer], optional): MCP 服务器. Defaults to None.
+            mcp_impl: (Literal['function_call'] | NotGiven, optional): MCP 协议实现方式, 目前只支持 'function_call'. Defaults to 'function_call'.
         """
-        self.name = name
         self.llm = llm
+        self.name = name
         self.instruction = instruction
 
-        self.tools: list[ChatCompletionToolParam] = []
-        self.tool_functions: dict[str, Callable] = {}
+        self.tools: list[ChatCompletionToolParam] = []  # for LLM
+        
+        self.tool_functions: dict[str, Callable] = {}  # for local function call
+        self.mcp_functions: dict[str, MCPServer] = {}  # for remote function call
+        
         self.parallel_tool_calls = parallel_tool_calls
         self.use_context_variables: dict[str, str] = {}  # 使用了上下文变量的函数以及相应的形参名称
         self.use_agent_variables: dict[str, str] = {}  # 使用了Agent变量的函数以及相应的形参名称
@@ -59,6 +69,23 @@ class Agent:
             self.tool_choice = tool_choice
 
         self.messages: list[ChatCompletionMessageParam] = []
+        self.mcp_server = mcp_server
+   
+    async def initialize(self):
+        """ 等待初始化智能体
+        """
+        for server in self.mcp_server:
+            tools = await server.list_tools()
+            for tool in tools:
+                self.tools.append({
+                    'type': 'function',
+                    'function': {
+                        'name': tool.name,
+                        'description': tool.description,
+                        'parameters': tool.inputSchema
+                    }
+                })  # 注意不能使用 add_tools 方法
+                self.mcp_functions[tool.name] = server
 
     def chat(self, message: str = None) -> ChatCompletionMessage:
         """ Agent 多轮对话
@@ -123,11 +150,13 @@ class Agent:
         }
         self.messages.append(message)
     
-    def tool(self, function: Callable) -> Callable:
+    def tool(self) -> Callable:
         """ 标记一个外部工具函数
         """
-        self.add_tool_functions(function)
-        return function
+        def wrapper(function: Callable) -> Callable:
+            self.add_tool_functions(function)
+            return function
+        return wrapper
     
     def add_tools(self, *tools: 'Tool') -> 'Agent':
         """ 添加外部工具

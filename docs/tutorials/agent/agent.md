@@ -75,7 +75,7 @@ assistant.add_too_functions(get_weather)
 当然，在函数定义时就可以声明其为一个工具函数:
 
 ```python
-@assistant.tool
+@assistant.tool()
 def get_weather(location):
     ...
 ```
