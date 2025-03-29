@@ -309,17 +309,15 @@ import asyncio
 qwen = Qwen()
 
 async def main():
-    async with MCPServer(
-        type='stdio',
-        command='uv',
-        args=['--directory', 'examples/agent', 'run', 'mcp_server.py'],
-    ) as mcp_server:
+    async with MCPServer( {
+        'command': 'uv',
+        'args': ['--directory', 'examples/agent', 'run', 'mcp_server.py'],
+    } ) as mcp_server:
 
         agent = Agent(
             llm=qwen,
             mcp_server=[mcp_server]
         )
-        await agent.initialize()
         controller = Controller()
         _, resp = await controller.run(agent, "帮我查询南京今天的天气")
         print(resp)
@@ -328,11 +326,9 @@ if __name__ == '__main__':
     asyncio.run(main())
 ```
 
-这里有三需要注意:
+这里有两点需要注意:
 
 - MCP Server 必须使用 `async with` 语句块来启动。
-
-- 如果给 `Agent` 传递了 `mcp_server` 参数, 必须调用 `await agent.initialize()` 方法等待初始化完成。
 
 - `Controller` 必须使用异步的 `run` 方法来启动。不能使用同步的 `run_sync` 方法, 因为本质上 `run_sync` 只是 `asyncio.run(controller.run(...))` 的包装。
 

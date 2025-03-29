@@ -69,13 +69,9 @@ class Agent:
             self.tool_choice = tool_choice
 
         self.messages: list[ChatCompletionMessageParam] = []
-        self.mcp_server = mcp_server
    
-    async def initialize(self):
-        """ 等待初始化智能体
-        """
-        for server in self.mcp_server:
-            tools = await server.list_tools()
+        for server in mcp_server:
+            tools = server.tools
             for tool in tools:
                 self.tools.append({
                     'type': 'function',
