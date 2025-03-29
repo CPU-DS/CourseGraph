@@ -10,6 +10,7 @@ from mcp.client.stdio import stdio_client
 from contextlib import AsyncExitStack
 from mcp.types import Tool
 
+
 class MCPServer:
     def __init__(self, type: Literal['stdio'], command: str, args: list[str], envs: dict[str, str] = None):
         """ MCP 服务器
@@ -36,8 +37,3 @@ class MCPServer:
     
     async def __aexit__(self, exc_type, exc_value, traceback):
         await self.stack.aclose()
-        
-        
-        
-        
-        

@@ -38,12 +38,12 @@ controller = Controller(max_turns=10)
 ## 启动智能体
 
 ```python
-_, resp = controller.run(agent=translator, message="请帮我翻译蛋白质。")
+_, resp = controller.run_sync(agent=translator, message="请帮我翻译蛋白质。")
 ```
 
 其中 `message` 参数代表用户的具体指令或者是用户与智能体对话的开始。
 
-`controller.run` 方法返回两个值, 其中第一个值代表最后响应的 `Agent` 对象 (暂时还用不到), 第二个值代表智能体最后的相应内容。在这个例子中, `resp` 的值应该是智能体翻译的结果 (不排除其中包含一些提示语)。
+`controller.run_sync` 方法返回两个值, 其中第一个值代表最后响应的 `Agent` 对象 (暂时还用不到), 第二个值代表智能体最后的相应内容。在这个例子中, `resp` 的值应该是智能体翻译的结果 (不排除其中包含一些提示语)。
 
 ## 使用外部工具
 
@@ -253,22 +253,111 @@ from course_graph.agent import Result
 result = Result(context_variables={'current_time': '2024/09/02'})
 ```
 
+## MCP 支持
+
+> [!NOTE]
+> 目前 MCP 协议是通过 function call 功能实现的。
+
+### 获取一个 MCP Server
+
+你可以通过 [Model Context Protocol servers](https://github.com/modelcontextprotocol/servers) 等项目获取到大量的 MCP Server 资源。
+
+这里我们使用 Python SDK 实现一个简单的 MCP Server:
+
+```python
+from mcp.server.fastmcp import FastMCP
+import json
+
+mcp = FastMCP('weather')
+
+@mcp.tool()
+def get_weather(city: str) -> str:
+    """ 获取指定城市当天的天气
+    
+    Args:
+        city: 城市名称
+
+    Returns:
+        dict: 天气信息
+    """
+    resp = {
+        'city': city,
+        'temperature_high': 20,
+        'temperature_low': 18,
+        'temperature_unit': 'C',
+        'weather': 'sunny'
+    }
+    return json.dumps(resp, ensure_ascii=False)
+
+if __name__ == '__main__':
+    mcp.run(transport='stdio')
+```
+
+项目创建以及环境配置可以参考 [官方文档](https://modelcontextprotocol.io/quickstart/server)。 该 Server 可以通过以下命令启动:
+
+```bash
+uv --directory examples/agent run mcp_server.py
+```
+
+### 为智能体添加 MCP Server 并启动
+
+```python
+from course_graph.agent import Agent, Controller, MCPServer
+from course_graph.llm import Qwen
+import asyncio
+
+qwen = Qwen()
+
+async def main():
+    async with MCPServer(
+        type='stdio',
+        command='uv',
+        args=['--directory', 'examples/agent', 'run', 'mcp_server.py'],
+    ) as mcp_server:
+
+        agent = Agent(
+            llm=qwen,
+            mcp_server=[mcp_server]
+        )
+        await agent.initialize()
+        controller = Controller()
+        _, resp = await controller.run(agent, "帮我查询南京今天的天气")
+        print(resp)
+
+if __name__ == '__main__':
+    asyncio.run(main())
+```
+
+这里有三需要注意:
+
+- MCP Server 必须使用 `async with` 语句块来启动。
+
+- 如果给 `Agent` 传递了 `mcp_server` 参数, 必须调用 `await agent.initialize()` 方法等待初始化完成。
+
+- `Controller` 必须使用异步的 `run` 方法来启动。不能使用同步的 `run_sync` 方法, 因为本质上 `run_sync` 只是 `asyncio.run(controller.run(...))` 的包装。
+
+### MCP Server 与外部工具的比较
+
+这里 MCP 协议虽然是通过 function call 功能实现的, 但是缺失了自动注入上下文变量和当前 Agent 的功能。并且本地外部工具的优先级更高，如果遇到同名的工具函数，会优先调用本地函数。
+
 ## Trace
 
 Trace 功能, 可以记录智能体的对话、工具调用、上下文变量变化等历史。 `Controller` 的 `trace_callback` 参数可以传递一个回调函数, 当 trace 事件发生时, 会调用该回调函数。
 
 ```python
+from pprint import pprint
+
 controller = Controller(trace_callback=pprint)
 ```
 
-该回调函数需要接受一个 `TraceEvent` 类型的参数, 具体来说包含以下几种类型:
+该回调函数需要接受一个 `TraceEvent` 类型的参数, 其中事件类型包括:
 
-- `TraceEventUserMessage`:   用户消息
-- `TraceEventAgentMessage`:  智能体消息
-- `TraceEventAgentSwitch`: 智能体切换
-- `TraceEventToolCall`: 工具调用
-- `TraceEventToolResult`: 工具调用结果
-- `TraceEventContextUpdate`: 上下文变量更新
+- `USER_MESSAGE`:   用户消息
+- `AGENT_MESSAGE`:  智能体消息
+- `AGENT_SWITCH`: 智能体切换
+- `TOOL_CALL`: 工具调用
+- `TOOL_RESULT`: 工具调用结果
+- `CONTEXT_UPDATE`: 上下文变量更新
 
 ## 多智能体编排
 

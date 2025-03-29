@@ -46,14 +46,14 @@ controller = Controller(context_variables={'news': news})
 
 
 def chinese_news_write(controller: Controller) -> str:
-    _, trans = controller.run(agent=translator)
+    _, trans = controller.run_sync(agent=translator)
     controller.context_variables['trans'] = trans
-    _, res = controller.run(agent=chinese_news_editor)
+    _, res = controller.run_sync(agent=chinese_news_editor)
     return res
 
 
 def english_news_write(controller: Controller) -> str:
-    _, res = controller.run(agent=english_news_editor)
+    _, res = controller.run_sync(agent=english_news_editor)
     return res
 
 

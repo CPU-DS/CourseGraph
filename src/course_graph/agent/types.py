@@ -6,6 +6,8 @@
 
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Optional, Any, Union, TypeVar, Dict, List, TypedDict
+from enum import Enum
+from datetime import datetime
 
 if TYPE_CHECKING:
     from .agent import Agent
@@ -53,54 +55,32 @@ class Result:
 
     def __repr__(self):
         return str({
-            'agent': self.agent.name,
+            'agent': self.agent.name if self.agent else '',
             'content': self.content,
             'context_variables': self.context_variables,
             'message': self.message
         })
 
 
+class TraceEventType(Enum):
+    USER_MESSAGE = 'user_message'
+    AGENT_MESSAGE = 'agent_message'
+    AGENT_SWITCH = 'agent_switch'
+    TOOL_CALL = 'tool_call'
+    TOOL_RESULT = 'tool_result'
+    CONTEXT_UPDATE = 'context_update'
+
+
 @dataclass
 class TraceEvent:
-    timestamp: float
+    timestamp: datetime
     agent_name: str
-
-
-@dataclass
-class TraceEventUserMessage(TraceEvent):
-    message: str
-
-
-@dataclass
-class TraceEventAgentMessage(TraceEvent):
-    message: str
-
-
-@dataclass
-class TraceEventAgentSwitch(TraceEvent):
-    to_agent: str
-
-
-@dataclass
-class TraceEventToolCall(TraceEvent):
-    function: str
-    arguments: Dict[str, Any]
-
-
-@dataclass
-class TraceEventToolResult(TraceEvent):
-    function: str
-    result: Any
-
-
-@dataclass
-class TraceEventContextUpdate(TraceEvent):
-    old_context: ContextVariables
-    new_context: ContextVariables
+    event_type: TraceEventType
+    data: dict
 
 
 class Trace(TypedDict):
     trace_id: str
     events: List[TraceEvent]
-    start_time: float
-    end_time: Optional[float]
+    start_time: datetime
+    end_time: datetime

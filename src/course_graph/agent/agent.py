@@ -10,7 +10,7 @@ from .types import ContextVariables
 from openai.types.chat import *
 import inspect
 import docstring_parser
-from typing import Callable
+from typing import Callable, Awaitable
 from typing import Literal
 from openai import NOT_GIVEN, NotGiven
 from .mcp import MCPServer
@@ -23,7 +23,7 @@ class Agent:
             self,
             llm: LLMBase,
             name: str = 'Assistant',
-            functions: list[Callable] = None,
+            functions: list[Callable | Awaitable] = None,
             tool_choice: str | NotGiven | Literal['required', 'auto', 'none'] = NOT_GIVEN,
             parallel_tool_calls: bool | NotGiven = NOT_GIVEN,
             instruction: str | Callable[[ContextVariables], str] | Callable[[], str] = 'You are a helpful assistant.',
@@ -35,7 +35,7 @@ class Agent:
         Args: 
             llm (LLMBase): 大模型 
             name (str, optional): 名称. Defaults to 'Assistant'.
-            functions: (list[Callable], optional): 工具函数. Defaults to None.
+            functions: (list[Callable | Awaitable], optional): 工具函数. Defaults to None.
             parallel_tool_calls: (bool, optional): 允许工具并行调用. Defaults to False.
             tool_choice: (Literal['required', 'auto', 'none'] | NotGiven, optional). 强制使用工具函数, 选择模式或提供函数名称. Defaults to NOT_GIVEN.
             instruction (str | Callable[[ContextVariables], str] | Callable[[], str], optional): 指令. Defaults to 'You are a helpful assistant.'.
@@ -48,7 +48,7 @@ class Agent:
 
         self.tools: list[ChatCompletionToolParam] = []  # for LLM
         
-        self.tool_functions: dict[str, Callable] = {}  # for local function call
+        self.tool_functions: dict[str, Callable | Awaitable] = {}  # for local function call
         self.mcp_functions: dict[str, MCPServer] = {}  # for remote function call
         
         self.parallel_tool_calls = parallel_tool_calls
@@ -150,10 +150,10 @@ class Agent:
         }
         self.messages.append(message)
     
-    def tool(self) -> Callable:
+    def tool(self) -> Callable | Awaitable:
         """ 标记一个外部工具函数
         """
-        def wrapper(function: Callable) -> Callable:
+        def wrapper(function: Callable | Awaitable) -> Callable | Awaitable:
             self.add_tool_functions(function)
             return function
         return wrapper
@@ -180,7 +180,7 @@ class Agent:
                 self.use_agent_variables[function_name] = r
         return self
 
-    def add_tool_functions(self, *functions: Callable) -> 'Agent':
+    def add_tool_functions(self, *functions: Callable | Awaitable) -> 'Agent':
         """ 添加外部工具函数，并从自动解析函数描述、参数类型、以及参数描述等信息 \n
         若使用了不支持的文档风格或使用复杂参数，请调用 add_tools 方法手动编写函数描述
 

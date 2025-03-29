@@ -84,7 +84,7 @@ alarm_clock_agent = Agent(name='alarm clock agent',
 
 if __name__ == '__main__':
     controller = Controller()
-    _, resp = controller.run(
+    _, resp = controller.run_sync(
         agent=core_agent,
         message='帮我查询一下我这里的天气, 并查询一下我的日程信息。如果日程中有考试的话, 请帮我定一个闹钟, 时间是考试开始前的一个小时。')
     pprint(resp)
