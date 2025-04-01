@@ -60,27 +60,3 @@ class Result:
             'context_variables': self.context_variables,
             'message': self.message
         })
-
-
-class TraceEventType(Enum):
-    USER_MESSAGE = 'user_message'
-    AGENT_MESSAGE = 'agent_message'
-    AGENT_SWITCH = 'agent_switch'
-    TOOL_CALL = 'tool_call'
-    TOOL_RESULT = 'tool_result'
-    CONTEXT_UPDATE = 'context_update'
-
-
-@dataclass
-class TraceEvent:
-    timestamp: datetime
-    agent_name: str
-    event_type: TraceEventType
-    data: dict
-
-
-class Trace(TypedDict):
-    trace_id: str
-    events: List[TraceEvent]
-    start_time: datetime
-    end_time: datetime

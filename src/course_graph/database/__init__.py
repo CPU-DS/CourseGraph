@@ -4,4 +4,4 @@
 # File Name: course_graph/database/__init__.py
 # Description: 数据库接口
 
-from .neo4j import Neo4j
+from .neo4j_ import Neo4j

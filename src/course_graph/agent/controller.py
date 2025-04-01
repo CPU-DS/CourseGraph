@@ -3,18 +3,19 @@
 # Author: wangtao <wangtao.cpu@gmail.com>
 # File Name: course_graph/agent/controller.py
 # Description: 定义控制器
-import datetime
 
 from .agent import Agent
 import copy
 import json
-from .types import *
+from .types import Result, ContextVariables
+from .trace import Trace, TraceEvent, TraceEventType
 import inspect
 from .exception import MaxTurnsException
+from datetime import datetime
 import uuid
 from .utils import async_to_sync
 from mcp.types import TextContent, ImageContent, EmbeddedResource, BlobResourceContents
-from typing import Callable
+from typing import Callable, Any
 
 
 class Controller:
@@ -22,7 +23,7 @@ class Controller:
     def __init__(self,
                  context_variables: ContextVariables | dict = None,
                  max_turns: int = 20,
-                 trace_callback: Callable[[TraceEvent], None] = None) -> None:
+                 trace_callback: Callable[[TraceEvent], Any] = None) -> None:
         """ Agent 运行控制
 
         Args:

@@ -17,7 +17,6 @@ dependencies = [
     "loguru==0.7.2",
     "modelscope==1.16.1",
     "opencv-python==4.10.0.84",
-    "py2neo==2021.2.4",
     "python-docx==1.1.2",
     "pytorch-crf==0.7.2",
     "python-pptx-interface==0.0.12",
@@ -56,6 +55,7 @@ dependencies = [
     "evaluate>=0.4.3",
     "pymilvus>=2.5.6",
     "openai-agents>=0.0.7",
+    "neo4j>=5.28.1",
 ]
 
 [tool.maturin]

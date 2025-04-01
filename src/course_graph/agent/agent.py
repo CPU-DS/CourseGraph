@@ -14,7 +14,6 @@ from typing import Callable, Awaitable
 from typing import Literal
 from openai import NOT_GIVEN, NotGiven
 from .mcp import MCPServer
-import asyncio
 
 
 class Agent:

@@ -20,7 +20,6 @@ from .types import BookMark, KPEntity, KPRelation, ContentType
 from tqdm import tqdm
 from course_graph._core import merge
 from ..database import Neo4j
-from py2neo import Node, Relationship
 
 if TYPE_CHECKING:
     from .parser import Parser
@@ -315,73 +314,81 @@ class Document:
 
     def to_graph(self, neo4j: Neo4j) -> None:
         """ 将 document 对象转换为图谱
-        
+
         Args:
             neo4j (Neo4j): Neo4j 对象
-        
         """
         relas = list(ONTOLOGY['relations'].keys())
         attrs = list(ONTOLOGY['attributes'].keys())
-        transaction = neo4j.begin()
-        id2node = {}
-
+        
+        driver = neo4j.driver
+        
         # 创建文档实体
-        document_node = Node('文档',
-                             id=self.id,
-                             name=self.name)
-        transaction.create(document_node)
+        driver.execute_query(
+            "CREATE (n: 文档 {id: $id, name: $name})",
+            id=self.id,
+            name=self.name
+        )
 
         # 创建所有知识点实体和实体属性
         for entity in self.knowledgepoints:
-            res = [str(sl) for sl in entity.resourceSlices]
-            node = Node('知识点',
-                        id=entity.id,
-                        name=entity.name,
-                        type=entity.type,
-                        resource=res,
-                        **{attr: entity.attributes.get(attr, '') for attr in attrs})
-            transaction.create(node)
-            id2node[entity.id] = node
-
+            attr_dict = {attr: entity.attributes.get(attr, '') for attr in attrs}
+            attention = ', '.join([f"{key}: ${{{key}}}" for key in list(attr_dict.keys())])
+            driver.execute_query(
+                f"CREATE (n: 知识点 {{id: $id, name: $name, type: $type, {attention}}})",
+                id=entity.id,
+                name=entity.name,
+                type=entity.type,
+                **attr_dict
+            )
+        
         # 创建所有知识点关联
         for entity in self.knowledgepoints:
             for relation in entity.relations:
-                if relation.type in relas:
-                    transaction.create(Relationship(id2node[entity.id],
-                                                    relation.type,
-                                                    id2node[relation.tail.id],
-                                                    id=relation.id))
-
-        def bookmark_to_graph(bookmark: BookMark, parent_node: Node):
+                driver.execute_query(
+                    "CREATE (n)-[:$relation {id: $relation_id}]->(m) WHERE n.id = $n_id AND m.id = $m_id",
+                    relation=relation.type,
+                    relation_id=relation.id,
+                    n_id=entity.id,
+                    m_id=relation.tail.id
+                )
+        
+        def bookmark_to_graph(bookmark: BookMark, parent_id: str):
             if bookmark.title in CONFIG['IGNORE_PAGE']:
                 return
             # 创建章节实体
-            bookmark_node = Node('章节',
-                                 id=bookmark.id,
-                                 name=bookmark.title,
-                                 page_start=bookmark.page_start.index,
-                                 page_end=bookmark.page_end.index,
-                                 resource=[str(resource) for resource in bookmark.resource])
-            transaction.create(bookmark_node)
+            driver.execute_query(
+                "CREATE (n: 章节 {id: $id, name: $name, page_start: $page_start, page_end: $page_end, resource: $resource})",
+                id=bookmark.id,
+                name=bookmark.title,
+                page_start=bookmark.page_start.index,
+                page_end=bookmark.page_end.index,
+                resource=[str(resource) for resource in bookmark.resource]
+            )
             # 创建章节和上级章节/文档关联
-            transaction.create(Relationship(parent_node,
-                                            '子章节',
-                                            bookmark_node,
-                                            id=f'3:{shortuuid.uuid()}'))
+            driver.execute_query(
+                "CREATE (n)-[:$relation {id: $relation_id}]->(m) WHERE n.id = $n_id AND m.id = $m_id",
+                relation='子章节',
+                relation_id=f'3:{shortuuid.uuid()}',
+                n_id=parent_id,
+                m_id=bookmark.id
+            )
             # 创建章节和下级章节/知识点关联
             for sub in bookmark.subs:
                 match sub:
                     case BookMark():
-                        bookmark_to_graph(sub, bookmark_node)
+                        bookmark_to_graph(sub, bookmark.id)
                     case KPEntity():
-                        transaction.create(Relationship(bookmark_node,
-                                                        '包含知识点',
-                                                        id2node[sub.id],
-                                                        id=f'3:{shortuuid.uuid()}'))
+                        driver.execute_query(
+                            "CREATE (n)-[:$relation {id: $relation_id}]->(m) WHERE n.id = $n_id AND m.id = $m_id",
+                            relation='提到知识点',
+                            relation_id=f'3:{shortuuid.uuid()}',
+                            n_id=bookmark.id,
+                            m_id=sub.id
+                        )
 
-        for _, bookmark in enumerate(self.bookmarks):
-            bookmark_to_graph(bookmark, document_node)
-        transaction.commit()
+            for _, bookmark in enumerate(self.bookmarks):
+                bookmark_to_graph(bookmark, self.id)
 
     def to_json(self) -> tuple[list, list]:
         """ 将 document 对象转换为 json 格式

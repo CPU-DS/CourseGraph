@@ -13,6 +13,7 @@ from .api_model import *
 from .api_key import APIKeyManager
 from concurrent.futures import ThreadPoolExecutor
 import asyncio
+
 api_key_header = APIKeyHeader(name='api-key', auto_error=False)
 
 
@@ -98,8 +99,8 @@ class API:
                 message='Query nodes success',
                 data=[{
                     'category': label2idx[list(node.labels)[0]],
-                    **dict(node.items())
-                }for node in nodes]
+                    **node._properties
+                } for node in nodes]
             )
         
         @self.echarts_router.post('/relations')
@@ -114,9 +115,25 @@ class API:
                 code=ResponseCode.SUCCESS,
                 message='Query relations success',
                 data=[{
-                    'source': relation.start_node.get('id'),
-                    'target': relation.end_node.get('id'),
+                    'source': relation.nodes[0].element_id,
+                    'target': relation.nodes[1].element_id,
                 } for relation in relations]
+            )
+            
+        @self.echarts_router.post('/nodes_count')
+        async def echarts_nodes_count(_=Security(self.__get_api_key)) -> Response:
+            return Response(
+                code=ResponseCode.SUCCESS,
+                message='Query nodes count success',
+                data=self.neo4j.get_nodes_count()
+            )
+        
+        @self.echarts_router.post('/relations_count')
+        async def echarts_relations_count(_=Security(self.__get_api_key)) -> Response:
+            return Response(
+                code=ResponseCode.SUCCESS,
+                message='Query relations count success',
+                data=self.neo4j.get_relations_count()
             )
 
     def run(self):
