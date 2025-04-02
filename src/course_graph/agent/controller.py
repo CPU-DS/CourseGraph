@@ -92,7 +92,7 @@ class Controller:
             data={'message': message}
         ))
 
-        assistant_output = agent.chat(message)
+        assistant_output = agent.chat_completion(message)
 
         self._add_trace_event(TraceEvent(
             timestamp=datetime.now(),
@@ -188,7 +188,7 @@ class Controller:
 
                 self.set_agent_instruction(agent)
 
-            assistant_output = agent.chat()
+            assistant_output = agent.chat_completion()
             turn += 1
             if turn > self.max_turns:
                 raise MaxTurnsException

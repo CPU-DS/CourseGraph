@@ -5,12 +5,8 @@
 # Description: 定义文档以及抽取知识图谱相关方法
 
 from ..llm import LLM, ONTOLOGY
-from ..llm.prompt import PromptGenerator, ExamplePromptGenerator, post_process
 import shortuuid
-from loguru import logger
-from collections import Counter
 from typing import TYPE_CHECKING, Union
-import random
 import pickle
 import os
 from .config import CONFIG
@@ -20,6 +16,7 @@ from .types import BookMark, KPEntity, KPRelation, ContentType
 from tqdm import tqdm
 from course_graph._core import merge
 from ..database import Neo4j
+from .core import *
 
 if TYPE_CHECKING:
     from .parser import Parser
@@ -122,42 +119,11 @@ class Document:
         """
 
         @instance_method_transactional('knowledgepoints')
-        def get_knowledgepoints(self: 'Document',  # 这里需要传递self的原因是instance_method_transactional本来只能装饰实例方法
+        def get_knowledgepoints_by_llm(self: 'Document',  # 这里需要传递self的原因是instance_method_transactional本来只能装饰实例方法
                                 content: str) -> list[KPEntity]:
             # 实体抽取
-            message, instruction = prompt.get_ner_prompt(content)
-            llm.instruction = instruction
-            if not self_consistency:
-                # 默认策略：实体生成数量过多则重试，否则随机选择5个
-                retry = 0
-                while True:
-                    resp, _ = llm.chat(message)
-                    entities: dict = post_process(resp) or {}
-                    if all(len(value) < 8 for value in entities.values()) or retry >= 3:
-                        break
-                    retry += 1
-                for entity_type, entity_list in entities.items():
-                    if len(entity_list) > 10:
-                        entities[entity_type] = random.sample(entity_list, 5)
-            else:
-                # 自我一致性验证
-                all_entities: list[dict] = []
-                for idx in range(samples):
-                    resp, _ = llm.chat(message)
-                    logger.info(f'第{idx}次采样: ' + resp)
-                    entities: dict = post_process(resp) or {}
-
-                    logger.info(f'获取知识点实体: ' + str(entities))
-                    all_entities.append(entities)
-
-                entities = {}
-                # 这里的自我一致性是要求每种类型中提及的实体超过一定数量
-                for entity_type in {k for d in all_entities for k in d}:  # 所有的 keys
-                    elements = [item for d in all_entities if entity_type in d for item in d[entity_type]]
-                    entities[entity_type] = [point for point, count in Counter(elements).items() if
-                                             count > (samples * top)]
+            entities = get_knowledgepoint_entities_by_llm(content, llm, prompt, self_consistency, samples, top)
             logger.success(f'最终获取知识点实体: ' + str(entities))
-            # 分支结束得到 entities {'entity_type': ['entity1', 'entity2']}
 
             center_kps: list[KPEntity] = []  # only for center entity
             for entity_type, entity_list in entities.items():
@@ -175,10 +141,7 @@ class Document:
             if len(center_kps) == 0:
                 pass
             else:
-                message, instruction = prompt.get_ae_prompt(content, [kp.name for kp in center_kps])  # 只使用 name
-                llm.instruction = instruction
-                resp, _ = llm.chat(message)
-                attrs: dict = post_process(resp) or {}
+                attrs = get_knowledgepoint_attributes_by_llm(content, [kp.name for kp in center_kps], llm, prompt)  # 只使用 name
                 logger.success(f'获取知识点属性: ' + str(attrs))
 
                 for name, attr in attrs.items():
@@ -189,28 +152,8 @@ class Document:
                             for attr_name, value in attr.items():
                                 matching_kp.cached_attributes.setdefault(attr_name, []).append(value)
 
-            message, instruction = prompt.get_re_prompt(content, [kp.name for kp in center_kps])  # 只使用 name
-            llm.instruction = instruction
-            if not self_consistency:
-                resp, _ = llm.chat(message)
-                relations = post_process(resp) or []
-            else:
-                all_relations = []
-                for idx in range(samples):
-                    resp, _ = llm.chat(message)
-                    logger.info(f'第{idx}次采样: ' + resp)
-                    relations = post_process(resp) or []
-
-                    logger.info(f'获取知识点实体: ' + str(entities))
-                    all_relations.extend(relations)
-                relations = [
-                    dict(relation)
-                    for relation, count in Counter(frozenset(relation.items()) for relation in all_relations).items() if
-                    count > (samples * top)
-                ]
-
+            relations = get_knowledgepoint_relations_by_llm(content, [kp.name for kp in center_kps], llm, prompt, self_consistency, samples, top)
             logger.success(f'最终获取关系三元组: ' + str(relations))
-            # 分支结束得到 relations [{'head':'', 'relation':'', 'tail':''}]
 
             for rela in relations:
                 head, tail = None, None
@@ -238,8 +181,7 @@ class Document:
             return center_kps
 
         # 知识抽取
-        for index, bookmark in tqdm(enumerate(self.flatten_bookmarks()), total=len(self.flatten_bookmarks()),
-                                    desc='知识抽取'):
+        for index, bookmark in tqdm(enumerate(self.flatten_bookmarks()), total=len(self.flatten_bookmarks()), desc='知识抽取'):
             if not bookmark.subs:  # 表示最后一级书签 subs为空数组需要设置知识点
                 logger.info('子章节: ' + bookmark.title)
                 if index < self.checkpoint['extract_index'] and checkpoint:
@@ -262,7 +204,7 @@ class Document:
                     if len(content) != 0:
                         logger.info('输入片段: \n' + content)
                         try:
-                            entities: list[KPEntity] = get_knowledgepoints(
+                            entities: list[KPEntity] = get_knowledgepoints_by_llm(
                                 self,
                                 content)
                         except Exception as e:
@@ -278,11 +220,7 @@ class Document:
                 if len(value_list) == 1:
                     entity.attributes[attr] = value_list[0]
                 else:
-                    prompt_, instruction = prompt.get_best_attr_prompt(
-                        entity.name, attr, value_list)
-                    llm.instruction = instruction
-                    resp, _ = llm.chat(prompt_)
-                    entity.attributes[attr] = resp
+                    entity.attributes[attr] = get_knowledgepoint_attribute_only_by_llm(entity.name, attr, value_list, llm, prompt)
                 logger.success(
                     f'实体: {entity.name}, 属性: {attr}, 值: {entity.cached_attributes[attr]}'
                 )
@@ -345,13 +283,14 @@ class Document:
         # 创建所有知识点关联
         for entity in self.knowledgepoints:
             for relation in entity.relations:
-                driver.execute_query(
-                    "CREATE (n)-[:$relation {id: $relation_id}]->(m) WHERE n.id = $n_id AND m.id = $m_id",
-                    relation=relation.type,
-                    relation_id=relation.id,
-                    n_id=entity.id,
-                    m_id=relation.tail.id
-                )
+                if relation in relas:
+                    driver.execute_query(
+                        "CREATE (n {id: $n_id})-[:$relation {id: $relation_id}]->(m {id: $m_id})",
+                        relation=relation.type,
+                        relation_id=relation.id,
+                        n_id=entity.id,
+                        m_id=relation.tail.id
+                    )
         
         def bookmark_to_graph(bookmark: BookMark, parent_id: str):
             if bookmark.title in CONFIG['IGNORE_PAGE']:
@@ -367,7 +306,7 @@ class Document:
             )
             # 创建章节和上级章节/文档关联
             driver.execute_query(
-                "CREATE (n)-[:$relation {id: $relation_id}]->(m) WHERE n.id = $n_id AND m.id = $m_id",
+                "CREATE (n {id: $n_id})-[:$relation {id: $relation_id}]->(m {id: $m_id})",
                 relation='子章节',
                 relation_id=f'3:{shortuuid.uuid()}',
                 n_id=parent_id,
@@ -380,7 +319,7 @@ class Document:
                         bookmark_to_graph(sub, bookmark.id)
                     case KPEntity():
                         driver.execute_query(
-                            "CREATE (n)-[:$relation {id: $relation_id}]->(m) WHERE n.id = $n_id AND m.id = $m_id",
+                            "CREATE (n {id: $n_id})-[:$relation {id: $relation_id}]->(m {id: $m_id})",
                             relation='提到知识点',
                             relation_id=f'3:{shortuuid.uuid()}',
                             n_id=bookmark.id,

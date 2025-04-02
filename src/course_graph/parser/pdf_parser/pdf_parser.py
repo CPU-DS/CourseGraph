@@ -20,7 +20,6 @@ import os
 import shutil
 from course_graph._core import get_list, get_longest_seq
 from ..types import BookMark, PageIndex
-from shuangchentools.utils.file import clear_directory
 from typing import Callable
 from numpy import ndarray
 
@@ -434,8 +433,11 @@ class PDFParser(Parser):
                 if block['type'] == 'title':
                     content.type = ContentType.Title  # 除了title其余全部当作正文对待
                 contents.append(content)
-                
-        clear_directory(self.cache_path, sub_directory=False)
+        
+        for root, dirs, files in os.walk(self.cache_path):
+            for file in files:
+                file_path = os.path.join(root, file)
+                os.remove(file_path)
 
         return Page(page_index=page_index + 1, contents=contents)
 

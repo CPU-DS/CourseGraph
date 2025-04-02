@@ -10,7 +10,7 @@ import argparse
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument('-u', '--url', default='http://localhost:7474')
+parser.add_argument('-u', '--url', default='bolt://localhost:7687')
 parser.add_argument('-n', '--user', default='neo4j')
 parser.add_argument('-p', '--password', default='neo4j')
 args = parser.parse_args()

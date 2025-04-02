@@ -10,6 +10,7 @@ from torchcrf import CRF
 import torch
 from torch.nn import functional as F
 
+
 class BertBiLSTMCRF(PreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
@@ -55,10 +56,10 @@ class BertBiLSTMCRF(PreTrainedModel):
                 "loss": loss,
                 "pred_label_ids": pred_label_ids
             }
-        else:
-            return {
-                "pred_label_ids": pred_label_ids
-            }
+
+        return {
+            "pred_label_ids": pred_label_ids
+        }
 
 
 class BertForRE(PreTrainedModel):

@@ -68,21 +68,21 @@ class Agent:
             self.tool_choice = tool_choice
 
         self.messages: list[ChatCompletionMessageParam] = []
-   
-        for server in mcp_server:
-            tools = server.tools
-            for tool in tools:
-                self.tools.append({
-                    'type': 'function',
-                    'function': {
-                        'name': tool.name,
-                        'description': tool.description,
-                        'parameters': tool.inputSchema
-                    }
-                })  # 注意不能使用 add_tools 方法
-                self.mcp_functions[tool.name] = server
+        if mcp_server:
+            for server in mcp_server:
+                tools = server.tools
+                for tool in tools:
+                    self.tools.append({
+                        'type': 'function',
+                        'function': {
+                            'name': tool.name,
+                            'description': tool.description,
+                            'parameters': tool.inputSchema
+                        }
+                    })  # 注意不能使用 add_tools 方法
+                    self.mcp_functions[tool.name] = server
 
-    def chat(self, message: str = None) -> ChatCompletionMessage:
+    def chat_completion(self, message: str = None) -> ChatCompletionMessage:
         """ Agent 多轮对话
 
         Args:
@@ -111,6 +111,18 @@ class Agent:
         self.messages.append(resp)  # 比 add_assistant_message 信息更详细
 
         return response
+    
+    def chat(self, message: str = None) -> str:
+        """ Agent 多轮对话
+
+        Args:
+            message (str): 用户输入
+
+        Returns:
+            ChatCompletionMessage: 模型输出
+        """
+        response = self.chat_completion(message)
+        return response.content
 
     def add_user_message(self, message: str) -> None:
         """ 添加用户记录

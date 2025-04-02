@@ -85,7 +85,7 @@ class API:
         async def echarts_nodes(page: Page, _=Security(self.__get_api_key)) -> Response:
             nodes = await asyncio.get_event_loop().run_in_executor(
                 self.executor,
-                self.neo4j.match_nodes,
+                self.neo4j.get_nodes_with_relation_count,
                 page.page_index * page.page_size,
                 page.page_size
             )
@@ -99,15 +99,16 @@ class API:
                 message='Query nodes success',
                 data=[{
                     'category': label2idx[list(node.labels)[0]],
-                    **node._properties
-                } for node in nodes]
+                    **node._properties,
+                    'relation_count': relation_count
+                } for node, relation_count in nodes]
             )
         
         @self.echarts_router.post('/relations')
         async def echarts_relations(page: Page, _=Security(self.__get_api_key)) -> Response:
             relations = await asyncio.get_event_loop().run_in_executor(
                 self.executor,
-                self.neo4j.match_relations,
+                self.neo4j.get_relations,
                 page.page_index * page.page_size,
                 page.page_size
             )
@@ -115,8 +116,11 @@ class API:
                 code=ResponseCode.SUCCESS,
                 message='Query relations success',
                 data=[{
-                    'source': relation.nodes[0].element_id,
-                    'target': relation.nodes[1].element_id,
+                    'source': relation.start_node._properties['id'],
+                    'source_node': relation.start_node._properties,
+                    'target': relation.end_node._properties['id'],
+                    'target_node': relation.end_node._properties,
+                    'relation_type': relation.type
                 } for relation in relations]
             )
             
@@ -134,6 +138,14 @@ class API:
                 code=ResponseCode.SUCCESS,
                 message='Query relations count success',
                 data=self.neo4j.get_relations_count()
+            )
+            
+        @self.echarts_router.post('/max_relation_count')
+        async def echarts_max_relation_count(_=Security(self.__get_api_key)) -> Response:
+            return Response(
+                code=ResponseCode.SUCCESS,
+                message='Query max relation count success',
+                data=self.neo4j.get_max_relation_count()
             )
 
     def run(self):

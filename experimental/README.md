@@ -13,11 +13,13 @@ experimental/
 │       ├── pipeline.py # 原始数据处理脚本
 │       └── txt/
 │           └── *.txt   # 原始纯文本数据
-├── README.md
-└── scripts/
-    ├── ner/            # 实体识别模型
-    ├── overview.py     # 数据概览
-    └── pre_trained/    # 预训练模型
+├── scripts/
+│   ├── ner/            # 实体识别模型
+│   ├── overview.py     # 数据概览
+│   └── pre_trained/    # 预训练模型
+├── results/            # 结果
+└── README.md
+
 ```
 
 ### 实验准备
@@ -28,6 +30,8 @@ experimental/
 ```bash
 export SWANLAB_API_KEY=
 ```
+
+#### 评估指标
 
 #### 数据
 

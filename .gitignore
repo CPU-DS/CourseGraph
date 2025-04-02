@@ -54,7 +54,7 @@ experimental/data/**/*.txt
 experimental/pre_trained
 experimental/scripts/**/checkpoints
 experimental/scripts/**/example*.json
-experimental/scripts/**/seqeval
+experimental/metrics/**
 experimental/scripts/test*.py
 experimental/scripts/test
 test*.py

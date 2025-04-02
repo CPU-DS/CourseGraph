@@ -13,7 +13,7 @@ import argparse
 set_logger(console=True, file=False)
 
 parser = argparse.ArgumentParser()
-parser.add_argument('-u', '--url', default='http://localhost:7474')
+parser.add_argument('-u', '--url', default='bolt://localhost:7687')
 parser.add_argument('-n', '--user', default='neo4j')
 parser.add_argument('-p', '--password', default='neo4j')
 parser.add_argument('-f', '--file')

@@ -207,7 +207,7 @@ if __name__ == "__main__":
     parser.add_argument("--checkpoint", type=str, default="experimental/scripts/ke/checkpoints", help="检查点存储路径")
     parser.add_argument("--log", type=str, default="experimental/scripts/ke/logs", help="日志存储路径")
     parser.add_argument("--use_local_metric", type=bool, default=True, help="是否使用本地评估指标")
-    parser.add_argument("--seqeval_path", type=str, default="experimental/scripts/ke/seqeval", help="本地seqeval指标代码路径")
+    parser.add_argument("--seqeval_path", type=str, default="experimental/metrics/seqeval", help="本地seqeval指标代码路径")
     parser.add_argument("--lr", type=float, default=5e-5)
     parser.add_argument("--epochs", type=int, default=5)
     parser.add_argument("--batch_size", type=int, default=2)
