@@ -32,13 +32,13 @@ class NERDataset(Dataset):
                 )
 
                 tokens = full_encoding.tokens()
-                offset_mapping = full_encoding["offset_mapping"].squeeze().tolist()
 
                 if len(tokens) <= max_len:
-                    # item['encoding'] = full_encoding
+                    item['encoding'] = full_encoding
                     self.data.append(item)
                     continue
-
+                
+                offset_mapping = full_encoding["offset_mapping"].squeeze().tolist()
                 window_size = max_len
                 stride = window_size // 2
 
