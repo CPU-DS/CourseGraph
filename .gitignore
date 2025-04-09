@@ -65,3 +65,5 @@ src/course_graph/database/milvus.db
 libreoffice_convert.log
 .cursorrules
 .ruff_cache
+
+train.sh

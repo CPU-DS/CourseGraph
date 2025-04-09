@@ -142,7 +142,7 @@ def _re_predict(
 def ner_predict(
     text: str,
     model_path: str = "experimental/scripts/ke/checkpoints/ner/final_model",
-    max_len: int = 128,
+    max_len: int = 512,
     device: str = "cuda" if torch.cuda.is_available() else "cpu",
 ) -> list[dict]:
     """
@@ -151,7 +151,7 @@ def ner_predict(
     Args:
         texts (list[str]): 需要预测的文本列表
         model_path (str): 模型路径. Defaults to "experimental/scripts/ke/checkpoints/ner/final_model".
-        max_len (int): 最大长度. Defaults to 128.
+        max_len (int): 最大长度. Defaults to 512.
         device (str): 设备. Defaults to "cuda" or "cpu".
 
     Returns:
@@ -166,7 +166,7 @@ def re_predict(
     e1_range: tuple[int, int],
     e2_range: tuple[int, int],
     model_path: str = "experimental/scripts/ke/checkpoints/re/final_model",
-    max_len: int = 128,
+    max_len: int = 512,
     device: str = "cuda" if torch.cuda.is_available() else "cpu",
 ) -> dict:
     """
@@ -177,7 +177,7 @@ def re_predict(
         e1_range (tuple[int, int]): 实体1的位置 [start:end]
         e2_range (tuple[int, int]): 实体2的位置 [start:end]
         model_path (str): 模型路径. Defaults to "experimental/scripts/ke/checkpoints/re/final_model".
-        max_len (int): 最大长度. Defaults to 128.
+        max_len (int): 最大长度. Defaults to 512.
         device (str): 设备. Defaults to "cuda" or "cpu".
 
     Returns:

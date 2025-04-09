@@ -6,15 +6,79 @@
 
 import torch
 from torch.utils.data import Dataset
-from .config import *
+from config import *
 from transformers import PreTrainedTokenizerFast
 
 
 class NERDataset(Dataset):
-    def __init__(self, data, tokenizer, max_len=128):
-        self.data = data
+    def __init__(self, data, tokenizer, max_len=512, exceed_strategy="truncation"):
         self.tokenizer = tokenizer
         self.max_len = max_len
+        self.data = []
+
+        if exceed_strategy == "truncation":
+            self.data = data
+        elif exceed_strategy == "sliding_window":
+            # only support fast tokenizer temporarily
+            for item in data:
+                text = item['text']
+                entities = item['entities']
+
+                full_encoding = self.tokenizer(
+                    text,
+                    add_special_tokens=False,
+                    return_offsets_mapping=True,
+                    return_tensors="pt"
+                )
+
+                tokens = full_encoding.tokens()
+                offset_mapping = full_encoding["offset_mapping"].squeeze().tolist()
+
+                if len(tokens) <= max_len:
+                    # item['encoding'] = full_encoding
+                    self.data.append(item)
+                    continue
+
+                window_size = max_len
+                stride = window_size // 2
+
+                start_token_idx = 0
+                while start_token_idx < len(tokens):
+                    end_token_idx = min(start_token_idx + window_size, len(tokens))
+
+                    # [start_token_idx, end_token_idx) ==> [start_char_idx, end_char_idx)
+                    start_char_idx = offset_mapping[start_token_idx][0]
+                    end_char_idx = offset_mapping[end_token_idx - 1][1]
+
+                    # 对每一个窗口, 只保留完全在当前窗口内的实体 (可能会减少窗口长度)
+                    for entity in entities:
+                        # bais: 实体长度远低于 window_size 和 stride
+                        if entity['start'] <= start_char_idx < entity['end']:
+                            start_char_idx = entity['end']
+                        if entity['start'] <= end_char_idx < entity['end']:
+                            end_char_idx = entity['start']
+                            break
+                        # start_char_idx 和 end_char_idx 也应该变化，但这里不处理
+
+                    window_entities = []
+                    for entity in entities:
+                        if entity['start'] >= start_char_idx and entity['end'] <= end_char_idx:
+                            new_entity = entity.copy()
+                            new_entity['start'] -= start_char_idx
+                            new_entity['end'] -= start_char_idx
+                            window_entities.append(new_entity)
+
+                    window_text = text[start_char_idx:end_char_idx]
+                    window_data = {
+                        'text': window_text,
+                        'entities': window_entities  # 暂时不添加 encoding
+                    }
+                    self.data.append(window_data)
+
+                    next_token_idx = start_token_idx + stride  # 重叠窗口
+                    start_token_idx = next_token_idx
+        else:
+            pass
 
     def __len__(self):
         return len(self.data)
@@ -31,21 +95,24 @@ class NERDataset(Dataset):
             for i in range(start + 1, end):
                 char_labels[i] = f"I-{entity_type}"
 
+        # char_labels 对齐为 token_labels
         if isinstance(self.tokenizer, PreTrainedTokenizerFast):
-            encoding = self.tokenizer(
-                text,
-                add_special_tokens=False,
-                max_length=self.max_len,
-                padding="max_length",
-                truncation=True,
-                return_offsets_mapping=True,
-                return_tensors="pt"
-            )
-
+            if self.data[idx].get('encoding'):
+                encoding = self.data[idx]['encoding']  # 预处理阶段可能得到
+            else:
+                encoding = self.tokenizer(
+                    text,
+                    add_special_tokens=False,
+                    max_length=self.max_len,
+                    padding="max_length",
+                    truncation=True,
+                    return_offsets_mapping=True,
+                    return_tensors="pt"
+                )
             input_ids = encoding["input_ids"].squeeze()
             attention_mask = encoding["attention_mask"].squeeze()
-            tokens = self.tokenizer.convert_ids_to_tokens(input_ids)
-            offset_mapping = encoding["offset_mapping"].squeeze().tolist()
+            tokens = encoding.tokens()
+            offset_mapping = encoding["offset_mapping"].squeeze().tolist()  # 每个 token 在原文中的位置
 
             # 从实体得到 token_labels
             token_labels = []
@@ -70,7 +137,7 @@ class NERDataset(Dataset):
 
             input_ids = encoding["input_ids"].squeeze()
             attention_mask = encoding["attention_mask"].squeeze()
-            tokens = self.tokenizer.convert_ids_to_tokens(input_ids)
+            tokens = encoding.tokens()
 
             token_labels = []
             char_idx = 0
@@ -94,7 +161,7 @@ class NERDataset(Dataset):
 
 
 class REDataset(Dataset):
-    def __init__(self, data, tokenizer, max_len=128):
+    def __init__(self, data, tokenizer, max_len=512, exceed_strategy="truncation"):
         self.tokenizer = tokenizer
         self.max_len = max_len
 
@@ -103,13 +170,19 @@ class REDataset(Dataset):
             text = line['text']
             entities = line['entities']
             relations = line['relations']
-            for relation in relations:
-                self.data.append({
-                    'text': text,
-                    'e1': next(filter(lambda x: x['id'] == relation['source_id'], entities)),
-                    'e2': next(filter(lambda x: x['id'] == relation['target_id'], entities)),
-                    'relation': relation['type']
-                })
+            
+            if exceed_strategy == "truncation":
+                for relation in relations:
+                    self.data.append({
+                        'text': text,
+                        'e1': next(filter(lambda x: x['id'] == relation['source_id'], entities)),
+                        'e2': next(filter(lambda x: x['id'] == relation['target_id'], entities)),
+                        'relation': relation['type']
+                    })
+            elif exceed_strategy == "sliding_window":
+                pass
+            else:
+                pass
 
     def __len__(self):
         return len(self.data)
@@ -139,11 +212,11 @@ class REDataset(Dataset):
             attention_mask = encoding["attention_mask"].squeeze()
             offset_mapping = encoding["offset_mapping"].squeeze().tolist()
 
-            e1_mask = _create_entity_mask(input_ids, offset_mapping, e1_start, e1_end)
+            e1_mask = _create_entity_mask(input_ids, offset_mapping, e1_start, e1_end)  # 实体掩码为 1
             e2_mask = _create_entity_mask(input_ids, offset_mapping, e2_start, e2_end)
 
         else:
-            
+
             encoding = self.tokenizer(
                 text,
                 add_special_tokens=False,
@@ -156,10 +229,10 @@ class REDataset(Dataset):
             input_ids = encoding["input_ids"].squeeze()
             attention_mask = encoding["attention_mask"].squeeze()
             tokens = self.tokenizer.convert_ids_to_tokens(input_ids)
-            
+
             e1_mask = _create_entity_mask2(text, input_ids, tokens, e1_start, e1_end)
             e2_mask = _create_entity_mask2(text, input_ids, tokens, e2_start, e2_end)
-            
+
         return {
             "input_ids": input_ids,
             "attention_mask": attention_mask,

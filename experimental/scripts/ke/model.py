@@ -45,13 +45,18 @@ class BertBiLSTMCRF(PreTrainedModel):
         emissions = self.hidden2label(lstm_output)  # (batch_size, max_len, num_labels)
         
         pred_label_ids = self.crf.decode(emissions, mask=attention_mask.bool())
-        pred_label_ids = torch.tensor(pred_label_ids, device=emissions.device)
+        max_len = input_ids.shape[1]
+        padded_label_ids = []
+        for seq in pred_label_ids:
+            padded_seq = seq + [0] * (max_len - len(seq))  # 使用列表操作进行填充
+            padded_label_ids.append(padded_seq)
+
+        pred_label_ids = torch.tensor(padded_label_ids, device=emissions.device)
         pred_label_ids[pred_label_ids == 0] = 1  # 模型后处理，不允许预测出现 IGNORE
-        pred_label_ids = F.pad(pred_label_ids, (0, input_ids.shape[1] - pred_label_ids.shape[1]), value=0, mode="constant")
         
         if labels is not None:
             valid_mask = labels != 0
-            loss = -self.crf(emissions, labels, mask=valid_mask)
+            loss = -self.crf(emissions, labels, mask=valid_mask, reduction='mean')
             return {
                 "loss": loss,
                 "pred_label_ids": pred_label_ids
@@ -93,8 +98,7 @@ class BertForRE(PreTrainedModel):
         concat_h = torch.cat([e1_h, e2_h], dim=-1)  # (batch_size, hidden_size*2)
         concat_h = self.dropout(concat_h)
         logits = self.classifier(concat_h)  # (batch_size, num_relations)
-        
-        loss = None
+
         if labels is not None:
             loss_fct = nn.CrossEntropyLoss()
             loss = loss_fct(logits.view(-1, self.num_relations), labels.view(-1))

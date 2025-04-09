@@ -2,26 +2,23 @@
 name = "course_graph"
 version = "0.1.0"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 description = "Automatic Construction of Course Knowledge Graphs via LLMs"
 license = { file = "LICENSE" }
 authors = [{ name = "Data Science Lab at China Pharmaceutical University" }]
-maintainers = [{ name = "wangtao2001", email = "wangtao.cpu@gmail.com" }]
+maintainers = [{ name = "wangtao", email = "wangtao.cpu@gmail.com" }]
 dependencies = [
     "torch>=2.4.0",
     "accelerate>=0.34.0",
     "openai>=1.43.1",
-    "comtypes==1.4.6",
     "fitz==0.0.1.dev2",
     "pymupdf==1.24.10",
     "loguru==0.7.2",
     "modelscope==1.16.1",
     "opencv-python==4.10.0.84",
     "python-docx==1.1.2",
-    "pytorch-crf==0.7.2",
     "python-pptx-interface==0.0.12",
     "sentence-transformers==3.0.1",
-    "setuptools>=69.5.1",
     "torchvision>=0.19",
     "tqdm==4.66.4",
     "transformers>=4.43.3",
@@ -29,21 +26,25 @@ dependencies = [
     "paddleocr==2.8.1",
     "paddlepaddle==2.6.1",
     "ray>=2.35.0",
-    "maturin==1.7.4",
     "docstring-parser==0.16",
     "doclayout-yolo==0.0.3",
     "shortuuid>=1.0.13",
-    "jupyter>=1.1.1",
     "fastapi>=0.115.6",
-    "trl>=0.14.0",
     "singleton-decorator>=1.0.0",
-    "tabulate>=0.9.0",
-    "torchcrf>=1.1.0",
-    "scikit-learn>=1.6.1",
-    "swanlab>=0.5.2",
-    "evaluate>=0.4.3",
     "pymilvus>=2.5.6",
     "neo4j>=5.28.1",
+    "mcp[cli]>=1.6.0",
+]
+
+[dependency-groups]
+dev = [
+    "evaluate>=0.4.3",
+    "pytorch-crf==0.7.2",
+    "torchcrf>=1.1.0",
+    "scikit-learn>=1.6.1",
+    "seqeval>=1.2.2",
+    "swanlab>=0.5.5",
+    "tabulate>=0.9.0",
 ]
 
 [tool.maturin]
