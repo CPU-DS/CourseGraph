@@ -24,7 +24,6 @@ from datetime import datetime
 from evaluate import load
 from swanlab.integration.transformers import SwanLabCallback
 from argparse import ArgumentParser
-import math
 import torch
 from sklearn.metrics import precision_recall_fscore_support, accuracy_score
 
@@ -52,7 +51,7 @@ def compute_metrics_ner(eval_pred):
     global seqeval
     metric = load(seqeval)
     results = metric.compute(predictions=pred_labels, references=labels)
-    
+
     swanlab_results = {
         "precision": results["overall_precision"],
         "recall": results["overall_recall"],
@@ -78,7 +77,6 @@ def compute_metrics_re(eval_pred):
         "recall": recall,
         "f1": f1
     }
-    swanlab.log(results, print_to_console=True)
     return results
 
 
@@ -86,82 +84,84 @@ def main(args):
     
     config = {
         "ner": {
-            "id2label": id2label,
-            "label2id": label2id,
             "model": BertBiLSTMCRF,
             "compute_metrics": compute_metrics_ner,
             "dataset": NERDataset,
-            "data_collator": DataCollatorForTokenClassification
+            "data_collator": DataCollatorForTokenClassification,
         },
         "re": {
-            "id2label": relations,
-            "label2id": relation2id,
             "model": BertForRE,
             "compute_metrics": compute_metrics_re,
             "dataset": REDataset,
-            "data_collator": DataCollatorWithPadding
+            "data_collator": DataCollatorWithPadding,
         }
     }
     
     global seqeval
     if args.mode == "ner" and args.use_local_metric:  # 指定本地seqeval
         seqeval = args.seqeval_path
+    
+    model_config = BertConfig.from_pretrained(args.bert_model_path)
+    model_config.num_labels = len(id2label)
+    model_config._name_or_path = args.bert_model_path
 
-    model = config[args.mode]["model"](config)
+    model = config[args.mode]["model"](model_config)
 
-    run_name = f"course_graph_{args.mode}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-    swanlab_callback = SwanLabCallback(
+    run_name = f"course_graph_classical_{args.mode}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    swanlab.init(
         project="course_graph",
-        name=run_name,
-        config={
-            "architecture": model.__class__.__name__,
-            "optimizer": "AdamW",
-            "scheduler": "linear_schedule_with_warmup",
-            "learning_rate": args.lr,
-            "epochs": args.epochs,
-            "batch_size": args.batch_size,
-            "bert_model": os.path.basename(args.bert_model_path)
-        }
+        experiment_name=run_name
     )
+    swanlab_callback = SwanLabCallback()
     
-    all_data = []
+    swanlab_callback.update_config({
+        "architecture": model.__class__.__name__,
+        "optimizer": "AdamW",
+        "scheduler": "linear_schedule_with_warmup",
+        "learning_rate": args.lr,
+        "epochs": args.epochs,
+        "batch_size": args.batch_size,
+        "bert_model": os.path.basename(args.bert_model_path),
+        "exceed_strategy": args.exceed_strategy
+    })
+    
+    data = []
     for file in glob(args.data_path + '/*.json'):
-        data = load_data(file)
-        all_data.extend(data)
-    shuffle(all_data)
+        data.extend(load_data(file))
+    shuffle(data)
     
-    train_size = int(0.8 * len(all_data))
-    val_size = int(math.ceil(0.1 * len(all_data)))
-    train_data = all_data[:train_size]
-    eval_data = all_data[train_size:train_size+val_size]
-    test_data = all_data[train_size+val_size:]
+    train_size = int(args.train_percent * len(data))
+    eval_size = int(args.eval_percent * len(data))
+    train_data = data[:train_size]
+    eval_data = data[train_size:train_size+eval_size]
+    test_data = data[train_size+eval_size:]
     
     tokenizer = BertTokenizerFast.from_pretrained(args.bert_model_path)
     DatasetClass = config[args.mode]["dataset"]
-    train_dataset = DatasetClass(train_data, tokenizer)
-    eval_dataset = DatasetClass(eval_data, tokenizer)
-    test_dataset = DatasetClass(test_data, tokenizer)
-    
-    config = BertConfig.from_pretrained(args.bert_model_path)
-    config.num_labels = len(config["id2label"])
-    config._name_or_path = args.bert_model_path
+    train_dataset = DatasetClass(train_data, tokenizer, args.max_len, args.exceed_strategy)
+    eval_dataset = DatasetClass(eval_data, tokenizer, args.max_len, args.exceed_strategy)
+    test_dataset = DatasetClass(test_data, tokenizer, args.max_len, args.exceed_strategy)
     
     for param in model.bert.parameters():
         param.requires_grad = False
     
     total_params = sum(p.numel() for p in model.parameters())
     trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    
     swanlab_callback.update_config({
         "total_params": total_params, 
         "trainable_params": trainable_params,
-        "frozen_params": total_params - trainable_params
+        "frozen_params": total_params - trainable_params,
+        "train_size": len(train_data),
+        "eval_size": len(eval_data),
+        "test_size": len(test_data),
     })
     
     DataCollatorClass = config[args.mode]["data_collator"]
     data_collator = DataCollatorClass(tokenizer=tokenizer)
     
     training_args = TrainingArguments(
-        output_dir=os.path.join(args.checkpoint, args.mode),
+        output_dir=str(os.path.join(args.checkpoint, args.mode)),
         eval_strategy="epoch",
         save_strategy="epoch",
         learning_rate=args.lr,
@@ -201,13 +201,17 @@ def main(args):
 
 if __name__ == "__main__":
     parser = ArgumentParser()
-    parser.add_argument("--mode", type=str, default="ner", choices=["ner", "re"], help="任务类型")
-    parser.add_argument("--data_path", type=str, default="experimental/data", help="数据")    
-    parser.add_argument("--bert_model_path", type=str, default="experimental/pre_trained/dienstag/chinese-bert-wwm-ext", help="预训练BERT模型路径")
-    parser.add_argument("--checkpoint", type=str, default="experimental/scripts/ke/checkpoints", help="检查点存储路径")
-    parser.add_argument("--log", type=str, default="experimental/scripts/ke/logs", help="日志存储路径")
-    parser.add_argument("--use_local_metric", type=bool, default=True, help="是否使用本地评估指标")
-    parser.add_argument("--seqeval_path", type=str, default="experimental/metrics/seqeval", help="本地seqeval指标代码路径")
+    parser.add_argument("--mode", type=str, default="ner", choices=["ner", "re"])
+    parser.add_argument("--data_path", type=str, default="experimental/data")    
+    parser.add_argument("--train_percent", type=float, default=0.8)
+    parser.add_argument("--eval_percent", type=float, default=0.1)
+    parser.add_argument("--max_len", type=int, default=512)
+    parser.add_argument("--exceed_strategy", type=str, default="truncation", choices=["truncation", "sliding_window"])
+    parser.add_argument("--log", type=str, default="experimental/scripts/ke/logs")
+    parser.add_argument("--bert_model_path", type=str, default="experimental/pre_trained/dienstag/chinese-bert-wwm-ext")
+    parser.add_argument("--checkpoint", type=str, default="experimental/scripts/ke/checkpoints")
+    parser.add_argument("--use_local_metric", type=bool, default=True)
+    parser.add_argument("--seqeval_path", type=str, default="experimental/metrics/seqeval")
     parser.add_argument("--lr", type=float, default=5e-5)
     parser.add_argument("--epochs", type=int, default=5)
     parser.add_argument("--batch_size", type=int, default=2)

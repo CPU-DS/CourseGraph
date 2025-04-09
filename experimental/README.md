@@ -14,9 +14,9 @@ experimental/
 │       └── txt/
 │           └── *.txt   # 原始纯文本数据
 ├── scripts/
-│   ├── ner/            # 实体识别模型
-│   ├── overview.py     # 数据概览
-│   └── pre_trained/    # 预训练模型
+│   ├── ke/             # 知识抽取模型
+│   └── overview.py     # 数据概览
+├── pre_trained/        # 预训练模型
 ├── results/            # 结果
 └── README.md
 
