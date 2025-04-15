@@ -28,6 +28,7 @@ import torch
 from sklearn.metrics import precision_recall_fscore_support, accuracy_score
 
 seqeval = 'seqeval'
+os.environ["TOKENIZERS_PARALLELISM"] = "true"
 
 
 def load_data(example_file):
@@ -38,27 +39,21 @@ def load_data(example_file):
 def compute_metrics_ner(eval_pred):
     pred_label_ids, label_ids = eval_pred.predictions, eval_pred.label_ids
     
-    ignore_mask = label_ids != 0
+    valid_mask = pred_label_ids != -100
+
     pred_labels = [
         [id2label[id_] for id_ in pred_label_ids[idx][mask].tolist()]
-        for idx, mask in enumerate(ignore_mask)
+        for idx, mask in enumerate(valid_mask)
     ]
 
     labels = [
         [id2label[id_] for id_ in label_ids[idx][mask].tolist()]
-        for idx, mask in enumerate(ignore_mask)
+        for idx, mask in enumerate(valid_mask)
     ]
+
     global seqeval
     metric = load(seqeval)
     results = metric.compute(predictions=pred_labels, references=labels)
-
-    swanlab_results = {
-        "precision": results["overall_precision"],
-        "recall": results["overall_recall"],
-        "f1": results["overall_f1"],
-        "accuracy": results["overall_accuracy"],
-    }
-    swanlab.log(swanlab_results, print_to_console=True)
     return results
 
 
@@ -122,7 +117,7 @@ def main(args):
         "epochs": args.epochs,
         "batch_size": args.batch_size,
         "bert_model": os.path.basename(args.bert_model_path),
-        "exceed_strategy": args.exceed_strategy
+        "overflow_strategy": args.overflow_strategy
     })
     
     data = []
@@ -138,9 +133,16 @@ def main(args):
     
     tokenizer = BertTokenizerFast.from_pretrained(args.bert_model_path)
     DatasetClass = config[args.mode]["dataset"]
-    train_dataset = DatasetClass(train_data, tokenizer, args.max_len, args.exceed_strategy)
-    eval_dataset = DatasetClass(eval_data, tokenizer, args.max_len, args.exceed_strategy)
-    test_dataset = DatasetClass(test_data, tokenizer, args.max_len, args.exceed_strategy)
+    
+    def create_dataset(data):
+        return DatasetClass(
+            data, 
+            tokenizer, 
+            args.max_len, 
+            overflow_strategy=args.overflow_strategy,
+        )
+    
+    train_dataset, eval_dataset, test_dataset = map(create_dataset, [train_data, eval_data, test_data])
     
     for param in model.bert.parameters():
         param.requires_grad = False
@@ -206,7 +208,7 @@ if __name__ == "__main__":
     parser.add_argument("--train_percent", type=float, default=0.8)
     parser.add_argument("--eval_percent", type=float, default=0.1)
     parser.add_argument("--max_len", type=int, default=512)
-    parser.add_argument("--exceed_strategy", type=str, default="truncation", choices=["truncation", "sliding_window"])
+    parser.add_argument("--overflow_strategy", type=str, default="truncation", choices=["truncation", "sliding_window"])
     parser.add_argument("--log", type=str, default="experimental/scripts/ke/logs")
     parser.add_argument("--bert_model_path", type=str, default="experimental/pre_trained/dienstag/chinese-bert-wwm-ext")
     parser.add_argument("--checkpoint", type=str, default="experimental/scripts/ke/checkpoints")

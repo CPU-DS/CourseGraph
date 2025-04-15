@@ -11,14 +11,12 @@ from transformers import PreTrainedTokenizerFast
 
 
 class NERDataset(Dataset):
-    def __init__(self, data, tokenizer, max_len=512, exceed_strategy="truncation"):
+    def __init__(self, data, tokenizer, max_len=512, **config):
         self.tokenizer = tokenizer
         self.max_len = max_len
         self.data = []
 
-        if exceed_strategy == "truncation":
-            self.data = data
-        elif exceed_strategy == "sliding_window":
+        if config["overflow_strategy"] == "sliding_window":
             # only support fast tokenizer temporarily
             for item in data:
                 text = item['text']
@@ -55,10 +53,12 @@ class NERDataset(Dataset):
                         # bais: 实体长度远低于 window_size 和 stride
                         if entity['start'] <= start_char_idx < entity['end']:
                             start_char_idx = entity['end']
-                        if entity['start'] <= end_char_idx < entity['end']:
+                        elif entity['start'] <= end_char_idx < entity['end']:
                             end_char_idx = entity['start']
                             break
                         # start_char_idx 和 end_char_idx 也应该变化，但这里不处理
+                        elif entity['start'] > end_char_idx:  # 假定 entity 有序的
+                            break
 
                     window_entities = []
                     for entity in entities:
@@ -77,8 +77,8 @@ class NERDataset(Dataset):
 
                     next_token_idx = start_token_idx + stride  # 重叠窗口
                     start_token_idx = next_token_idx
-        else:
-            pass
+        else:  # default truncation
+            self.data = data
 
     def __len__(self):
         return len(self.data)
@@ -115,16 +115,17 @@ class NERDataset(Dataset):
             offset_mapping = encoding["offset_mapping"].squeeze().tolist()  # 每个 token 在原文中的位置
 
             # 从实体得到 token_labels
-            token_labels = []
+            token_labels = ["O"] * len(tokens)
+            valid_mask = torch.ones_like(input_ids)
             for i, offset in enumerate(offset_mapping):
                 token = tokens[i]
                 if token in [self.tokenizer.cls_token, self.tokenizer.sep_token, self.tokenizer.pad_token]:
-                    token_labels.append(label2id["IGNORE"])
+                    valid_mask[i] = 0
                 else:
                     if token.startswith("##"):
-                        token_labels.append(label2id["IGNORE"])
+                        valid_mask[i] = 0
                     else:
-                        token_labels.append(label2id[char_labels[offset[0]]])
+                        token_labels[i] = char_labels[offset[0]]
         else:
             encoding = self.tokenizer(
                 text,
@@ -139,29 +140,31 @@ class NERDataset(Dataset):
             attention_mask = encoding["attention_mask"].squeeze()
             tokens = encoding.tokens()
 
-            token_labels = []
+            token_labels = ["O"] * len(tokens)
+            valid_mask = torch.ones_like(input_ids)
             char_idx = 0
-            for token in tokens:
+            for i, token in enumerate(tokens):
                 if token in [self.tokenizer.cls_token, self.tokenizer.sep_token, self.tokenizer.pad_token]:
-                    token_labels.append(label2id["IGNORE"])
+                    valid_mask[i] = 0
                 else:
                     if token.startswith("##"):
+                        valid_mask[i] = 0
                         token = token[2:]
-                        token_labels.append(label2id["IGNORE"])
                     else:
-                        token_labels.append(label2id[char_labels[char_idx]])
+                        token_labels[i] = char_labels[char_idx]
                     char_idx += len(token)
 
         return {
             "input_ids": input_ids,
             "attention_mask": attention_mask,
             "token_type_ids": torch.zeros_like(input_ids),
-            "labels": torch.tensor(token_labels)
+            "valid_mask": valid_mask,
+            "labels": torch.tensor([ label2id[label] for label in  token_labels])
         }
 
 
 class REDataset(Dataset):
-    def __init__(self, data, tokenizer, max_len=512, exceed_strategy="truncation"):
+    def __init__(self, data, tokenizer, max_len=512, overflow_strategy="truncation"):
         self.tokenizer = tokenizer
         self.max_len = max_len
 
@@ -171,7 +174,7 @@ class REDataset(Dataset):
             entities = line['entities']
             relations = line['relations']
             
-            if exceed_strategy == "truncation":
+            if overflow_strategy == "truncation":
                 for relation in relations:
                     self.data.append({
                         'text': text,
@@ -179,7 +182,7 @@ class REDataset(Dataset):
                         'e2': next(filter(lambda x: x['id'] == relation['target_id'], entities)),
                         'relation': relation['type']
                     })
-            elif exceed_strategy == "sliding_window":
+            elif overflow_strategy == "sliding_window":
                 pass
             else:
                 pass

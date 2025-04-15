@@ -29,7 +29,7 @@ class BertBiLSTMCRF(PreTrainedModel):
         self.dropout = nn.Dropout(0.1)
         self.crf = CRF(self.num_labels, batch_first=True)
     
-    def forward(self, input_ids, attention_mask, token_type_ids, labels=None, **kwargs):
+    def forward(self, input_ids, attention_mask, token_type_ids, valid_mask, labels=None, **kwargs):
         outputs = self.bert(
             input_ids=input_ids,
             attention_mask=attention_mask,
@@ -44,19 +44,18 @@ class BertBiLSTMCRF(PreTrainedModel):
         
         emissions = self.hidden2label(lstm_output)  # (batch_size, max_len, num_labels)
         
-        pred_label_ids = self.crf.decode(emissions, mask=attention_mask.bool())
-        max_len = input_ids.shape[1]
-        padded_label_ids = []
-        for seq in pred_label_ids:
-            padded_seq = seq + [0] * (max_len - len(seq))  # 使用列表操作进行填充
-            padded_label_ids.append(padded_seq)
+        pred_label_ids = self.crf.decode(emissions, mask=valid_mask.bool())
 
-        pred_label_ids = torch.tensor(padded_label_ids, device=emissions.device)
-        pred_label_ids[pred_label_ids == 0] = 1  # 模型后处理，不允许预测出现 IGNORE
+        batch_size, seq_len = valid_mask.shape
+        padded_preds = torch.full((batch_size, seq_len), -100, dtype=torch.long)  # ignore_index
+        flat_preds = torch.cat([torch.tensor(seq, dtype=torch.long) for seq in pred_label_ids])  # flatten
+        valid_indices = valid_mask.view(-1).nonzero(as_tuple=False).squeeze()  # valid indices
+        padded_preds.view(-1)[valid_indices] = flat_preds  # fill
+
+        pred_label_ids = padded_preds
         
         if labels is not None:
-            valid_mask = labels != 0
-            loss = -self.crf(emissions, labels, mask=valid_mask, reduction='mean')
+            loss = -self.crf(emissions, labels, mask=valid_mask.bool(), reduction='mean')
             return {
                 "loss": loss,
                 "pred_label_ids": pred_label_ids
