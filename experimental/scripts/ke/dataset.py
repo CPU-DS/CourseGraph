@@ -8,6 +8,8 @@ import torch
 from torch.utils.data import Dataset
 from config import *
 from transformers import PreTrainedTokenizerFast
+import random
+import re
 
 
 class NERDataset(Dataset):
@@ -21,6 +23,7 @@ class NERDataset(Dataset):
             for item in data:
                 text = item['text']
                 entities = item['entities']
+                entities.sort(key=lambda x: x['start'])
 
                 full_encoding = self.tokenizer(
                     text,
@@ -57,7 +60,7 @@ class NERDataset(Dataset):
                             end_char_idx = entity['start']
                             break
                         # start_char_idx 和 end_char_idx 也应该变化，但这里不处理
-                        elif entity['start'] > end_char_idx:  # 假定 entity 有序的
+                        elif entity['start'] > end_char_idx:  # entity 有序的
                             break
 
                     window_entities = []
@@ -69,16 +72,67 @@ class NERDataset(Dataset):
                             window_entities.append(new_entity)
 
                     window_text = text[start_char_idx:end_char_idx]
-                    window_data = {
+                    self.data.append({
                         'text': window_text,
                         'entities': window_entities  # 暂时不添加 encoding
-                    }
-                    self.data.append(window_data)
+                    })
 
                     next_token_idx = start_token_idx + stride  # 重叠窗口
                     start_token_idx = next_token_idx
         else:  # default truncation
-            self.data = data
+            for item in data:
+                entities = item['entities']
+                entities.sort(key=lambda x: x['start'])
+
+                self.data.append({
+                    'text': item['text'],
+                    'entities': entities
+                })
+
+        if config["drop"] > 0: # drop
+            filtered_data = [] 
+            for item in self.data:
+                text = item['text']
+                entities = item['entities']
+
+                sentences = [s.strip() for s in re.split('[。！？!?]', text) if s.strip()]  # remove empty
+                
+                current_pos = 0
+                sentence_spans = []
+                for sentence in sentences:
+                    start = text.find(sentence, current_pos)  # start index
+                    end = start + len(sentence)
+                    sentence_spans.append((start, end))
+                    current_pos = end
+                
+                sentences_to_remove_idx = []
+                for i, (start, end) in enumerate(sentence_spans):
+                    has_entity = False
+                    for entity in entities:
+                        if not (entity['end'] <= start or entity['start'] >= end):
+                            has_entity = True
+                            break
+                    if not has_entity:
+                        sentences_to_remove_idx.append(i)
+                
+                if (num_to_remove := int(len(sentences_to_remove_idx) * config["drop"])) > 0:
+                    to_remove_idx = random.sample(sentences_to_remove_idx, num_to_remove)
+                    
+                    to_remove_idx.sort(reverse=True)
+                    new_text = text
+                    for idx in to_remove_idx:
+                        start, end = sentence_spans[idx]
+                        new_text = new_text[:start] + new_text[end+1:]  # clip +1 是连同一个标点
+                        
+                        for entity in entities:
+                            if entity['start'] > end:
+                                entity['start'] -= (end - start + 1)
+                                entity['end'] -= (end - start + 1)
+                    
+                    item['text'] = new_text   
+                filtered_data.append(item)
+            
+            self.data = filtered_data
 
     def __len__(self):
         return len(self.data)

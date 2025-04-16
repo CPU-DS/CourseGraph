@@ -74,19 +74,6 @@ class PromptGenerator(ABC):
         """
         raise NotImplementedError
 
-    @abstractmethod
-    def post_process(self, response: str) -> list | dict:
-        """ 将模型返回处理成列表或字典格式
-
-        Args:
-            response (str): 模型输出
-
-
-        Returns:
-            list | dict: 格式输出
-        """
-        raise NotImplementedError
-
 
 class ExamplePromptGenerator(PromptGenerator):
 

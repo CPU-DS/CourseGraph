@@ -49,7 +49,6 @@ def _ner_predict(
         token_type_ids = torch.zeros_like(input_ids).to(device)
         offset_mapping = encoding["offset_mapping"].squeeze().tolist()
         tokens = tokenizer.convert_ids_to_tokens(input_ids.squeeze())
-
         with torch.no_grad():
             outputs = model(
                 input_ids=input_ids,

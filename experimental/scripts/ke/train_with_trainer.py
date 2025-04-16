@@ -140,6 +140,7 @@ def main(args):
             tokenizer, 
             args.max_len, 
             overflow_strategy=args.overflow_strategy,
+            drop=args.drop
         )
     
     train_dataset, eval_dataset, test_dataset = map(create_dataset, [train_data, eval_data, test_data])
@@ -209,6 +210,7 @@ if __name__ == "__main__":
     parser.add_argument("--eval_percent", type=float, default=0.1)
     parser.add_argument("--max_len", type=int, default=512)
     parser.add_argument("--overflow_strategy", type=str, default="truncation", choices=["truncation", "sliding_window"])
+    parser.add_argument("--drop", type=float, default=0)
     parser.add_argument("--log", type=str, default="experimental/scripts/ke/logs")
     parser.add_argument("--bert_model_path", type=str, default="experimental/pre_trained/dienstag/chinese-bert-wwm-ext")
     parser.add_argument("--checkpoint", type=str, default="experimental/scripts/ke/checkpoints")
