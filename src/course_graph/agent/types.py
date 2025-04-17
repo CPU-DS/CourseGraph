@@ -44,6 +44,9 @@ class ContextVariables:
             self._vars.update(other)
         else:
             self._vars.update(other._vars)
+            
+    def get(self, key: Any, default: Any = None) -> Any:
+        return self._vars.get(key, default)
 
 
 @dataclass

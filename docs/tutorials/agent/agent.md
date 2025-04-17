@@ -26,6 +26,19 @@ translator = Agent(name='translator',
 
 当然你也可以将具体的指令需求直接写在 `instruction` 中, 这种方式将在 [工作流编排](#工作流编排) 中具体解释。
 
+### 指令参数
+
+在创建 `Agent` 对象时, `instruction` 不仅可以是一个字符串，也可以是一个函数，但这个函数 **必需** 返回一个字符串。该函数可以通过 `instruction_args` 传递参数, 这些参数将会在智能体初始化时传递给 `instruction` 函数。
+
+```python
+def get_instruction(name: str):
+    return f'你的名字是{name}'
+
+agent = Agent(llm=llm,
+              instruction=get_instruction,
+              instruction_args={'name': '张三'})
+```
+
 ## 创建一个控制器
 
 ```python
@@ -194,7 +207,7 @@ controller = Controller(context_variables={'current_time': '2024/09/01'})
 
 #### instruction中使用
 
-在创建 `Agent` 对象时, `instruction` 不仅可以是一个字符串，也可以是一个函数，但这个函数 **必需** 返回一个字符串, 同时可以额外传递一个`ContextVariables` 类型的形参。
+当 `instruction` 类型为函数时, 可以额外传递一个`ContextVariables` 类型的形参, 但 **必需** 标注这个形参的类型为 `ContextVariables` 类型。
 
 ``` python
 from course_graph.agent import ContextVariables
@@ -214,7 +227,7 @@ assistant = Agent(name="assistant",
 
 在定义外部工具函数时, 也可以传递一个 `ContextVariables` 类型的形参。同样的, 控制器也会在调用这些函数的时候自动注入上下文变量。
 
-虽然不需要在文档中描述这个形参, 但是 **必需** 标注这个形参的类型为 `ContextVariables` 类型:
+相同的，虽然不需要在文档中描述这个形参, 但是 **必需** 标注这个形参的类型为 `ContextVariables` 类型:
 
 ```python
 def get_weather(location: str, context_variables: ContextVariables) -> str:
@@ -354,6 +367,7 @@ controller = Controller(trace_callback=pprint)
 - `TOOL_CALL`: 工具调用
 - `TOOL_RESULT`: 工具调用结果
 - `CONTEXT_UPDATE`: 上下文变量更新
+- `MCP_TOOL_CALL`: MCP 工具调用
 
 ## 多智能体编排
 

@@ -10,10 +10,10 @@ from .types import ContextVariables
 from openai.types.chat import *
 import inspect
 import docstring_parser
-from typing import Callable, Awaitable
-from typing import Literal
+from typing import Callable, Awaitable, Literal
 from openai import NOT_GIVEN, NotGiven
 from .mcp import MCPServer
+from shortuuid import uuid
 
 
 class Agent:
@@ -23,9 +23,10 @@ class Agent:
             llm: LLMBase,
             name: str = 'Assistant',
             functions: list[Callable | Awaitable] = None,
-            tool_choice: str | NotGiven | Literal['required', 'auto', 'none'] = NOT_GIVEN,
-            parallel_tool_calls: bool | NotGiven = NOT_GIVEN,
-            instruction: str | Callable[[ContextVariables], str] | Callable[[], str] = 'You are a helpful assistant.',
+            tool_choice: str | Literal['required', 'auto', 'none'] = 'auto',
+            parallel_tool_calls: bool = False,
+            instruction: str | Callable[..., str] = 'You are a helpful assistant.',
+            instruction_args: dict = None,
             mcp_server: list[MCPServer] = None,
             mcp_impl: Literal['function_call'] = 'function_call'
     ) -> None:
@@ -36,15 +37,17 @@ class Agent:
             name (str, optional): 名称. Defaults to 'Assistant'.
             functions: (list[Callable | Awaitable], optional): 工具函数. Defaults to None.
             parallel_tool_calls: (bool, optional): 允许工具并行调用. Defaults to False.
-            tool_choice: (Literal['required', 'auto', 'none'] | NotGiven, optional). 强制使用工具函数, 选择模式或提供函数名称. Defaults to NOT_GIVEN.
-            instruction (str | Callable[[ContextVariables], str] | Callable[[], str], optional): 指令. Defaults to 'You are a helpful assistant.'.
+            tool_choice: (Literal['required', 'auto', 'none'], optional). 强制使用工具函数, 选择模式或提供函数名称. Defaults to 'auto'.
+            instruction (str | Callable[Any, str], optional): 指令. Defaults to 'You are a helpful assistant.'.
+            instruction_args: (dict, optional): 指令参数. Defaults to {}.
             mcp_server: (list[MCPServer], optional): MCP 服务器. Defaults to None.
             mcp_impl: (Literal['function_call'] | NotGiven, optional): MCP 协议实现方式, 目前只支持 'function_call'. Defaults to 'function_call'.
         """
+        self.id = str(uuid())
         self.llm = llm
         self.name = name
         self.instruction = instruction
-
+        self.instruction_args = instruction_args
         self.tools: list[ChatCompletionToolParam] = []  # for LLM
         
         self.tool_functions: dict[str, Callable | Awaitable] = {}  # for local function call
@@ -56,8 +59,9 @@ class Agent:
 
         if functions:
             self.add_tool_functions(*functions)
+        
 
-        if tool_choice != NOT_GIVEN and tool_choice not in ['required', 'auto', 'none']:  # 需要注意工具无限循环
+        if tool_choice not in ['required', 'auto', 'none']:  # 需要注意工具无限循环
             self.tool_choice = {
                 "type": "function",
                 "function": {
@@ -281,3 +285,6 @@ class Agent:
                 }
             })
         return self
+    
+    def __repr__(self) -> str:
+        return f'Agent(id={self.id}, name={self.name})'

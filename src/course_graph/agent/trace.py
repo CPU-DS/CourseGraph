@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from typing import TypedDict, List
 from datetime import datetime
 from course_graph import set_logger, logger
+from course_graph.agent import Agent
 
 set_logger(console=True, file=False)
 
@@ -20,12 +21,13 @@ class TraceEventType(Enum):
     TOOL_CALL = 'tool_call'
     TOOL_RESULT = 'tool_result'
     CONTEXT_UPDATE = 'context_update'
+    MCP_TOOL_CALL = 'mcp_tool_call'
 
 
 @dataclass
 class TraceEvent:
     timestamp: datetime
-    agent_name: str
+    agent: Agent
     event_type: TraceEventType
     data: dict
 

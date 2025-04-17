@@ -55,8 +55,13 @@ class Controller:
         match agent.instruction:
             case _ if callable(agent.instruction):
                 parameters = inspect.signature(agent.instruction).parameters
-                args = (self.context_variables,) if len(parameters) == 1 else ()
-                agent.llm.instruction = agent.instruction(*args)
+                args = {}
+                for arg_name, p in parameters.items():
+                    if p.annotation == ContextVariables:
+                        args[arg_name] = self.context_variables
+                    else:
+                        args[arg_name] = agent.instruction_args.get(arg_name, p.default)
+                agent.llm.instruction = agent.instruction(**args)
             case _:
                 agent.llm.instruction = agent.instruction
 
@@ -88,18 +93,11 @@ class Controller:
         self._add_trace_event(TraceEvent(
             timestamp=datetime.now(),
             event_type=TraceEventType.USER_MESSAGE,
-            agent_name=agent.name,
+            agent=agent,
             data={'message': message}
         ))
 
-        assistant_output = agent.chat_completion(message)
-
-        self._add_trace_event(TraceEvent(
-            timestamp=datetime.now(),
-            event_type=TraceEventType.AGENT_MESSAGE,
-            agent_name=agent.name,
-            data={'message': assistant_output.content}
-        ))
+        assistant_output = agent.chat_completion(message)    
 
         while assistant_output.tool_calls:  # None 或者空数组
             functions = assistant_output.tool_calls
@@ -107,13 +105,14 @@ class Controller:
                 function = item.function
                 args = json.loads(function.arguments)
 
-                self._add_trace_event(TraceEvent(
-                    timestamp=datetime.now(),
-                    event_type=TraceEventType.TOOL_CALL,
-                    agent_name=agent.name,
-                    data={'function': function.name, 'arguments': args}
-                ))
                 if (tool_function := agent.tool_functions.get(function.name)) is not None:
+                    
+                    self._add_trace_event(TraceEvent(
+                        timestamp=datetime.now(),
+                        event_type=TraceEventType.TOOL_CALL,
+                        agent=agent,
+                        data={'function': function.name, 'arguments': args}
+                    ))
 
                     # 自动注入上下文变量
                     if (var_name := agent.use_context_variables.get(function.name)) is not None:
@@ -141,6 +140,13 @@ class Controller:
                             result = Result()
 
                 elif (mcp_sever := agent.mcp_functions.get(function.name)) is not None:
+                    self._add_trace_event(TraceEvent(
+                        timestamp=datetime.now(),
+                        agent=agent,
+                        event_type=TraceEventType.MCP_TOOL_CALL,
+                        data={'function': function.name, 'arguments': args}
+                    ))
+
                     resp = (await mcp_sever.session.call_tool(function.name, args)).content
                     text_contents = []
                     for content in resp:
@@ -158,11 +164,17 @@ class Controller:
                 else:
                     result = Result(content=f'Failed to call tool: {function.name}')
 
+                trace_result = {'content': result.content}
+                if result.context_variables._vars:
+                    trace_result['context_variables'] = result.context_variables._vars
+                if not result.message:
+                    trace_result['message'] = False
+                    
                 self._add_trace_event(TraceEvent(
                     timestamp=datetime.now(),
-                    agent_name=agent.name,
+                    agent=agent,
                     event_type=TraceEventType.TOOL_RESULT,
-                    data={'function': function.name, 'result': result}
+                    data={'function': function.name, 'result': trace_result}
                 ))
 
                 agent.add_tool_call_message(result.content, item.id)
@@ -172,19 +184,19 @@ class Controller:
 
                     self._add_trace_event(TraceEvent(
                         timestamp=datetime.now(),
-                        agent_name=agent.name,
+                        agent=agent,
                         event_type=TraceEventType.AGENT_SWITCH,
                         data={'to_agent': result.agent.name}
                     ))
                     agent = result.agent
-
-                self._add_trace_event(TraceEvent(
-                    timestamp=datetime.now(),
-                    agent_name=agent.name,
-                    event_type=TraceEventType.CONTEXT_UPDATE,
-                    data={'old_context': self.context_variables, 'new_context': result.context_variables}
-                ))
-                self.context_variables.update(result.context_variables)
+                if result.context_variables._vars:
+                    self._add_trace_event(TraceEvent(
+                        timestamp=datetime.now(),
+                        agent=agent,
+                        event_type=TraceEventType.CONTEXT_UPDATE,
+                        data={'old_context': self.context_variables, 'new_context': result.context_variables}
+                    ))
+                    self.context_variables.update(result.context_variables)
 
                 self.set_agent_instruction(agent)
 
@@ -193,13 +205,13 @@ class Controller:
             if turn > self.max_turns:
                 raise MaxTurnsException
 
-        message = assistant_output.content
         self._add_trace_event(TraceEvent(
             timestamp=datetime.now(),
             event_type=TraceEventType.AGENT_MESSAGE,
-            agent_name=agent.name,
-            data={'message': message}
+            agent=agent,
+            data={'message': assistant_output.content}
         ))
+
         self.trace['end_time'] = datetime.now()
 
         return agent, assistant_output.content
