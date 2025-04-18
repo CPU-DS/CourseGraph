@@ -5,13 +5,13 @@
 # Description: 定义智能体
 
 from ..llm import LLMBase
-from .tool import Tool
-from .types import ContextVariables
+from .types import ContextVariables, Tool
 from openai.types.chat import *
 import inspect
 import docstring_parser
 from typing import Callable, Awaitable, Literal
-from openai import NOT_GIVEN, NotGiven
+from os import PathLike
+from openai import NOT_GIVEN
 from .mcp import MCPServer
 from shortuuid import uuid
 
@@ -25,7 +25,7 @@ class Agent:
             functions: list[Callable | Awaitable] = None,
             tool_choice: str | Literal['required', 'auto', 'none'] = 'auto',
             parallel_tool_calls: bool = False,
-            instruction: str | Callable[..., str] = 'You are a helpful assistant.',
+            instruction: str | Callable[..., str] | PathLike = 'You are a helpful assistant.',
             instruction_args: dict = None,
             mcp_server: list[MCPServer] = None,
             mcp_impl: Literal['function_call'] = 'function_call'
@@ -38,7 +38,7 @@ class Agent:
             functions: (list[Callable | Awaitable], optional): 工具函数. Defaults to None.
             parallel_tool_calls: (bool, optional): 允许工具并行调用. Defaults to False.
             tool_choice: (Literal['required', 'auto', 'none'], optional). 强制使用工具函数, 选择模式或提供函数名称. Defaults to 'auto'.
-            instruction (str | Callable[Any, str], optional): 指令. Defaults to 'You are a helpful assistant.'.
+            instruction (str | Callable[Any, str] | PathLike, optional): 指令. Defaults to 'You are a helpful assistant.'.
             instruction_args: (dict, optional): 指令参数. Defaults to {}.
             mcp_server: (list[MCPServer], optional): MCP 服务器. Defaults to None.
             mcp_impl: (Literal['function_call'] | NotGiven, optional): MCP 协议实现方式, 目前只支持 'function_call'. Defaults to 'function_call'.
@@ -95,6 +95,9 @@ class Agent:
         Returns:
             ChatCompletionMessage: 模型输出
         """
+        
+        if message is not None:
+            self.add_user_message(message)
 
         # 协调参数类型关系
         if len(self.tools) == 0:
@@ -102,31 +105,17 @@ class Agent:
         else:
             tools = self.tools
 
-        if message is not None:
-            self.add_user_message(message)
         response = self.llm.chat_completion(
             self.messages,
             parallel_tool_calls=self.parallel_tool_calls,
             tools=tools,
+            stream=False,
             tool_choice=self.tool_choice).choices[0].message
         # 保存历史记录
         resp = response.model_dump()
         resp['name'] = self.name
         self.messages.append(resp)  # 比 add_assistant_message 信息更详细
-
         return response
-    
-    def chat(self, message: str = None) -> str:
-        """ Agent 多轮对话
-
-        Args:
-            message (str): 用户输入
-
-        Returns:
-            ChatCompletionMessage: 模型输出
-        """
-        response = self.chat_completion(message)
-        return response.content
 
     def add_user_message(self, message: str) -> None:
         """ 添加用户记录
@@ -137,13 +126,14 @@ class Agent:
         message = {'role': 'user', 'content': message}
         self.messages.append(message)
 
-    def add_assistant_message(self, message: str) -> None:
+    def add_assistant_message(self, message: str, name: str = None) -> None:
         """ 添加模型记录
 
         Args:
             message (str): 模型输出
+            name (str): 模型名称. Defaults to self.name.
         """
-        message = {'content': message, 'role': 'assistant'}
+        message = {'content': message, 'role': 'assistant', 'name': name or self.name}
         self.messages.append(message)
 
     def add_tool_call_message(self, tool_content: str, tool_call_id: str) -> None:

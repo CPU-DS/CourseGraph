@@ -7,15 +7,23 @@
 from .agent import Agent
 import copy
 import json
-from .types import Result, ContextVariables
+from .types import Result, ContextVariables, MaxTurnsException
 from .trace import Trace, TraceEvent, TraceEventType
 import inspect
-from .exception import MaxTurnsException
 from datetime import datetime
 import uuid
 from .utils import async_to_sync
 from mcp.types import TextContent, ImageContent, EmbeddedResource, BlobResourceContents
 from typing import Callable, Any
+import os
+from dataclasses import dataclass
+
+
+@dataclass
+class ControllerResponse:
+    agent: Agent
+    message: str
+    turns: int
 
 
 class Controller:
@@ -63,9 +71,13 @@ class Controller:
                         args[arg_name] = agent.instruction_args.get(arg_name, p.default)
                 agent.llm.instruction = agent.instruction(**args)
             case _:
-                agent.llm.instruction = agent.instruction
+                if os.path.exists(agent.instruction):
+                    with open(agent.instruction, 'r', encoding='utf-8') as f:
+                        agent.llm.instruction = f.read()
+                else:
+                    agent.llm.instruction = agent.instruction
 
-    def __call__(self, agent: Agent, message: str = None) -> tuple[Agent, str]:
+    def __call__(self, agent: Agent, message: str = None) -> ControllerResponse:
         return self.run_sync(agent=agent, message=message)
 
     def _add_trace_event(self, event: TraceEvent) -> None:
@@ -74,7 +86,7 @@ class Controller:
         if self.trace_callback:
             self.trace_callback(event)
 
-    async def run(self, agent: Agent, message: str = None) -> tuple[Agent, str]:
+    async def run(self, agent: Agent, message: str = None) -> ControllerResponse:
         """ 运行 Agent
 
         Args:
@@ -85,17 +97,17 @@ class Controller:
             (Agent, str): 最终激活的 Agent 和输出
         """
         turn = 1
+        if self.max_turns <= 0:
+            raise MaxTurnsException
 
         self.set_agent_instruction(agent)
-        if not message:
-            agent.add_assistant_message(agent.name)
-
-        self._add_trace_event(TraceEvent(
-            timestamp=datetime.now(),
-            event_type=TraceEventType.USER_MESSAGE,
-            agent=agent,
-            data={'message': message}
-        ))
+        if message:
+            self._add_trace_event(TraceEvent(
+                timestamp=datetime.now(),
+                event_type=TraceEventType.USER_MESSAGE,
+                agent=agent,
+                data={'message': message}
+            ))
 
         assistant_output = agent.chat_completion(message)    
 
@@ -186,7 +198,7 @@ class Controller:
                         timestamp=datetime.now(),
                         agent=agent,
                         event_type=TraceEventType.AGENT_SWITCH,
-                        data={'to_agent': result.agent.name}
+                        data={'to_agent': result.agent}
                     ))
                     agent = result.agent
                 if result.context_variables._vars:
@@ -214,9 +226,9 @@ class Controller:
 
         self.trace['end_time'] = datetime.now()
 
-        return agent, assistant_output.content
+        return ControllerResponse(agent=agent, message=assistant_output.content, turns=turn)
 
-    def run_sync(self, agent: Agent, message: str = None) -> tuple[Agent, str]:
+    def run_sync(self, agent: Agent, message: str = None) -> ControllerResponse:
         """ 运行 Agent (同步版本)
 
         Args:

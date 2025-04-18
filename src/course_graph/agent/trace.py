@@ -8,7 +8,7 @@ from enum import Enum
 from dataclasses import dataclass
 from typing import TypedDict, List
 from datetime import datetime
-from course_graph import set_logger, logger
+from course_graph import set_logger
 from course_graph.agent import Agent
 
 set_logger(console=True, file=False)

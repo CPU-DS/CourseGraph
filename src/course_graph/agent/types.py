@@ -5,14 +5,23 @@
 # Description: 定义各种中间类
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Optional, Any, Union, TypeVar, Dict, List, TypedDict
-from enum import Enum
-from datetime import datetime
+from typing import TYPE_CHECKING, Optional, Any, Union, TypeVar
+from typing import TypedDict, Callable, Awaitable
+from openai.types.chat import ChatCompletionToolParam
+from typing_extensions import Required
 
 if TYPE_CHECKING:
     from .agent import Agent
 
 T = TypeVar('T')
+
+
+class Tool(TypedDict, total=False):
+    tool: Required[ChatCompletionToolParam]
+    function: Required[Callable | Awaitable]
+    function_name: str  # 需要与tool.function.name相同，作为function的索引
+    context_variables_parameter_name: str
+    context_agent_parameter_name: str
 
 
 class ContextVariables:
@@ -63,3 +72,15 @@ class Result:
             'context_variables': self.context_variables,
             'message': self.message
         })
+
+class MaxTurnsException(Exception):
+    """最大轮数超出"""
+    pass
+
+class MaxActiveException(Exception):
+    """最大激活次数超出"""
+    pass
+
+class TimeOutException(Exception):
+    """超时"""
+    pass

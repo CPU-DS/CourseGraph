@@ -36,8 +36,11 @@ def get_instruction(name: str):
 
 agent = Agent(llm=llm,
               instruction=get_instruction,
-              instruction_args={'name': '张三'})
+              instruction_args={'name': 'Mike'})
 ```
+
+> [!TIP]
+>  `instruction` 参数也可以是一个文本文件路径, 文件内容将作为指令。
 
 ## 创建一个控制器
 
@@ -51,12 +54,12 @@ controller = Controller(max_turns=10)
 ## 启动智能体
 
 ```python
-_, resp = controller.run_sync(agent=translator, message="请帮我翻译蛋白质。")
+resp = controller.run_sync(agent=translator, message="请帮我翻译蛋白质。")
 ```
 
 其中 `message` 参数代表用户的具体指令或者是用户与智能体对话的开始。
 
-`controller.run_sync` 方法返回两个值, 其中第一个值代表最后响应的 `Agent` 对象 (暂时还用不到), 第二个值代表智能体最后的相应内容。在这个例子中, `resp` 的值应该是智能体翻译的结果 (不排除其中包含一些提示语)。
+`controller.run_sync` 方法返回一个 `ControllerResponse` 对象, 其中 `agent` 代表最后响应的 `Agent` 对象 (暂时还用不到), `message` 代表智能体最后的相应内容, `turns` 代表智能体运行的轮数。
 
 ## 使用外部工具
 
@@ -179,13 +182,22 @@ assistant.add_tools(get_weather_tool)
 
 - 字符串: 字符串一般表示函数的执行结果, 例如天气查询的返回值, 此返回值会交还给智能体。
 
-- `Agent` 对象: 表示要切换到新的智能体上继续执行任务。详细见 [多智能体编排](#多智能体编排)。
+- `Agent` 对象: 表示要切换到新的智能体上继续执行任务。这种情况下工具函数一般被视为 **智能体转移函数**<a id='transfer-function'></a>。
 
 - `ContextVariables` 对象: 表示要更新的上下文变量。详细见 [上下文变量](#上下文变量)。
 
 - `Result` 对象: 以上三种类型的组合类。
 
 除此之外的返回值都将会被忽略, 其隐藏含义是只关心函数的副作用而不关心函数的返回值。
+
+另外, 我们通常使用历史对话传递消息, 在智能体切换的时候, 之前智能体的与用户的对话或是工具函数调用的结果都会被保存起来, 但是这种方式容易造成历史对话过长。如果你明确不需要这种传递机制, 可以在 `Result` 对象中设置 `message` 字段为 `False` 来实现转换智能体但并不携带历史对话。
+
+```python
+result = Result(agent=assistant, message=False)
+```
+> [!TIP]
+> 在这种情况下你可以使用上下文变量或 `add_assistant_message` 方法实现信息的传递。
+
 
 ## 上下文变量
 
@@ -332,8 +344,8 @@ async def main():
             mcp_server=[mcp_server]
         )
         controller = Controller()
-        _, resp = await controller.run(agent, "帮我查询南京今天的天气")
-        print(resp)
+        resp = await controller.run(agent, "帮我查询南京今天的天气")
+        print(resp.message)
 
 if __name__ == '__main__':
     asyncio.run(main())
@@ -369,38 +381,66 @@ controller = Controller(trace_callback=pprint)
 - `CONTEXT_UPDATE`: 上下文变量更新
 - `MCP_TOOL_CALL`: MCP 工具调用
 
-## 多智能体编排
+## 多智能协作
 
-[这里](https://github.com/wangtao2001/CourseGraph/blob/dev/examples/agent/agent_orchestration.py) 展示了一个典型的多智能体编排的场景。
+除了让智能体使用 <a href='#transfer-function'>转移函数</a> 自行决定接下来被激活的智能体外，也提供了一些固定的协作范式，称之为团队。
 
-`core_agent` 负责选择不同的智能体执行相应的任务, 其中的 `transfer_to` 函数通过返回一个 `Agent` 对象来实现身份的转换。
+### 团队
 
-对于具体执行任务的智能体来说, 当任务执行完成后, 返回了一个 `Result` 对象, 其中包含了工具函数的调用结果, 并且将身份再转回到 `core_agent` 上。
+以 `RoundTeam` 为例，团队中每个 `Agent` 对象会依次被激活，所有 `Agent` 以广播的方式共享相同的上下文。
 
-这里我们并没有使用上下文变量, 而是通过历史对话消息在不同的智能体间传递信息。
+#### 创建团队
 
-## 工作流编排
-
-[这里](https://github.com/wangtao2001/CourseGraph/blob/dev/examples/agent/workflow_orchestration.py) 展示了一个典型的工作流编排场景。
-
-其中包含了两个工作: 中文的新闻稿撰写和英文的新闻稿撰写。两个工作是并行执行的。
-
-在每个工作的内部, 我们手动控制智能体的执行顺序并更新上下文变量。比较特殊的是, 我们将指令直接写在了 `instruction` 中。在这种编排方式下, 智能体不再主动进行任务的规划, 只负责执行具体的指令。
-
-## 几种编排方式的对比 
-
-1. **单智能体**：所有的任务都由一个智能体负责，自动规划任务、选择工具调用并进行结果的总结。优点是简单, 用户只需要配置工具下发指令即可。缺点是无法控制智能体的行为, 当任务过于复杂时, 单智能体的压力可能过大, 这种现象在小模型上更加明显。
-
-2. **多智能体**：这种情况下通常用拥有一个核心智能体, 负责将任务拆分成多个任务，每个任务由一个智能体负责，智能体之间通过历史消息传递进行沟通。优点是子任务更加简单智能体处理更加轻松, 但缺点是缺乏稳定性。
-
-3. **工作流**: 当用户明确知道解决任务的具体步骤时工作流是更加合适的选择。智能体之间不再发生联系, 每个智能体的工作结果也通常保存到上下文变量中。
-
-在具体的实践中, 我们可以将多种编排方式结合起来。将一个任务拆解成多个子任务, 每个子任务可以由多智能体规划具体的执行策略。这样就实现了人工拆解和智能体规划的平衡。
-
-这里有一个细节需要注意: 在多智能体编排中, 我们通常使用历史对话传递消息, 在智能体切换的时候, 之前智能体的与用户的对话或是工具函数调用的结果都会被保存起来, 但是这种方式容易造成历史对话过长。如果你明确不需要这种传递机制, 可以在 `Result` 对象中设置 `message` 字段为 `False` 来实现转换智能体但并不携带历史对话。
+直接使用 `RoundTeam` 类创建一个团队:
 
 ```python
-result = Result(agent=assistant, message=False)
+team = RoundTeam([agent1, agent2, agent3])
 ```
-> [!TIP]
-> 在这种情况下你可以使用上下文变量实现信息的传递。
+
+或者使用 `|` 操作符:
+
+```python
+team: RoundTeam = agent1 | agent2 | agent3
+```
+
+#### 添加任务
+
+团队中所有 `Agent` 都将围绕这个任务进行协作：
+
+```python
+team.add_task("请创作一首关于春天的七律诗。")
+```
+
+#### 添加终止器
+
+团队中可以设置一个终止器，当满足终止条件时，团队将停止运行：
+
+```python
+team.terminator = MaxTurnsTerminator(max_turns=10)
+```
+
+终止器包含以下类型:
+
+- `MaxTurnsTerminator`: 最大轮数终止, 包含每个 `Agent` 调用工具的次数。
+- `MaxActiveTerminator`: 最大激活次数终止, 表示团队中能够激活 `Agent` 的最大次数。
+- `TextTerminator`: 当团队中任意一个 `Agent` 的响应中包含指定的文本时，团队将停止运行。
+- `TimeOutTerminator`: 超时终止，表示整个团队运行的最长时长。
+
+所有终止器都支持 `&` 和 `|` 操作符来组合使用。
+
+#### 运行团队
+
+使用 `run_sync` 或 `run` 方法运行团队：
+
+```python
+team.run_sync()
+```
+
+不提供返回值，你可以使用 `team.global_messages` 获取团队中所有 `Agent` 的对话历史或者 `add_trace_callback` 方法添加一个回调函数来获取内部流程。
+
+### 团队类型
+
+
+
+
+
