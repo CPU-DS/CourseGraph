@@ -8,14 +8,14 @@ from .agent import Agent
 from abc import ABC, abstractmethod
 from .trace import TraceEvent
 from typing import Callable, Union
-from .types import MaxTurnsException, TimeOutException, MaxActiveException
 from .controller import Controller
 from .utils import async_to_sync
 import copy
 import time
+from dataclasses import dataclass
 
 
-class Terminator(ABC):
+class Termination(ABC):
     def __init__(self):
         self._data = dict()
 
@@ -26,9 +26,9 @@ class Terminator(ABC):
     @data.setter
     def data(self, value: dict):
         self._data = value
-        if hasattr(self, 'terminators'):
-            for terminator in self.terminators:
-                terminator.data = value
+        if hasattr(self, 'terminations'):
+            for termination in self.terminations:
+                termination.data = value
 
     def update(self, data: dict):
         self._data.update(data)
@@ -38,40 +38,40 @@ class Terminator(ABC):
     def is_match(self) -> bool:
         raise NotImplementedError
 
-    def __and__(self, other: 'Terminator') -> 'TerminatorGroup':
-        return TerminatorGroup([self, other], operator='AND')
+    def __and__(self, other: 'Termination') -> 'TerminationGroup':
+        return TerminationGroup([self, other], operator='AND')
 
-    def __or__(self, other: 'Terminator') -> 'TerminatorGroup':
-        return TerminatorGroup([self, other], operator='OR')
+    def __or__(self, other: 'Termination') -> 'TerminationGroup':
+        return TerminationGroup([self, other], operator='OR')
 
 
-class TerminatorGroup(Terminator):
+class TerminationGroup(Termination):
 
-    def __init__(self, terminators: list[Terminator] | list['TerminatorGroup'], operator: str = 'OR') -> None:
+    def __init__(self, terminations: list[Termination] | list['TerminationGroup'], operator: str = 'OR') -> None:
         super().__init__()
-        self.terminators = terminators
+        self.terminations = terminations
         self.operator = operator
 
     def is_match(self) -> bool:
         if self.operator == 'AND':
-            return all(terminator.is_match() for terminator in self.terminators)
-        return any(terminator.is_match() for terminator in self.terminators)
+            return all(termination.is_match() for termination in self.terminations)
+        return any(termination.is_match() for termination in self.terminations)
 
-    def __and__(self, other: Union[Terminator, 'TerminatorGroup']) -> 'TerminatorGroup':
-        if isinstance(other, TerminatorGroup):
-            return TerminatorGroup(self.terminators + other.terminators, operator='AND')
-        return TerminatorGroup(self.terminators + [other], operator='AND')
+    def __and__(self, other: Union[Termination, 'TerminationGroup']) -> 'TerminationGroup':
+        if isinstance(other, TerminationGroup):
+            return TerminationGroup(self.terminations + other.terminations, operator='AND')
+        return TerminationGroup(self.terminations + [other], operator='AND')
 
-    def __or__(self, other: Union[Terminator, 'TerminatorGroup']) -> 'TerminatorGroup':
-        if isinstance(other, TerminatorGroup):
-            return TerminatorGroup(self.terminators + other.terminators, operator='OR')
-        return TerminatorGroup(self.terminators + [other], operator='OR')
+    def __or__(self, other: Union[Termination, 'TerminationGroup']) -> 'TerminationGroup':
+        if isinstance(other, TerminationGroup):
+            return TerminationGroup(self.terminations + other.terminations, operator='OR')
+        return TerminationGroup(self.terminations + [other], operator='OR')
 
 
-class TextTerminator(Terminator):
+class TextMentionTermination(Termination):
     def __init__(self, text: str) -> None:
         """
-        当团队中任意一个 `Agent` 的响应中包含指定的文本时，团队将停止运行。
+        当团队中任意一个 `Agent` 的响应中包含指定的文本时，团队将停止运行
 
         Args:
             text (str): 指定的文本
@@ -79,48 +79,29 @@ class TextTerminator(Terminator):
         super().__init__()
         self.text = text
 
-    def is_match(self) -> bool:
+    def is_match(self):
         return self.text in self.data.get('message', '')
 
 
-class MaxTurnsTerminator(Terminator):
-    def __init__(self, max_turns: int) -> None:
+class MaxActiveTermination(Termination):
+    def __init__(self, count: int) -> None:
         """
-        最大轮数终止, 包含每个 `Agent` 调用工具的次数。
+        最大激活次数终止, 表示团队中能够激活 `Agent` 的最大次数
 
         Args:
-            max_turns (int): 最大轮数
+            count (int): 最大激活次数
         """
         super().__init__()
-        self.max_turns = max_turns
+        self.count = count
 
     def is_match(self) -> bool:
-        if r := self.data.get('turns', 0) >= self.max_turns:
-            raise MaxTurnsException
-        return r
+        return self.data.get('active_count', 0) >= self.count
 
 
-class MaxActiveTerminator(Terminator):
-    def __init__(self, max_turns: int) -> None:
-        """
-        最大激活次数终止, 表示团队中能够激活 `Agent` 的最大次数。
-
-        Args:
-            max_turns (int): 最大激活次数
-        """
-        super().__init__()
-        self.max_turns = max_turns
-
-    def is_match(self) -> bool:
-        if r := self.data.get('active_turns', 0) >= self.max_turns:
-            raise MaxActiveException
-        return r
-
-
-class TimeOutTerminator(Terminator):
+class TimeOutTermination(Termination):
     def __init__(self, timeout: int) -> None:
         """
-        超时终止，表示整个团队运行的最长时长。
+        超时终止，表示整个团队运行的最长时长
 
         Args:
             timeout (int): 超时时间
@@ -130,60 +111,52 @@ class TimeOutTerminator(Terminator):
         self.timeout = timeout
 
     def is_match(self) -> bool:
-        if r := time.time() - self.start_time > self.timeout:
-            raise TimeOutException
-        return r
+        return time.time() - self.start_time > self.timeout
+
+
+@dataclass
+class TeamResponse:
+    ...
 
 
 class Team(ABC):
 
-    def __init__(self, agents: list[Agent]) -> None:
+    def __init__(self, agents: list[Agent]):
         self.agents = agents
         self.controller = Controller()
-        self.task = None
-        self.terminator: Terminator | None = None
+        self.termination: Termination | None = None
         self.global_messages = []
 
     @abstractmethod
-    async def run(self) -> None:
+    async def run(self, task: str) -> TeamResponse:
         raise NotImplementedError
 
-    def run_sync(self) -> None:
-        async_to_sync(self.run)()
+    def run_sync(self, task: str) -> TeamResponse:
+        return async_to_sync(self.run)(task)
 
     def reset(self) -> None:
         """
         重置团队
         """
-        self.agents = []
-        self.task = None
-        self.terminator = None
         self.global_messages = []
 
-    def add_task(self, task: str) -> None:
+    def set_trace_callback(self, callback: Callable[[TraceEvent], None]) -> None:
         """
-        添加任务
-        """
-        self.task = task
-
-    def add_trace_callback(self, callback: Callable[[TraceEvent], None]) -> None:
-        """
-        添加 Controller 的 Trace 回调
+        设置 Controller 的 Trace 回调
         
         Args:
             callback (Callable[[TraceEvent], None]): 回调函数
         """
         self.controller.trace_callback = callback
 
-    def _check_terminator(self, data: dict) -> None:
-        if self.terminator:
-            self.terminator.update(data)
-            if self.terminator.is_match():
-                return
+    def _check_termination(self, data: dict) -> bool:
+        if self.termination:
+            self.termination.update(data)
+            return self.termination.is_match()
 
 
 class RoundTeam(Team):
-    def __init__(self, agents: list[Agent]) -> None:
+    def __init__(self, agents: list[Agent]):
         """
         初始化一个轮询团队
         
@@ -196,35 +169,71 @@ class RoundTeam(Team):
         self.agents.append(other)
         return self
 
-    async def run(self) -> None:
+    async def run(self, task: str) -> TeamResponse:
         """
         运行团队
+        
+        Args:
+            task (str): 任务
         """
-        if self.task:
-            self.global_messages.append({
-                'role': 'user',
-                'content': self.task
-            })
+        self.global_messages.append({
+            'role': 'user',
+            'content': task
+        })
         while True:
             for agent in self.agents:
                 agent.messages = copy.deepcopy(self.global_messages)
                 response = await self.controller.run(agent)
-
-                self._check_terminator({
+                if self._check_termination({
                     'message': response.message,
-                    'turns': self.terminator.data.get('turns', 0) + response.turns,
-                    'active_turns': self.terminator.data.get('active_turns', 0) + 1
-                })
+                    'active_count': self.termination.data.get('active_count', 0) + 1
+                }):
+                    return TeamResponse()
+                self.global_messages.extend(agent.messages)
+                
 
-                self.global_messages.append({
-                    'role': 'assistant',
-                    'content': response.message,
-                    'name': agent.name
-                })
+class LinearTeam(Team):
+    def __init__(self, agents: list[Agent]):
+        """
+        初始化一个线性团队
+        
+        Args:
+            agents (list[Agent]): 团队中的 Agent 列表
+        """
+        super().__init__(agents)
 
+    def __gt__(self, other: Agent) -> 'LinearTeam':
+        self.agents.append(other)
+        return self
+    
+    async def run(self, task: str) -> TeamResponse:
+        """
+        运行团队
+        
+        Args:
+            task (str): 任务
+        """
+        self.global_messages.append({
+            'role': 'user',
+            'content': task
+        })
+        for agent in self.agents:
+            agent.add_user_message(task)
+        
+        response = None
+        for agent in self.agents:
+            if response:
+                agent.add_assistant_message(response.message, response.agent.name)
+            response = await self.controller.run(agent)
+            self.global_messages.extend(agent.messages)
+            
+            
 
 def __or__(self, other: Agent) -> 'RoundTeam':
     return RoundTeam([self, other])
 
+def __gt__(self, other: Agent) -> 'LinearTeam':
+    return LinearTeam([self, other])
 
 Agent.__or__ = __or__
+Agent.__gt__ = __gt__

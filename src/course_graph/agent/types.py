@@ -72,15 +72,3 @@ class Result:
             'context_variables': self.context_variables,
             'message': self.message
         })
-
-class MaxTurnsException(Exception):
-    """最大轮数超出"""
-    pass
-
-class MaxActiveException(Exception):
-    """最大激活次数超出"""
-    pass
-
-class TimeOutException(Exception):
-    """超时"""
-    pass

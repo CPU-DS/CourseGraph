@@ -136,7 +136,7 @@ class Agent:
         message = {'content': message, 'role': 'assistant', 'name': name or self.name}
         self.messages.append(message)
 
-    def add_tool_call_message(self, tool_content: str, tool_call_id: str) -> None:
+    def add_tool_call_result_message(self, tool_content: str, tool_call_id: str) -> None:
         """ 添加工具调用记录
 
         Args:
