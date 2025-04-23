@@ -9,4 +9,4 @@ from .controller import Controller
 from .types import Result, ContextVariables, Tool
 from .mcp import MCPServer, STDIO, SSE
 from .trace import TraceEvent, trace_callback
-from .teams import Team, RoundTeam, Termination, TextMentionTermination, LinearTeam
+from .teams import Team, RoundTeam, Termination, TextMentionTermination, LinearTeam, LeaderTeam

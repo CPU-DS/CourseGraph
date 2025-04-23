@@ -384,15 +384,13 @@ controller = Controller(trace_callback=pprint)
 
 ## 多智能体协作
 
-除了让智能体使用 <a href='#transfer-function'>转移函数</a> 自行决定接下来被激活的智能体外，也提供了一些固定的协作范式，称之为团队。
+除了手动编写协作流程或让智能体使用 <a href='#transfer-function'>转移函数</a> 自行决定切换外，也提供了一些固定的协作范式，称之为团队。
 
 ### 团队
 
-以 `RoundTeam` 为例，团队中每个 `Agent` 对象会依次被激活，所有 `Agent` 以广播的方式共享相同的上下文。
-
 #### 创建团队
 
-直接使用 `RoundTeam` 类创建一个团队:
+以 `RoundTeam` 为例，直接使用 `RoundTeam` 类创建一个团队:
 
 ```python
 team = RoundTeam([agent1, agent2, agent3])
@@ -414,25 +412,39 @@ team.termination = TextMentionTermination(text="APPROVED")
 
 终止器包含以下类型:
 
-- `MaxActiveTermination`: 最大激活次数终止, 表示团队中能够激活 `Agent` 的最大次数。
-- `TextMentionTermination`: 当团队中任意一个 `Agent` 的响应中包含指定的文本时，团队将停止运行。
-- `TimeOutTermination`: 超时终止，表示整个团队运行的最长时长。
+- `TextMentionTermination`: 响应中包含指定的文本时，团队将停止运行。
 
 所有终止器都支持 `&` 和 `|` 操作符来组合使用。
 
 #### 运行团队
 
-使用 `run_sync` 或 `run` 方法运行团队，团队中所有 `Agent` 都将围绕这个任务进行协作：
+使用 `run_sync` 或 `run` 方法运行团队，团队中所有成员都将围绕这个任务进行协作：
 
 ```python
 team.run_sync(task="请创作一首关于春天的七律诗。")
 ```
 
-该方法提供一个 `TeamResponse` 类型的返回值。如果想知道团队的内部流程，可以使用 `team.global_messages` 获取团队中所有 `Agent` 的对话历史或者 `set_trace_callback` 方法设置一个回调函数来获取内部流程。
+该方法提供一个 `TeamResponse` 类型的返回值。如果想知道团队的内部流程, 可以使用 `trace` 属性或通过 `set_trace_callback` 方法设置一个回调函数。
 
 ### 团队类型
 
+- `RoundTeam`: 轮询团队，团队中每个成员会依次被激活并循环该过程，直到满足终止条件。所有成员以广播的方式共享相同的上下文。
 
+```python
+team: RoundTeam = agent1 | agent2 | agent3
+```
 
+- `LinearTeam`: 线性团队，团队中每个成员会依次被激活，每个成员仅接收前一个成员的运行结果。团队在最后一个成员运行结束后自动结束。
 
+```python
+team: LinearTeam = agent1 => agent2 => agent3
+```
 
+- `LeaderTeam`: 领导团队，团队中有一个领导和一个或多个下属，领导负责判断用户意图并切换到相应的下属上执行任务, 每个下属仅接收领导的指令。
+
+```python
+team: LeaderTeam = agent1 <= [agent2, agent3] <= ["负责...", "负责..."]
+```
+
+> [!TIP]
+> 可以通过第二个 `<=` 操作符设置下属 `Agent` 的描述, 也可以省略使用默认描述

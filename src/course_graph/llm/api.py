@@ -62,3 +62,18 @@ class Volcengine(LLM):
         super().__init__(
             base_url='https://ark.cn-beijing.volces.com/api/v3',
             api_key=api_key)
+
+
+class Gemini(LLM):
+    def __init__(self,
+                 api_key: str = os.getenv('GOOGLE_API_KEY')):
+        """ Gemini API 服务
+        
+        Args:
+            api_key (str, optional): API key. Defaults to os.getenv('GOOGLE_API_KEY').
+        """
+        super().__init__(
+            base_url='https://generativelanguage.googleapis.com/v1beta/openai/',
+            api_key=api_key)
+        self.model = 'models/gemini-2.5-pro-preview-03-25'
+            

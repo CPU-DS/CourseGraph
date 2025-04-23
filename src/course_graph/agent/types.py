@@ -19,7 +19,6 @@ T = TypeVar('T')
 class Tool(TypedDict, total=False):
     tool: Required[ChatCompletionToolParam]
     function: Required[Callable | Awaitable]
-    function_name: str  # 需要与tool.function.name相同，作为function的索引
     context_variables_parameter_name: str
     context_agent_parameter_name: str
 

@@ -171,9 +171,7 @@ class Agent:
         for tool in tools:
             self.tools.append(tool["tool"])
             function = tool["function"]
-            function_name = tool.get('function_name', function.__name__)
-            if function_name == '<lambda>':
-                continue
+            function_name = tool['tool']['function']['name']
             self.tool_functions[function_name] = function
             if (r := tool.get('context_variables_parameter_name')) is not None:
                 self.use_context_variables[function_name] = r
@@ -270,7 +268,7 @@ class Agent:
                             'type': 'object',
                             'properties': properties,
                             'required': required
-                        } if len(properties) != 0 else {}
+                        }
                     },
                 }
             })

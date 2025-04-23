@@ -11,8 +11,8 @@ from typing import Callable, Union
 from .controller import Controller
 from .utils import async_to_sync
 import copy
-import time
 from dataclasses import dataclass
+from .types import Tool, Result
 
 
 class Termination(ABC):
@@ -83,37 +83,6 @@ class TextMentionTermination(Termination):
         return self.text in self.data.get('message', '')
 
 
-class MaxActiveTermination(Termination):
-    def __init__(self, count: int) -> None:
-        """
-        最大激活次数终止, 表示团队中能够激活 `Agent` 的最大次数
-
-        Args:
-            count (int): 最大激活次数
-        """
-        super().__init__()
-        self.count = count
-
-    def is_match(self) -> bool:
-        return self.data.get('active_count', 0) >= self.count
-
-
-class TimeOutTermination(Termination):
-    def __init__(self, timeout: int) -> None:
-        """
-        超时终止，表示整个团队运行的最长时长
-
-        Args:
-            timeout (int): 超时时间
-        """
-        super().__init__()
-        self.start_time = time.time()
-        self.timeout = timeout
-
-    def is_match(self) -> bool:
-        return time.time() - self.start_time > self.timeout
-
-
 @dataclass
 class TeamResponse:
     ...
@@ -125,7 +94,10 @@ class Team(ABC):
         self.agents = agents
         self.controller = Controller()
         self.termination: Termination | None = None
-        self.global_messages = []
+        
+    @property
+    def trace(self):
+        return self.controller.trace
 
     @abstractmethod
     async def run(self, task: str) -> TeamResponse:
@@ -138,7 +110,8 @@ class Team(ABC):
         """
         重置团队
         """
-        self.global_messages = []
+        for agent in self.agents:
+            agent.messages = []
 
     def set_trace_callback(self, callback: Callable[[TraceEvent], None]) -> None:
         """
@@ -176,20 +149,19 @@ class RoundTeam(Team):
         Args:
             task (str): 任务
         """
-        self.global_messages.append({
+        global_messages = [{
             'role': 'user',
             'content': task
-        })
+        }]
         while True:
             for agent in self.agents:
-                agent.messages = copy.deepcopy(self.global_messages)
+                agent.messages = global_messages
                 response = await self.controller.run(agent)
                 if self._check_termination({
-                    'message': response.message,
-                    'active_count': self.termination.data.get('active_count', 0) + 1
+                    'message': response.message
                 }):
                     return TeamResponse()
-                self.global_messages.extend(agent.messages)
+                global_messages.extend(copy.deepcopy(agent.messages))
                 
 
 class LinearTeam(Team):
@@ -202,7 +174,7 @@ class LinearTeam(Team):
         """
         super().__init__(agents)
 
-    def __gt__(self, other: Agent) -> 'LinearTeam':
+    def __ge__(self, other: Agent) -> 'LinearTeam':
         self.agents.append(other)
         return self
     
@@ -213,27 +185,110 @@ class LinearTeam(Team):
         Args:
             task (str): 任务
         """
-        self.global_messages.append({
-            'role': 'user',
-            'content': task
-        })
         for agent in self.agents:
             agent.add_user_message(task)
-        
         response = None
         for agent in self.agents:
             if response:
                 agent.add_assistant_message(response.message, response.agent.name)
             response = await self.controller.run(agent)
-            self.global_messages.extend(agent.messages)
+            if self._check_termination({
+                    'message': response.message
+                }):
+                return TeamResponse()
+
+
+class LeaderTeam(Team):
+    def __init__(self, leader: Agent, subordinates: list[Agent]):
+        """
+        初始化一个领导团队
+        
+        Args:
+            leader (Agent): 领导
+            subordinates (list[Agent]): 跟随者
+        """
+        super().__init__([leader, *subordinates])
+        self.leader = leader
+        self.subordinates = subordinates
+        self._descs: list[str] | tuple[str, ...] = []
+        
+        for subordinate in self.subordinates:
             
+            def transfer(subordinate: Agent, instruction: str):
+                subordinate.add_user_message(instruction)
+                return Result(
+                    agent=subordinate,
+                    message=False
+                )
             
+            transfer_to_subordinate: Tool = {
+                'function': lambda instruction, subordinate=subordinate: transfer(subordinate, instruction),  # avoid 延迟绑定
+                'tool': {
+                    'type': 'function',
+                    'function': {
+                        'name': f'transfer_to_{subordinate.name.replace(" ", "_")}',
+                        'description': f"Transfer task to {subordinate.name}, who is instructed to '{subordinate.instruction}' and will continue the task.",
+                        'parameters': {
+                            'type': 'object',
+                            'properties': {
+                                'instruction': {
+                                    'type': 'string',
+                                    'description': f"The instruction for {subordinate.name} to continue the task."
+                                }
+                            },
+                            'required': ['instruction']
+                        }
+                    }
+                }
+            }
+            self.leader.add_tools(transfer_to_subordinate)
+    
+    def __le__(self, descs: list[str] | tuple[str, ...]) -> 'LeaderTeam':
+        self.descs = descs
+        return self
+    
+    @property
+    def descs(self):
+        return self._descs
+    
+    @descs.setter
+    def descs(self, descs: list[str] | tuple[str, ...]):
+        if len(descs) != len(self.subordinates):
+            raise ValueError
+        for idx, desc in enumerate(descs):
+            self.leader.tools[idx]['function']['description'] = desc
+        self._descs = descs
+        
+    async def run(self, task: str) -> TeamResponse:
+        """
+        运行团队
+        
+        Args:
+            task (str): 任务
+        """
+        self.leader.add_user_message(task)
+            
+        while True:
+            response = await self.controller.run(self.leader)
+            if self._check_termination({
+                    'message': response.message
+                }):
+                return TeamResponse()
+            for subordinate in self.subordinates:
+                if subordinate.messages:
+                    self.leader.add_assistant_message(subordinate.messages[-1].content, subordinate.name)
+                    subordinate.messages = []
+
 
 def __or__(self, other: Agent) -> 'RoundTeam':
     return RoundTeam([self, other])
 
-def __gt__(self, other: Agent) -> 'LinearTeam':
+def __ge__(self, other: Agent) -> 'LinearTeam':
     return LinearTeam([self, other])
 
+def __le__(self, other: list[Agent]) -> 'LeaderTeam':
+    return LeaderTeam(leader=self, subordinates=other)
+
 Agent.__or__ = __or__
-Agent.__gt__ = __gt__
+Agent.__ge__ = __ge__
+Agent.__le__ = __le__
