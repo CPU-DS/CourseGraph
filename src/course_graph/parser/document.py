@@ -100,7 +100,7 @@ class Document:
     def set_knowledgepoints_by_llm(
             self,
             llm: LLM,
-            prompt: PromptGenerator = ExamplePromptGenerator(),
+            prompt: Prompt = ExamplePrompt(),
             self_consistency: bool = False,
             samples: int = 5,
             top: float = 0.5,
@@ -110,7 +110,7 @@ class Document:
 
         Args:
             llm (LLM): 指定 LLM
-            prompt (Prompt, optional): 使用的提示词类. Defaults to ExamplePromptGenerator().
+            prompt (Prompt, optional): 使用的提示词类. Defaults to ExamplePrompt().
             self_consistency (bool, optional): 是否采用自我一致性策略 (需要更多的模型推理次数). Defaults to False.
             samples (int, optional): 采用自我一致性策略的采样次数. Defaults to 5.
             top (float, optional): 采用自我一致性策略时，出现次数超过 top * samples 时才会被采纳，范围为 [0, 1]. Defaults to 0.5.
@@ -119,8 +119,9 @@ class Document:
         """
 
         @instance_method_transactional('knowledgepoints')
-        def get_knowledgepoints_by_llm(self: 'Document',  # 这里需要传递self的原因是instance_method_transactional本来只能装饰实例方法
-                                content: str) -> list[KPEntity]:
+        def get_knowledgepoints_by_llm(
+                self: 'Document',  # 这里需要传递self的原因是instance_method_transactional本来只能装饰实例方法
+                content: str) -> list[KPEntity]:
             # 实体抽取
             entities = get_knowledgepoint_entities_by_llm(content, llm, prompt, self_consistency, samples, top)
             logger.success(f'最终获取知识点实体: ' + str(entities))

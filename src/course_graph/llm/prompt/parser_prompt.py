@@ -4,7 +4,7 @@
 # File Name: course_graph/llm/prompt/parser_prompt.py
 # Description: 使用大模型解析文档相关提示词
 
-class ParserPromptGenerator:
+class ParserPrompt:
 
     @staticmethod
     def get_ocr_aided_prompt(text: str) -> tuple[str, str]:

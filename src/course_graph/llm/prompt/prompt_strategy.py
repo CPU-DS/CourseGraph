@@ -4,14 +4,11 @@
 # File Name: course_graph/llm/prompt/prompt_strategy.py
 # Description: 定义提示词示例检索策略
 
-import os
+from tqdm import tqdm
 from sentence_transformers import SentenceTransformer
-import json
 import numpy as np
-from glob import glob
-from typing import Literal
-from abc import ABC, abstractmethod
 from pymilvus import MilvusClient
+from abc import ABC
 
 
 class ExamplePromptStrategy(ABC):
@@ -20,51 +17,6 @@ class ExamplePromptStrategy(ABC):
         """ 提示词示例检索策略
         """
         pass
-
-    @abstractmethod
-    def get_ner_example(self, content: str) -> list:
-        """ 获取实体抽取提示词示例
-
-        Args:
-            content (str): 待抽取的文本内容
-
-        Raises:
-            NotImplementedError: 子类需要实现该方法
-
-        Returns:
-            list: 提示词示例列表
-        """
-        raise NotImplementedError
-
-    @abstractmethod
-    def get_re_example(self, content: str) -> list:
-        """ 获取关系抽取提示词示例
-
-        Args:
-            content (str): 待抽取的文本内容
-
-        Raises:
-            NotImplementedError: 子类需要实现该方法
-
-        Returns:
-            list: 提示词示例列表
-        """
-        raise NotImplementedError
-
-    @abstractmethod
-    def get_ae_example(self, content: str) -> list:
-        """ 获取属性抽取提示词示例
-
-        Args:
-            content (str): 待抽取的文本内容
-
-        Raises:
-            NotImplementedError: 子类需要实现该方法
-
-        Returns:
-            list: 提示词示例列表
-        """
-        raise NotImplementedError
 
 
 class SentenceEmbeddingStrategy(ExamplePromptStrategy):
@@ -84,10 +36,8 @@ class SentenceEmbeddingStrategy(ExamplePromptStrategy):
         """
         super().__init__()
         self.client = MilvusClient(milvus_path)
-        self.ner_collection = 'prompt_example_ner'
-        self.re_collection = 'prompt_example_re'
-        self.ae_collection = 'prompt_example_ae'
         self.embed_model = SentenceTransformer(embed_model_path)
+        self.collection = 'prompt_example'
         self.topk = topk
         self.avoid_first = avoid_first
 
@@ -97,52 +47,36 @@ class SentenceEmbeddingStrategy(ExamplePromptStrategy):
     def reimport_example(
             self,
             embed_dim: int,
-            example_dataset_path: str = 'dataset/prompt_example') -> None:
+            data: list
+        ) -> None:
         """ 重新向数据库中导入提示词示例
 
         Args:
             embed_dim (int): 嵌入维度
-            example_dataset_path (str, optional): 提示词示例源数据地址文件夹. Defaults to 'dataset/prompt_example'.
+            data_path (str, optional): 源数据地址
         """
 
-        for file in glob(example_dataset_path + '/*'):
-            if file.endswith('ner.json'):
-                text_name = "input"  # 实体抽取中 模型输入input和文本片段text相同
-                collection = self.ner_collection
-            elif file.endswith('re.json'):
-                text_name = "text"  # 关系/属性抽取中 存入向量库中的应当是文本片段text
-                collection = self.re_collection
-            elif file.endswith('ae.json'):
-                text_name = "text"
-                collection = self.ae_collection
-            else:
-                continue
-
-            if self.client.has_collection(collection):
-                self.client.drop_collection(collection)
+        if self.client.has_collection(self.collection):
+            self.client.drop_collection(self.collection)
             
-            self.client.create_collection(
-                collection_name=collection,
-                dimension=embed_dim
-            )
-            examples = []
-            with open(file, 'r', encoding='UTF-8') as f:
-                for idx, line in enumerate(json.load(f)):
-                    line['id'] = idx
-                    line['text'] = line[text_name]  # 统一替换为 text 字段
-                    del line[text_name]
-                    examples.append(line)
-    
-            for idx in range(len(examples)):
-                examples[idx]['vector'] = np.array(self.embed_model.encode(examples[idx]['text'],
-                                            normalize_embeddings=True)).astype('float32')
-            self.client.insert(
-                collection_name=collection,
-                data=examples
-            )
+        self.client.create_collection(
+            collection_name=self.collection,
+            dimension=embed_dim
+        )
+        examples = []
+        for idx, line in enumerate(data):
+            line['id'] = idx
+            examples.append(line)
 
-    def _get_example_by_sts_similarity(
-            self, content: str, collection: str) -> list:
+        for idx in tqdm(range(len(examples))):
+            examples[idx]['vector'] = np.array(self.embed_model.encode(examples[idx]['text'],
+                                        normalize_embeddings=True)).astype('float32')
+        self.client.insert(
+            collection_name=self.collection,
+            data=examples
+        )
+
+    def _get_example_by_sts_similarity(self, content: str) -> list:
         """ 使用待抽取内容content和库中已有文本片段text的句相似度进行example检索
 
         Args:
@@ -153,12 +87,12 @@ class SentenceEmbeddingStrategy(ExamplePromptStrategy):
             list: 提示词示例列表
 
         """
-        if self.client.has_collection(collection):
-            self.client.load_collection(collection)
+        if self.client.has_collection(self.collection):
+            self.client.load_collection(self.collection)
         content_vec = self.embed_model.encode(content,
                                               normalize_embeddings=True)
         resp = self.client.search(
-            collection_name=collection,
+            collection_name=self.collection,
             data=np.array([content_vec]).astype('float32'),
             limit=self.topk if not self.avoid_first else self.topk + 1,
             output_fields=["text"]
@@ -168,35 +102,13 @@ class SentenceEmbeddingStrategy(ExamplePromptStrategy):
             resp = resp[1:]
         return resp
 
-    def get_ner_example(self, content: str) -> list:
-        """ 获取实体抽取提示词示例
+    def get_example(self, content: str) -> list:
+        """ 获取示例
 
         Args:
-            content (str): 待抽取的文本内容
+            content (str): 文本内容
 
         Returns:
-            list: 提示词示例列表
+            list: 原始数据
         """
-        return self._get_example_by_sts_similarity(content, self.ner_collection)
-
-    def get_re_example(self, content: str) -> list:
-        """ 获取关系抽取提示词示例
-
-        Args:
-            content (str): 待抽取的文本内容
-
-        Returns:
-            list: 提示词示例列表
-        """
-        return self._get_example_by_sts_similarity(content, self.re_collection)
-
-    def get_ae_example(self, content: str) -> list:
-        """ 获取属性抽取提示词示例
-
-        Args:
-            content (str): 待抽取的文本内容
-
-        Returns:
-            list: 提示词示例列表
-        """
-        return self._get_example_by_sts_similarity(content, self.ae_collection)
+        return self._get_example_by_sts_similarity(content)

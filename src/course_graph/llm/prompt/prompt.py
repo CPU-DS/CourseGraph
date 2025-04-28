@@ -6,16 +6,15 @@
 
 from abc import ABC, abstractmethod
 import json
-from .prompt_strategy import ExamplePromptStrategy
 from ..ontology import ONTOLOGY
 from typing import Literal
 from .utils import json2md
 
 
-class PromptGenerator(ABC):
+class Prompt(ABC):
 
     def __init__(self) -> None:
-        """ 信息抽取提示词类, 包含获取提示词和格式化模型返回两类方法
+        """ 信息抽取提示词类
         """
         pass
 
@@ -75,21 +74,21 @@ class PromptGenerator(ABC):
         raise NotImplementedError
 
 
-class ExamplePromptGenerator(PromptGenerator):
+class ExamplePrompt(Prompt):
 
-    def __init__(self, strategy: ExamplePromptStrategy = None, type: Literal['json', 'md'] = 'json') -> None:
+    def __init__(self, type: Literal['json', 'md'] = 'json') -> None:
         """ 获取提取提示词, 使用多种提示词优化, 包括CoT、基于动态检索的ICL
 
         Args:
-            strategy (ExamplePromptStrategy, optional): 动态检索提示词策略. Defaults to None.
             type (Literal['json', 'md'], optional): 提示词格式. Defaults to 'json'.
         """
         super().__init__()
-        self.strategy = strategy
         self.type = type
 
-    def get_ner_prompt(self, content: str) -> tuple[str, str]:
-        if self.strategy is None:
+    def get_ner_prompt(self, 
+                       content: str, 
+                       examples: list[dict] | None = None) -> tuple[str, str]:
+        if examples is None:
             examples = [
                 {
                     "输入":
@@ -110,8 +109,6 @@ class ExamplePromptGenerator(PromptGenerator):
                         "这段文字可能在描述一张有关神经元的图像, 但是没有介绍一个新的概念或者引入新的名词, 所以没有能够抽取出来的知识点。所以返回为\n```json\n{}\n```"
                 },
             ]
-        else:
-            examples = self.strategy.get_ner_example(content)
         prompt = {
             "任务":
                 "请对输入的内容进行总结根据总结从中抽取出符合schema类型的实体。最后请给出你的总结和抽取到的类型以及对应的列表, 返回的格式为\n```json\n{\"entity_type1\": [\"entity1\", \"entity2\"]}\n```",
@@ -122,9 +119,11 @@ class ExamplePromptGenerator(PromptGenerator):
         resp = json.dumps(prompt, indent=4, ensure_ascii=False) if self.type == 'json' else json2md(prompt)
         return resp, "你是专门进行知识点实体抽取的专家"
 
-    def get_re_prompt(self, content: str,
-                      entities: list[str]) -> tuple[str, str]:
-        if self.strategy is None:
+    def get_re_prompt(self, 
+                      content: str,
+                      entities: list[str],
+                      examples: list[dict] | None = None) -> tuple[str, str]:
+        if examples is None:
             examples = [
                 {
                     "输入":
@@ -145,8 +144,6 @@ class ExamplePromptGenerator(PromptGenerator):
                         "```这段文字介绍了非线性函数以及线性函数, 二者是平等的相关关系, 以及非线性函数应该包含解决函数和sigmoid函数。抽取到的关系为\n```json\n[{\"head\": \"非线性函数\", \"relation\": \"相关\", \"tail\": \"线性函数\"}, {\"head\": \"非线性函数\", \"relation\": \"包含\", \"tail\": \"阶跃函数\"}, {\"head\": \"非线性函数\", \"relation\": \"包含\", \"tail\": \"sigmoid函数\"}]\n```"
                 },
             ]
-        else:
-            examples = self.strategy.get_re_example(content)
         prompt = {
             "任务":
                 "请根据提供的中心知识点和已有文本片段, 一步步思考, 寻找与之相关联的知识点并判断二者之间的关系, 如果存在关系但不在所指定的关系范围relations中, 则不返回。头尾实体不应该相同。返回为你的思考和关系三元组, 格式为\n```json\n[{\"head\": \"\", \"relation\": \"\", \"tail\": \"\"}]\n```",
@@ -157,9 +154,11 @@ class ExamplePromptGenerator(PromptGenerator):
         resp = json.dumps(prompt, indent=4, ensure_ascii=False) if self.type == 'json' else json2md(prompt)
         return resp, "你是专门进行知识点关系判别的专家"
 
-    def get_ae_prompt(self, content: str,
-                      entities: list[str]) -> tuple[str, str]:
-        if self.strategy is None:
+    def get_ae_prompt(self, 
+                      content: str,
+                      entities: list[str],
+                      examples: list[dict] | None = None) -> tuple[str, str]:
+        if examples is None:
             examples = [{
                 "输入":
                     """实体列表为: ['最优化', '随机梯度下降法'], 文本片段为: 神经网络的学习的目的是找到使损失函数的值尽可能小的参数。这是寻找最优参数的问题, 解决这个问题的过程称为最优化（optimization）。遗憾的是, 神经网络的最优化问题非常难。这是因为参数空间非常复杂, 无法轻易找到最优解（无法使用那种通过解数学式一下子就求得最小值的方法）。
@@ -168,8 +167,6 @@ class ExamplePromptGenerator(PromptGenerator):
                 "输出":
                     "```json\n{\"最优化\": {\"定义\":\"寻找神经网络最优参数的过程\"}, \"随机梯度下降法\": {\"定义\":\"使用参数的梯度, 沿梯度方向更新参数, 并重复这个步骤多次, 从而逐渐靠近最优参数\"}}\n```"
             }]
-        else:
-            examples = self.strategy.get_ae_example(content)
         prompt = {
             "任务":
                 "请对输入的实体列表根据已有文本片段各自抽取他们的属性值。属性范围只能来源于提供的attributes, 属性值无需完全重复原文, 可以是你根据原文进行的总结, 如果实体没有能够总结的属性值则不返回。返回格式为\n```json\n{\"entity1\": {\"attribute1\":\"value\"}}\n```",
@@ -180,21 +177,26 @@ class ExamplePromptGenerator(PromptGenerator):
         resp = json.dumps(prompt, indent=4, ensure_ascii=False) if self.type == 'json' else json2md(prompt)
         return resp, "你是专门进行知识点属性抽取的专家"
 
-    def get_best_attr_prompt(self, entity: str, attr: str,
-                             values: list[str]) -> tuple[str, str]:
+    def get_best_attr_prompt(self, 
+                             entity: str, 
+                             attr: str,
+                             values: list[str],
+                             examples: list[dict] | None = None) -> tuple[str, str]:
+        if examples is None:
+            examples = [{
+                "输入":
+                    """实体为: 'Numpy', 属性为: '定义', 属性值列表为: [
+                        'NumPy提供了许多用于操作多维数组的便捷方法, 常与Python一起用于数据分析和科学计算。', 
+                        'NumPy是一个用于Python编程语言的科学计算库, 它提供了强大的N维数组对象, 以及大量的数学函数来操作这些数组。',
+                        '用于数值计算的库, 提供了很多高级的数学算法和便利的数组（矩阵）操作方法'
+                    ]""",
+                "输出": "NumPy是一个用于Python编程语言的科学计算库, 提供了许多用于操作多维数组的便捷方法, 常与Python一起用于数据分析和科学计算。"
+            }]
         prompt = {
             "任务":
                 "请根据实体的属性对应的值列表, 总结出一个最佳的属性值。只需要返回总结的属性值即可。",
-            "示例": [{
-                "输入": """实体为: 'Numpy', 属性为: '定义', 属性值列表为: [
-                    'NumPy提供了许多用于操作多维数组的便捷方法, 常与Python一起用于数据分析和科学计算。', 
-                    'NumPy是一个用于Python编程语言的科学计算库, 它提供了强大的N维数组对象, 以及大量的数学函数来操作这些数组。',
-                    '用于数值计算的库, 提供了很多高级的数学算法和便利的数组（矩阵）操作方法'
-                ]""",
-                "输出": "NumPy是一个用于Python编程语言的科学计算库, 提供了许多用于操作多维数组的便捷方法, 常与Python一起用于数据分析和科学计算。"
-            }],
-            "输入":
-                f"实体为: '{entity}', 属性为: '{attr}', 属性值列表为: {values}"
+            "示例": examples,
+            "输入": f"实体为: '{entity}', 属性为: '{attr}', 属性值列表为: {values}"
         }
         resp = json.dumps(prompt, indent=4, ensure_ascii=False) if self.type == 'json' else json2md(prompt)
         return resp, "你是专门进行属性判别的专家"

@@ -15,7 +15,7 @@ import numpy as np
 import cv2
 import re
 from ...llm import LLM
-from ...llm.prompt import VLPromptGenerator, ParserPromptGenerator
+from ...llm.prompt import VLPrompt, ParserPrompt
 import os
 import shutil
 from course_graph._core import get_list, get_longest_seq
@@ -32,8 +32,8 @@ class PDFParser(Parser):
             ocr_model: OCRModel = PaddleOCR(),
             ocr_priority: bool = False,
             structure_model: StructureModel = PaddleStructure(),
-            parser_prompt: ParserPromptGenerator = ParserPromptGenerator(),
-            vl_prompt: VLPromptGenerator = VLPromptGenerator(),
+            parser_prompt: ParserPrompt = ParserPrompt(),
+            vl_prompt: VLPrompt = VLPrompt(),
             vlm: LLM = None,
             llm: LLM = None,
             anchor_priority: bool = False,
@@ -48,8 +48,8 @@ class PDFParser(Parser):
             ocr_model (OCRModel, optional): OCR 模型. Defaults to PaddleOCR().
             ocr_priority (bool, optional): 获取文字内容时优先使用 OCR模型, 否则优先直接读取. Defaults to False.
             structure_model (StructureModel, optional): 布局分析模型. Defaults to Paddle().
-            parser_prompt (ParserPromptGenerator, optional): 解析提示词. Defaults to ParserPromptGenerator().
-            vl_prompt (VLPromptGenerator, optional): 视觉模型提示词. Defaults to VLPromptGenerator().
+            parser_prompt (ParserPrompt, optional): 解析提示词. Defaults to ParserPrompt().
+            vl_prompt (VLPrompt, optional): 视觉模型提示词. Defaults to VLPrompt().
             vlm ( LLM, optional): 视觉模型. Default to None.
             llm ( LLM, optional): 语言模型. Default to None.
             anchor_priority (bool, optional): 优先使用锚点定位. Defaults to False.

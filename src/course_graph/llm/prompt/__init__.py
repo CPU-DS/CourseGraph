@@ -4,8 +4,8 @@
 # File Name: course_graph/llm/prompt/__init__.py
 # Description: 提示词相关
 
-from .prompt import ExamplePromptGenerator, PromptGenerator
+from .prompt import ExamplePrompt, Prompt
 from .prompt_strategy import ExamplePromptStrategy, SentenceEmbeddingStrategy
-from .vl_prompt import VLPromptGenerator
-from .parser_prompt import ParserPromptGenerator
+from .vl_prompt import VLPrompt
+from .parser_prompt import ParserPrompt
 from .utils import post_process

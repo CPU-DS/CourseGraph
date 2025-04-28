@@ -9,7 +9,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pptx import Presentation
 from ..llm import LLM
-from ..llm.prompt import VLPromptGenerator
+from ..llm.prompt import VLPrompt
 from .utils import pptx2imgs
 import shutil
 from tqdm import tqdm
@@ -89,12 +89,12 @@ def _merge_index_slice(items: list[int], file_path: str) -> list[Slice]:
 
 class PPTX(Resource):
 
-    def __init__(self, pptx_path: str, vl_prompt: VLPromptGenerator = VLPromptGenerator()) -> None:
+    def __init__(self, pptx_path: str, vl_prompt: VLPrompt = VLPrompt()) -> None:
         """ .pptx类型文件资源
 
         Args:
             pptx_path (str): 文件路径
-            vl_prompt (VLPromptGenerator, optional): 视觉模型提示词. Defaults to VLPromptGenerator().
+            vl_prompt (VLPrompt, optional): 视觉模型提示词. Defaults to VLPrompt().
         """
         super().__init__(pptx_path)
         self.pptx = Presentation(pptx_path)

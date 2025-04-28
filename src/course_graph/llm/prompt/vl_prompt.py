@@ -4,7 +4,7 @@
 # File Name: course_graph/llm/vl_prompt.py
 # Description: 定义视觉模型提示词
 
-class VLPromptGenerator:
+class VLPrompt:
 
     @staticmethod
     def get_ocr_prompt() -> tuple[str, str]:

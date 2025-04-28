@@ -27,7 +27,7 @@ from argparse import ArgumentParser
 import torch
 from sklearn.metrics import precision_recall_fscore_support, accuracy_score
 
-seqeval = 'seqeval'
+seqeval = "seqeval"
 os.environ["TOKENIZERS_PARALLELISM"] = "true"
 
 
@@ -197,8 +197,8 @@ def main(args):
     trainer.train()
     trainer.save_model(os.path.join(args.checkpoint, "final_model"))
     
-    test_results = trainer.evaluate(test_dataset)
-    swanlab.log(test_results)
+    # test_results = trainer.evaluate(test_dataset)
+    # swanlab.log(test_results)
     swanlab.finish()
 
 

@@ -6,15 +6,15 @@
 experimental/
 ├── data/               
 │   ├── *.json          # 所有可用数据
-│   ├── example/  
-│   │   └── *.json      # 示例数据
-│   └── origin_data/
-│       ├── *.json      # 原始数据
+│   ├── example/        # 示例数据
+│   │   └── *.json
+│   └── origin_data/    # 原始数据
+│       ├── *.json
 │       ├── pipeline.py # 原始数据处理脚本
-│       └── txt/
-│           └── *.txt   # 原始纯文本数据
 ├── scripts/
 │   ├── ke/             # 知识抽取模型
+│   ├── prompt/         # 提示工程
+│   ├── evaluate/       # 评估
 │   └── overview.py     # 数据概览
 ├── pre_trained/        # 预训练模型
 ├── results/            # 结果

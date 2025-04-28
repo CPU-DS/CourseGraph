@@ -4,7 +4,7 @@
 # File Name: course_graph/parser/core.py
 # Description: 使用大模型抽取知识点
 
-from ..llm.prompt import ExamplePromptGenerator, PromptGenerator, post_process
+from ..llm.prompt import ExamplePrompt, Prompt, post_process
 from ..llm import LLM
 import random
 from collections import Counter
@@ -14,7 +14,7 @@ from loguru import logger
 def get_knowledgepoint_entities_by_llm(
         content: str,
         llm: LLM,
-        prompt: PromptGenerator = ExamplePromptGenerator(),
+        prompt: Prompt = ExamplePrompt(),
         self_consistency: bool = False,
         samples: int = 5,
         top: float = 0.5
@@ -24,7 +24,7 @@ def get_knowledgepoint_entities_by_llm(
     Args:
         content (str): 文本内容
         llm (LLM): 大模型
-        prompt (PromptGenerator, optional): 提示词生成器. Defaults to ExamplePromptGenerator().
+        prompt (Prompt, optional): 提示词生成器. Defaults to ExamplePrompt().
         self_consistency (bool, optional): 是否使用自一致性策略. Defaults to False.
         samples (int, optional): 采样次数. Defaults to 5.
         top (float, optional): 置信度阈值. Defaults to 0.5.
@@ -70,7 +70,7 @@ def get_knowledgepoint_attributes_by_llm(
         content: str,
         knowledgepoints: list[str],
         llm: LLM,
-        prompt: PromptGenerator = ExamplePromptGenerator()
+        prompt: Prompt = ExamplePrompt()
 ) -> dict:
     """ 使用大模型抽取知识点属性
 
@@ -78,7 +78,7 @@ def get_knowledgepoint_attributes_by_llm(
         content (str): 文本内容
         knowledgepoints (list[str]): 知识点列表
         llm (LLM): 大模型
-        prompt (PromptGenerator, optional): 提示词生成器. Defaults to ExamplePromptGenerator().
+        prompt (Prompt, optional): 提示词生成器. Defaults to ExamplePrompt().
     """
     message, instruction = prompt.get_ae_prompt(content, knowledgepoints)
     llm.instruction = instruction
@@ -92,7 +92,7 @@ def get_knowledgepoint_relations_by_llm(
         content: str,
         knowledgepoints: list[str],
         llm: LLM,
-        prompt: PromptGenerator = ExamplePromptGenerator(),
+        prompt: Prompt = ExamplePrompt(),
         self_consistency: bool = False,
         samples: int = 5,
         top: float = 0.5
@@ -103,7 +103,7 @@ def get_knowledgepoint_relations_by_llm(
         content (str): 文本内容
         knowledgepoints (list[str]): 知识点列表
         llm (LLM): 大模型
-        prompt (PromptGenerator, optional): 提示词生成器. Defaults to ExamplePromptGenerator().
+        prompt (Prompt, optional): 提示词生成器. Defaults to ExamplePrompt().
         self_consistency (bool, optional): 是否使用自一致性策略. Defaults to False.
         samples (int, optional): 采样次数. Defaults to 5.
         top (float, optional): 置信度阈值. Defaults to 0.5.
@@ -137,8 +137,8 @@ def get_knowledgepoint_attribute_only_by_llm(
         attribute: str,
         value_list: list[str],
         llm: LLM,
-        prompt: PromptGenerator = ExamplePromptGenerator()
-) -> dict:
+        prompt: Prompt = ExamplePrompt()
+) -> str:
     """ 使用大模型总结知识点属性
 
     Args:
@@ -146,7 +146,7 @@ def get_knowledgepoint_attribute_only_by_llm(
         attribute (str): 属性
         value_list (list[str]): 属性值列表
         llm (LLM): 大模型
-        prompt (PromptGenerator, optional): 提示词生成器. Defaults to ExamplePromptGenerator().
+        prompt (Prompt, optional): 提示词生成器. Defaults to ExamplePrompt().
     
     Returns:
         str: 属性值
