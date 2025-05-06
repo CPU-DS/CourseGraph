@@ -6,6 +6,7 @@
 
 from openai import OpenAI
 from openai.types.chat import *
+from openai.types import *
 from openai import NotFoundError
 from openai import NOT_GIVEN, NotGiven
 from typing import Generator
@@ -104,6 +105,25 @@ class LLMBase:
                 **self.extra_body
             })
 
+    
+    def embedding(self, input: str, dimensions: int = 1024, encoding_format: str = "float") -> list:
+        """ 文本嵌入
+
+        Args:
+            input (str): 输入文本
+            dimensions (int, optional): 维度. Defaults to 1024.
+            encoding_format (str, optional): 编码格式. Defaults to "float".
+
+        Returns:
+            list: 向量
+        """
+        return self.client.embeddings.create(
+            model=self.model,
+            input=input,
+            dimensions=dimensions,
+            encoding_format=encoding_format
+        ).data[0].embedding
+
 
 class LLM(LLMBase):
 
@@ -120,10 +140,26 @@ class LLM(LLMBase):
             api_key=api_key,
             base_url=base_url
         )
-        try:
-            self.model_ids = [model.id for model in self.client.models.list().data]
-        except NotFoundError:
-            self.model_ids = []
+        
+    def get_model_ids(self) -> list[str]:
+        """ 获取模型列表
+
+        Returns:
+            list[str]: 模型列表
+        """
+        return [model.id for model in self.client.models.list().data]
+
+    def set_model(self, model: str) -> 'LLM':
+        """ 设置模型
+
+        Args:
+            model (str): 模型名称
+
+        Returns:
+            LLM: 当前对象
+        """
+        self.model = model
+        return self
 
     def chat(self, message: str) -> tuple[str, str] | tuple[str, None]:
         """ 模型的单轮对话

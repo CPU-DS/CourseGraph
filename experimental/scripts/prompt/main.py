@@ -10,7 +10,7 @@ from course_graph.llm.prompt import (
     post_process,
     SentenceEmbeddingStrategy
 )
-from course_graph.llm import LLM
+from course_graph.llm import Gemini
 from glob import glob
 from pprint import pprint
 import json
@@ -29,45 +29,43 @@ if __name__ == '__main__':
     data_path = 'experimental/data'
     data = load_data(data_path)
     
+    gemini = Gemini()
+    
     strategy = SentenceEmbeddingStrategy(
-        embed_model_path='models/iic/gte_Qwen2-7B-instruct',
+        embed_model=gemini.set_model('models/text-embedding-004'),
         avoid_first=True
     )
     strategy.reimport_example(
         embed_dim=768,
-        data=data
+        data=data[:1]
     )
     
-    # prompt = ExamplePrompt(type='md')
-    # llm = LLM(
-    #     base_url='https://generativelanguage.googleapis.com/v1beta/openai/',
-    #     api_key=os.getenv('GOOGLE_API_KEY'),
-    # )
-    # llm.model = 'models/gemini-2.5-pro-preview-03-25'
-    # for item in data:
-    #     examples = []
-    #     for example in strategy.get_example(item['text']):
-    #         e_names = []
-    #         for e in example['entities']:
-    #             e_names.append(e['text'])
-    #         examples.append({
-    #             '输入': example,
-    #             '输出': f"```json\n{{\"知识点\": {e_names}}}\n```"
-    #         })
-    #     # examples = [
-    #     #     {
-    #     #         '输入': example,
-    #     #         '输出': "```json\n{\"知识点\": [\"知识点1\", \"知识点2\"]}\n```"
-    #     #     }
-    #     #     for example in strategy.get_example(item['text'])
-    #     #     for e in example['entities']
-    #     # ]
-    #     message, instruction = prompt.get_ner_prompt(item['text'], examples)
-    #     label = [(e['text'], e['type'][2:]) for e in item['entities']]
-    #     llm.instruction = instruction
-    #     resp, _ = llm.chat(message)
-    #     resp = post_process(resp)
-    #     pred = [(e, '知识点') for e in resp['知识点']]
-    #     print(pred)
-    #     print(label)
-    #     break
+    prompt = ExamplePrompt(type='md')
+    gemini.set_model('models/gemini-2.5-pro-preview-03-25')
+    for item in data:
+        examples = []
+        for example in strategy.get_example(item['text']):
+            e_names = []
+            for e in example['entities']:
+                e_names.append(e['text'])
+            examples.append({
+                '输入': example,
+                '输出': f"```json\n{{\"知识点\": {e_names}}}\n```"
+            })
+        # examples = [
+        #     {
+        #         '输入': example,
+        #         '输出': "```json\n{\"知识点\": [\"知识点1\", \"知识点2\"]}\n```"
+        #     }
+        #     for example in strategy.get_example(item['text'])
+        #     for e in example['entities']
+        # ]
+        message, instruction = prompt.get_ner_prompt(item['text'], examples)
+        label = [(e['text'], e['type'][2:]) for e in item['entities']]
+        gemini.instruction = instruction
+        resp, _ = gemini.chat(message)
+        resp = post_process(resp)
+        pred = [(e, '知识点') for e in resp['知识点']]
+        print(pred)
+        print(label)
+        break

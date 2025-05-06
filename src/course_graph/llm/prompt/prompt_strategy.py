@@ -5,38 +5,29 @@
 # Description: 定义提示词示例检索策略
 
 from tqdm import tqdm
-from sentence_transformers import SentenceTransformer
 import numpy as np
 from pymilvus import MilvusClient
-from abc import ABC
+from ..llm import LLM
 
 
-class ExamplePromptStrategy(ABC):
-
-    def __init__(self):
-        """ 提示词示例检索策略
-        """
-        pass
-
-
-class SentenceEmbeddingStrategy(ExamplePromptStrategy):
+class SentenceEmbeddingStrategy:
 
     def __init__(self,
-                 embed_model_path: str,
+                 embed_model: LLM,
                  milvus_path: str = 'src/course_graph/database/milvus.db',
                  topk: int = 3,
                  avoid_first: bool = False) -> None:
         """ 基于句嵌入相似度的示例检索策略
 
         Args:
-            embed_model_path (str): 嵌入模型路径
+            embed_model (LLM): 嵌入模型
             milvus_path (str, optional): 向量数据库 milvus 存储地址. Defaults to 'src/course_graph/database/milvus.db'.
             topk (int, optional): 选择排名前topk个示例. Defaults to 3.
             avoid_first (bool, optional): 去掉相似度最大的那个示例且不减少最终topk数量. Default to False.
         """
         super().__init__()
         self.client = MilvusClient(milvus_path)
-        self.embed_model = SentenceTransformer(embed_model_path)
+        self.embed_model = embed_model
         self.collection = 'prompt_example'
         self.topk = topk
         self.avoid_first = avoid_first
@@ -69,8 +60,10 @@ class SentenceEmbeddingStrategy(ExamplePromptStrategy):
             examples.append(line)
 
         for idx in tqdm(range(len(examples))):
-            examples[idx]['vector'] = np.array(self.embed_model.encode(examples[idx]['text'],
-                                        normalize_embeddings=True)).astype('float32')
+            examples[idx]['vector'] = np.array(self.embed_model.embedding(
+                input=examples[idx]['text'],
+                dimensions=embed_dim
+            )).astype('float32')
         self.client.insert(
             collection_name=self.collection,
             data=examples

@@ -14,7 +14,6 @@ experimental/
 ├── scripts/
 │   ├── ke/             # 知识抽取模型
 │   ├── prompt/         # 提示工程
-│   ├── evaluate/       # 评估
 │   └── overview.py     # 数据概览
 ├── pre_trained/        # 预训练模型
 ├── results/            # 结果

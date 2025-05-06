@@ -5,7 +5,7 @@
 # Description: 提示词相关
 
 from .prompt import ExamplePrompt, Prompt
-from .prompt_strategy import ExamplePromptStrategy, SentenceEmbeddingStrategy
+from .prompt_strategy import SentenceEmbeddingStrategy
 from .vl_prompt import VLPrompt
 from .parser_prompt import ParserPrompt
 from .utils import post_process
