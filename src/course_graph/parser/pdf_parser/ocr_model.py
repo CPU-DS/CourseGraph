@@ -22,12 +22,6 @@ class OCRModel(ABC):
     @abstractmethod
     def predict(self, img_path: str) -> str:
         """ OCR 识别
-
-        Args:
-            img_path (str): 图像路径
-
-        Returns:
-            str: 识别结果
         """
         raise NotImplementedError
 

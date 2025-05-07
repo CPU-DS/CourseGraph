@@ -30,36 +30,18 @@ class Parser(ABC):
     @abstractmethod
     def close(self) -> None:
         """ 关闭文档
-
-        Raises:
-            NotImplementedError: 子类需要实现该方法
         """
         raise NotImplementedError
 
     @abstractmethod
     def get_bookmarks(self) -> list[BookMark]:
         """  获取pdf文档书签
-
-        Raises:
-            NotImplementedError: 子类需要实现该方法
-
-        Returns:
-            list[BookMark]: 书签列表
         """
         raise NotImplementedError
 
     @abstractmethod
     def get_contents(self, bookmark: BookMark) -> list[Content]:
         """  获取书签下的所有内容
-
-        Args:
-            bookmark (BookMark): 书签
-
-        Raises:
-            NotImplementedError: 子类需要实现该方法
-
-        Returns:
-            list[Content]: 内容列表
         """
         raise NotImplementedError
 

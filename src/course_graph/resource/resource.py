@@ -44,15 +44,6 @@ class Resource(ABC):
     @abstractmethod
     def get_slices(self, keyword: str) -> list[Slice]:
         """ 通过关键词获取切片
-
-        Args:
-            keyword (str): 关键词
-
-        Raises:
-            NotImplementedError: 子类需要实现该方法
-
-        Returns:
-            list[Slice]: 切片列表
         """
         raise NotImplementedError
 

@@ -91,6 +91,7 @@ class LLMBase:
             frequency_penalty=self.config.get('frequency_penalty', NOT_GIVEN),
             max_tokens=self.config.get('max_tokens', NOT_GIVEN),
             tools=tools,
+            reasoning_effort=self.config.get('reasoning_effort', NOT_GIVEN),
             parallel_tool_calls=parallel_tool_calls,
             tool_choice=tool_choice,
             response_format={
@@ -148,18 +149,6 @@ class LLM(LLMBase):
             list[str]: 模型列表
         """
         return [model.id for model in self.client.models.list().data]
-
-    def set_model(self, model: str) -> 'LLM':
-        """ 设置模型
-
-        Args:
-            model (str): 模型名称
-
-        Returns:
-            LLM: 当前对象
-        """
-        self.model = model
-        return self
 
     def chat(self, message: str) -> tuple[str, str] | tuple[str, None]:
         """ 模型的单轮对话

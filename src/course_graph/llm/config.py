@@ -5,17 +5,21 @@
 # Description: 定义大模型配置
 
 from typing import TypedDict, Literal
+from pydantic import BaseModel
+
 
 class LLMConfig(TypedDict, total=False):
     temperature: float
     top_p: float
     top_k: int
     max_tokens: int
+    reasoning_effort: Literal["low", "medium", "high"]
     repetition_penalty: float
     presence_penalty: float
     frequency_penalty: float
-    json: bool
+    json: bool | BaseModel
     stop: list[str]
+
 
 class VLLMConfig(TypedDict, total=False):
     gpu_memory_utilization: float

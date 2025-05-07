@@ -28,12 +28,6 @@ class StructureModel(ABC):
     @abstractmethod
     def predict(self, img: ndarray) -> list[StructureResult]:
         """ 生成布局分析结果
-
-        Args:
-            img (ndarray): 图像数组
-
-        Returns:
-            list[StructureResult]: 布局分析结果
         """
         raise NotImplementedError
 

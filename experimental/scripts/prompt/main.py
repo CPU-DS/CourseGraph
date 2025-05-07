@@ -6,66 +6,82 @@
 
 
 from course_graph.llm.prompt import (
-    ExamplePrompt,
-    post_process,
-    SentenceEmbeddingStrategy
+    SentenceEmbeddingStrategy,
+    ExamplePrompt
 )
+import json
+from course_graph import use_proxy
 from course_graph.llm import Gemini
 from glob import glob
-from pprint import pprint
 import json
-import os
+from eval import evaluate
+import swanlab
+from datetime import datetime
+import pandas as pd
+from tqdm import tqdm
 
 
-def load_data(data_path: str) -> list[dict]:
-    data = []
-    for file in glob(data_path + '/*.json'):
-        with open(file, 'r') as f:
-            data.extend(json.load(f))
-    return data
-    
+use_proxy()
+
+
+def load_data(path: str) -> list[dict]:
+    return [
+        line for file in glob(path + '/*.json') for line in json.load(open(file, 'r'))
+    ]
+
 
 if __name__ == '__main__':
     data_path = 'experimental/data'
     data = load_data(data_path)
+
+    embed_model = Gemini()
+    embed_model.model = 'text-embedding-004'
     
-    gemini = Gemini()
+    llm = Gemini()
+    llm.model = 'gemini-2.5-flash-preview-04-17'
+    llm.config['reasoning_effort'] = 'high'
+    llm.config['json'] = True
+
+    run_name = f"course_graph_prompt_experimental_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    swanlab.init(
+        project="course_graph",
+        experiment_name=run_name,
+        config={
+                "strategy": "sentence_embedding",
+                "topk": 3,
+                "avoid_first": True,
+                "data_path": data_path,
+                "embed_model": embed_model.model,
+                "embed_dim": 768,
+                "embed_model_config": embed_model.config,
+                "chat_model": llm.model,
+                "chat_model_config": llm.config,
+            }
+    )
     
     strategy = SentenceEmbeddingStrategy(
-        embed_model=gemini.set_model('models/text-embedding-004'),
-        avoid_first=True
+        embed_model=embed_model,
+        embed_dim=swanlab.config['embed_dim'],
+        avoid_first=swanlab.config['avoid_first'],
+        topk=swanlab.config['topk'],
     )
-    strategy.reimport_example(
-        embed_dim=768,
-        data=data[:1]
-    )
+    strategy.json_block = False
+
+    # strategy.reimport_example(
+    #     data=data
+    # )
     
-    prompt = ExamplePrompt(type='md')
-    gemini.set_model('models/gemini-2.5-pro-preview-03-25')
-    for item in data:
-        examples = []
-        for example in strategy.get_example(item['text']):
-            e_names = []
-            for e in example['entities']:
-                e_names.append(e['text'])
-            examples.append({
-                '输入': example,
-                '输出': f"```json\n{{\"知识点\": {e_names}}}\n```"
-            })
-        # examples = [
-        #     {
-        #         '输入': example,
-        #         '输出': "```json\n{\"知识点\": [\"知识点1\", \"知识点2\"]}\n```"
-        #     }
-        #     for example in strategy.get_example(item['text'])
-        #     for e in example['entities']
-        # ]
-        message, instruction = prompt.get_ner_prompt(item['text'], examples)
+    eval_result = []
+    prompt = ExamplePrompt(type='md', strategy=strategy)
+    for item in tqdm(data):
+        message, instruction = prompt.get_ner_prompt(item['text'])
         label = [(e['text'], e['type'][2:]) for e in item['entities']]
-        gemini.instruction = instruction
-        resp, _ = gemini.chat(message)
-        resp = post_process(resp)
+        llm.instruction = instruction
+        resp, _ = llm.chat(message)
+        resp = json.loads(resp)
         pred = [(e, '知识点') for e in resp['知识点']]
-        print(pred)
-        print(label)
-        break
+        eval_result.append(evaluate(pred, label))
+
+    swanlab.log(pd.DataFrame(eval_result).mean().to_dict())
+    
+    

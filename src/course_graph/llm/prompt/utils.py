@@ -6,9 +6,11 @@
 
 import re
 import json
+from mistune import create_markdown
+from typing import Optional
 
 
-def post_process(response: str) -> list | dict | None:
+def post_process(response: str) -> Optional[list | dict]:
     """ 将模型返回处理成列表或字典格式
 
     Args:
@@ -17,17 +19,24 @@ def post_process(response: str) -> list | dict | None:
     Returns:
         list | dict | None: 格式输出
     """
-    replace_tuple = [('\\', ''), ('“', '"'), ('”', '"')]  # 替换掉可能出现的非法字符
-    fragments = re.findall(r'```.*?\n([\s\S]*?)\n?```', response)
-    if len(fragments) > 0:
-        fragment: str = fragments[-1]  # 可能会返回多个结果从语义上只取最后一个结果
-        for a, b in replace_tuple:
-            fragment = fragment.replace(a, b)
-        try:
-            res = json.loads(fragment)
-            return res
-        except json.decoder.JSONDecodeError:
-            return None
+    replace_tuple = []  # 替换掉可能出现的非法字符
+    md = create_markdown(renderer='ast')
+    ast = md(response)
+    json_fragments = []
+    for node in ast:
+        if node["type"] == "block_code" and node.get("info", "").strip() in ("json", ""):
+            json_fragments.append(node["raw"])
+    if not json_fragments:
+        return None
+
+    fragment = json_fragments[-1] # 可能会返回多个结果从语义上只取最后一个结果
+    for a, b in replace_tuple:
+        fragment = fragment.replace(a, b)
+    try:
+        res = json.loads(fragment)
+        return res
+    except json.decoder.JSONDecodeError:
+        return None
 
 
 def json2md(data: dict | list) -> str:
