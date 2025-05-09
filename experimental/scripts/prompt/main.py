@@ -7,11 +7,12 @@
 
 from course_graph.llm.prompt import (
     SentenceEmbeddingStrategy,
-    ExamplePrompt
+    ExamplePrompt,
+    PromptStrategy,
+    post_process
 )
-import json
 from course_graph import use_proxy
-from course_graph.llm import Gemini
+from course_graph.llm import Gemini, LLM, ONTOLOGY
 from glob import glob
 import json
 from eval import evaluate
@@ -19,9 +20,8 @@ import swanlab
 from datetime import datetime
 import pandas as pd
 from tqdm import tqdm
-
-
-use_proxy()
+import os
+import sys
 
 
 def load_data(path: str) -> list[dict]:
@@ -30,58 +30,114 @@ def load_data(path: str) -> list[dict]:
     ]
 
 
-if __name__ == '__main__':
-    data_path = 'experimental/data'
-    data = load_data(data_path)
+def get_model_name(model) -> str:
+    name = model.__class__.__name__
+    if name == 'LLM':
+        name = f'OpenAI(base_url={model.client.base_url})'
+    return name + f'({model.model})'
 
-    embed_model = Gemini()
-    embed_model.model = 'text-embedding-004'
+
+def exp_ner(
+        eval_data: list[dict],
+        embed_model: LLM,
+        chat_model: LLM,
+        prompt_strategy: PromptStrategy,
+        result_path: str = 'experimental/results/exp_ner_prompt',
+        continue_file: str = None,
+):
+    run_name = f"course_graph_exp_ner_prompt_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    results = []
+    if continue_file:
+        run_name = os.path.basename(continue_file).split('.')[0]
+        results = json.load(open(continue_file, 'r'))
     
-    llm = Gemini()
-    llm.model = 'gemini-2.5-flash-preview-04-17'
-    llm.config['reasoning_effort'] = 'high'
-    llm.config['json'] = True
-
-    run_name = f"course_graph_prompt_experimental_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
     swanlab.init(
         project="course_graph",
         experiment_name=run_name,
+        mode="disabled" if sys.gettrace() is not None else "cloud",
         config={
-                "strategy": "sentence_embedding",
-                "topk": 3,
-                "avoid_first": True,
-                "data_path": data_path,
-                "embed_model": embed_model.model,
-                "embed_dim": 768,
-                "embed_model_config": embed_model.config,
-                "chat_model": llm.model,
-                "chat_model_config": llm.config,
-            }
+            "prompt_strategy": prompt_strategy.__class__.__name__,
+            "prompt_strategy_config": prompt_strategy.config,
+            "embed_model": get_model_name(embed_model),
+            "embed_model_config": embed_model.config,
+            "chat_model": get_model_name(chat_model),
+            "chat_model_config": chat_model.config,
+        }
     )
+
     
+    prompt = ExamplePrompt(type='md', strategy=prompt_strategy)
+    
+    if len(results) > 0:
+        results.sort(key=lambda x: x['id'])
+        eval_data = eval_data[results[-1]['id'] + 1:]
+    try:
+        for idx, item in enumerate(tqdm(eval_data)):
+            message, instruction = prompt.get_ner_prompt(item['text'])
+            label = [(e['text'], e['type']) for e in item['entities']]
+            chat_model.instruction = instruction
+            resp, _ = chat_model.chat(message)
+            pred = []
+            if chat_model.config['json']:
+                resp = json.loads(resp)
+            else:
+                resp = post_process(resp)
+            for k, v in resp.items():
+                for n in v:
+                    pred.append((n, k))
+            eval_result = evaluate(pred, label)
+            result = {
+                'id': idx,
+                'text': item['text'],
+                'label': label,
+                'pred': pred,
+            }
+            result.update(eval_result)
+            results.append(result)
+    except Exception as e:
+        print(e)
+        pass
+    else:
+        swanlab.log(pd.DataFrame(results)[['acc', 'precision', 'recall', 'f1']].mean().to_dict())
+    finally:
+        with open(os.path.join(result_path, f'{run_name}.json'), 'w', encoding='utf-8') as f:
+            json.dump(results, f, ensure_ascii=False)
+        swanlab.finish()
+
+
+if __name__ == '__main__':
+    use_proxy()
+
+    llm = Gemini()
+    llm.model = 'gemini-2.5-flash-preview-04-17'
+    llm.config = {
+        'reasoning_effort': 'high',
+        'json': True
+    }
+
+    text_embed = Gemini()
+    text_embed.model = 'text-embedding-004'
+
     strategy = SentenceEmbeddingStrategy(
-        embed_model=embed_model,
-        embed_dim=swanlab.config['embed_dim'],
-        avoid_first=swanlab.config['avoid_first'],
-        topk=swanlab.config['topk'],
+        embed_model=text_embed,
+        embed_dim=768,
+        avoid_first=True,
+        topk=3,
     )
     strategy.json_block = False
 
-    # strategy.reimport_example(
-    #     data=data
-    # )
+    data_path = 'experimental/data'
+    data = load_data(data_path)
     
-    eval_result = []
-    prompt = ExamplePrompt(type='md', strategy=strategy)
-    for item in tqdm(data):
-        message, instruction = prompt.get_ner_prompt(item['text'])
-        label = [(e['text'], e['type'][2:]) for e in item['entities']]
-        llm.instruction = instruction
-        resp, _ = llm.chat(message)
-        resp = json.loads(resp)
-        pred = [(e, '知识点') for e in resp['知识点']]
-        eval_result.append(evaluate(pred, label))
+    for item in data:
+        for e in item['entities']:
+            e['type'] = '知识点'
 
-    swanlab.log(pd.DataFrame(eval_result).mean().to_dict())
-    
-    
+    # strategy.reimport_example(data)
+
+    exp_ner(
+        eval_data=data,
+        embed_model=text_embed,
+        chat_model=llm,
+        prompt_strategy=strategy
+    )

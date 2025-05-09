@@ -9,5 +9,7 @@ from .version import __version__
 import os
 
 def use_proxy(proxy_url: str = 'http://127.0.0.1:7890'):
+    """ 使用代理
+    """
     os.environ['http_proxy'] = proxy_url
     os.environ['https_proxy'] = proxy_url

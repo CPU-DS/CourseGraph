@@ -7,14 +7,20 @@
 
 def evaluate(pred, label):
     # pred/label 为 list of (text, type)
-    correct = len(set(pred) & set(label))
-    pred_total = len(pred)
-    precision = correct / pred_total if pred_total > 0 else 0.0
-    label_total = len(label)
-    recall = correct / label_total if label_total > 0 else 0.0
+    pred_set = set(pred)
+    label_set = set(label)
+    correct = len(pred_set & label_set)
+    
+    precision = correct / len(pred_set) if pred_set else 0.0
+    recall = correct / len(label_set) if label_set else 0.0
     f1 = 2 * precision * recall / (precision + recall) if precision + recall > 0 else 0.0
+
+    union_size = len(pred_set | label_set)
+    acc = correct / union_size if union_size > 0 else 1.0
+
     return {
         'precision': precision,
         'recall': recall,
-        'f1': f1,
+        'acc': acc,
+        'f1': f1
     }

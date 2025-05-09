@@ -54,6 +54,7 @@ class ExamplePrompt(Prompt):
 
         Args:
             type (Literal['json', 'md'], optional): 提示词格式. Defaults to 'json'.
+            strategy (PromptStrategy, optional): 提示词策略. Defaults to None.
         """
         super().__init__()
         self.type = type
@@ -72,7 +73,7 @@ class ExamplePrompt(Prompt):
             "输入": content
         }
         resp = json.dumps(prompt, indent=4, ensure_ascii=False) if self.type == 'json' else json2md(prompt)
-        return resp, "你是专门进行知识点实体抽取的专家"
+        return resp, "你是专门进行实体抽取的专家"
 
     def get_re_prompt(self, 
                       content: str,
@@ -88,7 +89,7 @@ class ExamplePrompt(Prompt):
             "输入": f"中心实体列表为: {entities}, 文本片段为: '{content}'"
         }
         resp = json.dumps(prompt, indent=4, ensure_ascii=False) if self.type == 'json' else json2md(prompt)
-        return resp, "你是专门进行知识点关系判别的专家"
+        return resp, "你是专门进行关系判别的专家"
 
     def get_ae_prompt(self, 
                       content: str,
@@ -104,7 +105,7 @@ class ExamplePrompt(Prompt):
             "输入": f"实体列表为: {entities}, 文本片段为: '{content}'"
         }
         resp = json.dumps(prompt, indent=4, ensure_ascii=False) if self.type == 'json' else json2md(prompt)
-        return resp, "你是专门进行知识点属性抽取的专家"
+        return resp, "你是专门进行属性抽取的专家"
 
     def get_best_attr_prompt(self, 
                              entity: str, 

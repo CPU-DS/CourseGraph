@@ -57,6 +57,7 @@ experimental/scripts/**/example*.json
 experimental/metrics/**
 experimental/scripts/test*.py
 experimental/scripts/test
+experimental/results/**/*.json
 test*.py
 api_keys.json
 *.ps1

@@ -102,7 +102,7 @@ def main(args):
 
     model = config[args.mode]["model"](model_config)
 
-    run_name = f"course_graph_classical_{args.mode}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    run_name = f"course_graph_classical_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
     swanlab.init(
         project="course_graph",
         experiment_name=run_name
@@ -163,8 +163,9 @@ def main(args):
     DataCollatorClass = config[args.mode]["data_collator"]
     data_collator = DataCollatorClass(tokenizer=tokenizer)
     
+    output_dir = os.path.join(args.output_dir, f"train_{args.mode}_model", run_name)
     training_args = TrainingArguments(
-        output_dir=str(os.path.join(args.checkpoint, args.mode)),
+        output_dir=str(os.path.join(output_dir, "checkpoints")),
         eval_strategy="epoch",
         save_strategy="epoch",
         learning_rate=args.lr,
@@ -172,7 +173,7 @@ def main(args):
         per_device_eval_batch_size=args.batch_size,
         num_train_epochs=args.epochs,
         weight_decay=0.01,
-        logging_dir=os.path.join(args.log, args.mode),
+        logging_dir=os.path.join(output_dir, "logs"),
         logging_steps=10,
         save_total_limit=3,  # 只保存最新的3个检查点
         load_best_model_at_end=True,
@@ -195,7 +196,7 @@ def main(args):
     )
     
     trainer.train()
-    trainer.save_model(os.path.join(args.checkpoint, "final_model"))
+    trainer.save_model(os.path.join(output_dir, "final_model"))
     
     # test_results = trainer.evaluate(test_dataset)
     # swanlab.log(test_results)
@@ -211,9 +212,8 @@ if __name__ == "__main__":
     parser.add_argument("--max_len", type=int, default=512)
     parser.add_argument("--overflow_strategy", type=str, default="truncation", choices=["truncation", "sliding_window"])
     parser.add_argument("--drop", type=float, default=0)
-    parser.add_argument("--log", type=str, default="experimental/scripts/ke/logs")
     parser.add_argument("--bert_model_path", type=str, default="experimental/pre_trained/dienstag/chinese-bert-wwm-ext")
-    parser.add_argument("--checkpoint", type=str, default="experimental/scripts/ke/checkpoints")
+    parser.add_argument("--output_dir", type=str, default="experimental/results")
     parser.add_argument("--use_local_metric", type=bool, default=True)
     parser.add_argument("--seqeval_path", type=str, default="experimental/metrics/seqeval")
     parser.add_argument("--lr", type=float, default=5e-5)

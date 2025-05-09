@@ -14,9 +14,16 @@ from abc import ABC, abstractmethod
 class PromptStrategy(ABC):
     """ 提示词策略
     """
+    
+    @property
+    @abstractmethod
+    def config(self) -> dict:
+        """ 获取策略配置
+        """
+        raise NotImplementedError
 
     @abstractmethod
-    def get_ner_example(self, content: str) -> list:
+    def get_ner_example(self, content: str, filter: str = None) -> list:
         """ 获取实体抽取示例
         """
         raise NotImplementedError
@@ -64,11 +71,17 @@ class SentenceEmbeddingStrategy(PromptStrategy):
         self.topk = topk
         self.avoid_first = avoid_first
         self.embed_dim = embed_dim
-        
-        self.json_block = True
 
-        if self.avoid_first:
-            self.topk += 1
+        self.json_block = True
+            
+    @property
+    def config(self) -> dict:
+        return {
+            'topk': self.topk,
+            'avoid_first': 1 if self.avoid_first else 0,
+            'embed_dim': self.embed_dim,
+            'json_block': 1 if self.json_block else 0
+        }
 
     def reimport_example(
             self,
@@ -101,7 +114,7 @@ class SentenceEmbeddingStrategy(PromptStrategy):
             data=examples
         )
 
-    def _get_example_by_sts_similarity(self, content: str) -> list:
+    def _get_example_by_sts_similarity(self, content: str, filter: str = None) -> list:
         """ 使用待抽取内容 content 和库中已有文本片段 text 的句相似度进行 example 检索
 
         Args:
@@ -120,10 +133,11 @@ class SentenceEmbeddingStrategy(PromptStrategy):
         resp = self.client.search(
             collection_name=self.collection,
             data=np.array([content_vec]).astype('float32'),
-            limit=self.topk,
+            limit=self.topk if not self.avoid_first else self.topk + 1,
             search_params={
                 'metric_type': 'COSINE'
             },
+            filter=filter if filter else '',
             output_fields=['*']
         )
         resp = [i['entity'] for i in resp[0]]
@@ -131,13 +145,25 @@ class SentenceEmbeddingStrategy(PromptStrategy):
             resp = resp[1:]
         return resp
 
-    def get_ner_example(self, content: str) -> list:
+    def get_ner_example(self, content: str, filter: str = None) -> list:
+        """ 获取命名实体识别示例
+
+        Args:
+            content (str): 待抽取的文本内容
+            filter (str, optional): 过滤条件. Defaults to None.
+
+        Returns:
+            list: 提示词示例列表
+        """
         examples = []
-        for example in self._get_example_by_sts_similarity(content):
-            e_names = []
+        for example in self._get_example_by_sts_similarity(content, filter):  # topk 个示例
+            output = {}
             for e in example['entities']:
-                e_names.append(e['text'])
-            output = f'{{\"知识点\": {e_names}}}'
+                type_ = e['type']
+                if type_ not in output:
+                    output[type_] = []
+                output[type_].append(e['text'])  # 添加相应类的实体
+            output = f'{output}'
             if self.json_block:
                 output = f'```json\n{output}\n```'
             examples.append({
