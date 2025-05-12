@@ -1,21 +1,17 @@
 # -*- coding: utf-8 -*-
 # Create Date: 2025/04/24
 # Author: wangtao <wangtao.cpu@gmail.com>
-# File Name: experimental/scripts/prompt/main.py
-# Description: 提示词测试
+# File Name: experimental/scripts/prompt/ner.py
+# Description: 实体识别
 
 
 from course_graph.llm.prompt import (
-    SentenceEmbeddingStrategy,
     ExamplePrompt,
     PromptStrategy,
     post_process
 )
-from course_graph import use_proxy
-from course_graph.llm import Gemini, LLM, ONTOLOGY
-from glob import glob
+from course_graph.llm import LLM
 import json
-from eval import evaluate
 import swanlab
 from datetime import datetime
 import pandas as pd
@@ -24,10 +20,25 @@ import os
 import sys
 
 
-def load_data(path: str) -> list[dict]:
-    return [
-        line for file in glob(path + '/*.json') for line in json.load(open(file, 'r'))
-    ]
+def evaluate(pred, label):
+    # pred/label 为 list of (text, type)
+    pred_set = set(pred)
+    label_set = set(label)
+    correct = len(pred_set & label_set)
+
+    precision = correct / len(pred_set) if pred_set else 0.0
+    recall = correct / len(label_set) if label_set else 0.0
+    f1 = 2 * precision * recall / (precision + recall) if precision + recall > 0 else 0.0
+
+    union_size = len(pred_set | label_set)
+    acc = correct / union_size if union_size > 0 else 1.0
+
+    return {
+        'precision': precision,
+        'recall': recall,
+        'acc': acc,
+        'f1': f1
+    }
 
 
 def get_model_name(model) -> str:
@@ -37,27 +48,38 @@ def get_model_name(model) -> str:
     return name + f'({model.model})'
 
 
-def exp_ner(
+def main(
         eval_data: list[dict],
         embed_model: LLM,
         chat_model: LLM,
-        prompt_strategy: PromptStrategy,
+        prompt_strategy: PromptStrategy = None,
         result_path: str = 'experimental/results/exp_ner_prompt',
         continue_file: str = None,
 ):
+    """
+    评估提示词进行命名实体识别
+
+    Args:
+        eval_data (list[dict]): 需要评估的数据
+        embed_model (LLM): 嵌入模型
+        chat_model (LLM): 聊天模型
+        prompt_strategy (PromptStrategy, optional): 提示词策略. Defaults to None.
+        result_path (str, optional): 结果保存路径. Defaults to 'experimental/results/exp_ner_prompt'.
+        continue_file (str, optional): 继续上次运行的文件. Defaults to None.
+    """
     run_name = f"course_graph_exp_ner_prompt_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
     results = []
-    if continue_file:
+    if continue_file and os.path.exists(continue_file):
         run_name = os.path.basename(continue_file).split('.')[0]
         results = json.load(open(continue_file, 'r'))
-    
+
     swanlab.init(
         project="course_graph",
         experiment_name=run_name,
         mode="disabled" if sys.gettrace() is not None else "cloud",
         config={
-            "prompt_strategy": prompt_strategy.__class__.__name__,
-            "prompt_strategy_config": prompt_strategy.config,
+            "prompt_strategy": prompt_strategy.__class__.__name__ if prompt_strategy else "",
+            "prompt_strategy_config": prompt_strategy.config if prompt_strategy else "",
             "embed_model": get_model_name(embed_model),
             "embed_model_config": embed_model.config,
             "chat_model": get_model_name(chat_model),
@@ -65,14 +87,15 @@ def exp_ner(
         }
     )
 
-    
     prompt = ExamplePrompt(type='md', strategy=prompt_strategy)
-    
+
+    skip = 0
     if len(results) > 0:
-        results.sort(key=lambda x: x['id'])
-        eval_data = eval_data[results[-1]['id'] + 1:]
+        skip = results[-1]['id'] + 1
     try:
         for idx, item in enumerate(tqdm(eval_data)):
+            if idx < skip:
+                continue
             message, instruction = prompt.get_ner_prompt(item['text'])
             label = [(e['text'], e['type']) for e in item['entities']]
             chat_model.instruction = instruction
@@ -103,41 +126,3 @@ def exp_ner(
         with open(os.path.join(result_path, f'{run_name}.json'), 'w', encoding='utf-8') as f:
             json.dump(results, f, ensure_ascii=False)
         swanlab.finish()
-
-
-if __name__ == '__main__':
-    use_proxy()
-
-    llm = Gemini()
-    llm.model = 'gemini-2.5-flash-preview-04-17'
-    llm.config = {
-        'reasoning_effort': 'high',
-        'json': True
-    }
-
-    text_embed = Gemini()
-    text_embed.model = 'text-embedding-004'
-
-    strategy = SentenceEmbeddingStrategy(
-        embed_model=text_embed,
-        embed_dim=768,
-        avoid_first=True,
-        topk=3,
-    )
-    strategy.json_block = False
-
-    data_path = 'experimental/data'
-    data = load_data(data_path)
-    
-    for item in data:
-        for e in item['entities']:
-            e['type'] = '知识点'
-
-    # strategy.reimport_example(data)
-
-    exp_ner(
-        eval_data=data,
-        embed_model=text_embed,
-        chat_model=llm,
-        prompt_strategy=strategy
-    )

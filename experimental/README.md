@@ -2,25 +2,6 @@
 
 ### 目录结构
 
-```bash
-experimental/
-├── data/               
-│   ├── *.json          # 所有可用数据
-│   ├── example/        # 示例数据
-│   │   └── *.json
-│   └── origin_data/    # 原始数据
-│       ├── *.json
-│       ├── pipeline.py # 原始数据处理脚本
-├── scripts/
-│   ├── ke/             # 知识抽取模型
-│   ├── prompt/         # 提示工程
-│   └── overview.py     # 数据概览
-├── pre_trained/        # 预训练模型
-├── results/            # 结果
-└── README.md
-
-```
-
 ### 实验准备
 
 #### Swanlab
@@ -32,6 +13,15 @@ export SWANLAB_API_KEY=
 
 #### 评估指标
 
+ACC: 准确率,
+PRECISION: 精确率,
+RECALL: 召回率,
+F1: F1 值
+
 #### 数据
+
+#### 标注
+
+使用 [Label Studio](https://labelstud.io/) 进行
 
 ### 数据格式说明

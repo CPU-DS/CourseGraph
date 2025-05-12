@@ -72,15 +72,15 @@ class SentenceEmbeddingStrategy(PromptStrategy):
         self.avoid_first = avoid_first
         self.embed_dim = embed_dim
 
-        self.json_block = True
+        self.json_block: bool = True
             
     @property
     def config(self) -> dict:
         return {
             'topk': self.topk,
-            'avoid_first': 1 if self.avoid_first else 0,
+            'avoid_first': self.avoid_first,
             'embed_dim': self.embed_dim,
-            'json_block': 1 if self.json_block else 0
+            'json_block': self.json_block
         }
 
     def reimport_example(

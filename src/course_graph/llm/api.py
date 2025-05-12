@@ -9,7 +9,6 @@ import os
 from typing import Literal
 
 
-
 class Qwen(LLM):
     def __init__(self,
                  api_key: str = os.getenv('DASHSCOPE_API_KEY')):
