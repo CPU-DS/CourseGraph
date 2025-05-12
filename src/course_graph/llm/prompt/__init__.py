@@ -9,3 +9,4 @@ from .prompt_strategy import PromptStrategy, SentenceEmbeddingStrategy
 from .vl_prompt import VLPrompt
 from .parser_prompt import ParserPrompt
 from .utils import post_process
+from .filter import F1Filter, Filter

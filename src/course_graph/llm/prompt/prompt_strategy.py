@@ -9,16 +9,23 @@ import numpy as np
 from pymilvus import MilvusClient
 from ..llm import LLM
 from abc import ABC, abstractmethod
+from .prompt import Prompt
 
 
 class PromptStrategy(ABC):
     """ 提示词策略
     """
-    
+
     @property
     @abstractmethod
     def config(self) -> dict:
         """ 获取策略配置
+        """
+        raise NotImplementedError
+    
+    @abstractmethod
+    def reimport_example(self, data: list) -> None:
+        """ 重新向数据库中导入提示词示例
         """
         raise NotImplementedError
 
@@ -27,19 +34,19 @@ class PromptStrategy(ABC):
         """ 获取实体抽取示例
         """
         raise NotImplementedError
-    
+
     @abstractmethod
     def get_re_example(self, content: str, entities: list) -> list:
         """ 获取关系抽取示例
         """
         raise NotImplementedError
-    
+
     @abstractmethod
     def get_ae_example(self, content: str, entities: list) -> list:
         """ 获取属性抽取示例
         """
         raise NotImplementedError
-    
+
     @abstractmethod
     def get_best_attr_example(self, entity: str, attr: str, values: list) -> list:
         """ 获取属性抽取示例
@@ -73,16 +80,19 @@ class SentenceEmbeddingStrategy(PromptStrategy):
         self.embed_dim = embed_dim
 
         self.json_block: bool = True
-            
+        self.metric_type: str = 'COSINE'
+
     @property
     def config(self) -> dict:
         return {
             'topk': self.topk,
             'avoid_first': self.avoid_first,
             'embed_dim': self.embed_dim,
-            'json_block': self.json_block
+            'json_block': self.json_block,
+            'metric_type': self.metric_type
         }
 
+    @abstractmethod
     def reimport_example(
             self,
             data: list) -> None:
@@ -94,7 +104,7 @@ class SentenceEmbeddingStrategy(PromptStrategy):
 
         if self.client.has_collection(self.collection):
             self.client.drop_collection(self.collection)
-            
+
         self.client.create_collection(
             collection_name=self.collection,
             dimension=self.embed_dim
@@ -135,7 +145,7 @@ class SentenceEmbeddingStrategy(PromptStrategy):
             data=np.array([content_vec]).astype('float32'),
             limit=self.topk if not self.avoid_first else self.topk + 1,
             search_params={
-                'metric_type': 'COSINE'
+                'metric_type': self.metric_type
             },
             filter=filter if filter else '',
             output_fields=['*']
@@ -171,12 +181,12 @@ class SentenceEmbeddingStrategy(PromptStrategy):
                 '输出': output
             })
         return examples
-    
+
     def get_re_example(self, content: str, entities: list) -> list:
         return []
-    
+
     def get_ae_example(self, content: str, entities: list) -> list:
         return []
-    
+
     def get_best_attr_example(self, entity: str, attr: str, values: list) -> list:
         return []
