@@ -19,6 +19,7 @@ class LLMConfig(TypedDict, total=False):
     frequency_penalty: float
     json: bool | BaseModel
     stop: list[str]
+    reasoning_parser: Literal['deepseek_r1']
 
 
 class VLLMConfig(TypedDict, total=False):

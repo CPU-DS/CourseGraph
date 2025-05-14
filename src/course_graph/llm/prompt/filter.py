@@ -4,16 +4,19 @@
 # File Name: course_graph/llm/prompt/filter.py
 # Description: 提示词示例过滤
 
-from .prompt import Prompt
 from ..llm import LLM
 from abc import ABC, abstractmethod
-from typing import Callable, Any, Literal
+from typing import Callable, Literal, TYPE_CHECKING
+from tqdm import tqdm
+
+if TYPE_CHECKING:
+    from .prompt import Prompt
 
 
 class Filter(ABC):
 
-    @abstractmethod
     @property
+    @abstractmethod
     def config(self) -> dict:
         """ 获取过滤策略配置
         """
@@ -29,7 +32,7 @@ class Filter(ABC):
 class F1Filter(Filter):
     def __init__(self,
                  llm: LLM,
-                 prompt: Prompt,
+                 prompt: 'Prompt',
                  f1_func: Callable[[dict, str], float],
                  filter_strategy: Literal['percentage', 'fixed_quantity'] = 'percentage',
                  **kwargs
@@ -58,6 +61,16 @@ class F1Filter(Filter):
             'filter_strategy': self.filter_strategy,
             'kwargs': self.kwargs
         }
+        
+    def calculate_f1(self, examples: list[dict]) -> None:
+        """ 计算 F1 值
+        """
+        for example in tqdm(examples):
+            prompt, instruction = self.prompt.get_ner_prompt(example['text'])
+            self.llm.instruction = instruction
+            resp, _ = self.llm.chat(prompt)
+            f1 = self.f1_func(example, resp)
+            example['f1'] = f1
 
     def filter(self, examples: list) -> list:
         """ 过滤示例
@@ -68,19 +81,16 @@ class F1Filter(Filter):
         Returns:
             list: 过滤后的示例列表
         """
-        data = []
-        for example in examples:
-            prompt, instruction = self.prompt.get_ner_prompt(example['text'])
-            self.llm.instruction = instruction
-            resp, _ = self.llm.chat(prompt)
-            f1 = self.f1_func(example, resp)
-            example['f1'] = f1
-            data.append(example)
+        for example in tqdm(examples):
+            if 'f1' in example:
+                continue
+            self.calculate_f1(example)
         match self.filter_strategy:
             case 'percentage':
-                data.sort(key=lambda x: x['f1'], reverse=True)
-                return data[:int(len(data) * self.kwargs.get('filter_percent', 0.4))]
+                examples.sort(key=lambda x: x['f1'], reverse=True)
+                return examples[:int(len(examples) * self.kwargs.get('filter_percent', 0.4))]
             case 'fixed_quantity':
-                return data[:self.kwargs.get('filter_quantity', 100)]
+                examples.sort(key=lambda x: x['f1'], reverse=True)
+                return examples[:self.kwargs.get('filter_quantity', 100)]
             case _:
-                return data
+                return examples

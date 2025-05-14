@@ -61,10 +61,10 @@ test*.py
 api_keys.json
 *.ps1
 src/course_graph/database/faiss_index
-src/course_graph/database/milvus.db
+src/course_graph/database/*.db
+src/course_graph/database/*.db.lock
 libreoffice_convert.log
 .cursorrules
 .ruff_cache
-.milvus.db.lock
 
 train.sh

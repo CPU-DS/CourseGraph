@@ -8,8 +8,8 @@ from .log import set_logger, logger
 from .version import __version__
 import os
 
-def use_proxy(proxy_url: str = 'http://127.0.0.1:7890'):
-    """ 使用代理
-    """
-    os.environ['http_proxy'] = proxy_url
-    os.environ['https_proxy'] = proxy_url
+    
+ROOT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../..')
+EXPERIMENTAL_DIR = os.path.join(ROOT_DIR, 'experimental')
+DATA_DIR = os.path.join(EXPERIMENTAL_DIR, 'data')
+MILVUS_PATH = os.path.join(ROOT_DIR, 'src/course_graph/database')

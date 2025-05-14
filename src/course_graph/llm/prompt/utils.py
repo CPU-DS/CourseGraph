@@ -8,6 +8,7 @@ import re
 import json
 from mistune import create_markdown
 from typing import Optional
+import ast as ast_f
 
 
 def post_process(response: str) -> Optional[list | dict]:
@@ -33,10 +34,9 @@ def post_process(response: str) -> Optional[list | dict]:
     for a, b in replace_tuple:
         fragment = fragment.replace(a, b)
     try:
-        res = json.loads(fragment)
-        return res
+        return json.loads(fragment)
     except json.decoder.JSONDecodeError:
-        return None
+        return ast_f.literal_eval(fragment)
 
 
 def json2md(data: dict | list) -> str:

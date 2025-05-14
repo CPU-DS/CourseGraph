@@ -9,7 +9,10 @@ import numpy as np
 from pymilvus import MilvusClient
 from ..llm import LLM
 from abc import ABC, abstractmethod
-from .prompt import Prompt
+from typing import Optional, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .filter import Filter
 
 
 class PromptStrategy(ABC):
@@ -30,19 +33,19 @@ class PromptStrategy(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_ner_example(self, content: str, filter: str = None) -> list:
+    def get_ner_example(self, content: str) -> list:
         """ 获取实体抽取示例
         """
         raise NotImplementedError
 
     @abstractmethod
-    def get_re_example(self, content: str, entities: list) -> list:
+    def get_re_example(self, content: str) -> list:
         """ 获取关系抽取示例
         """
         raise NotImplementedError
 
     @abstractmethod
-    def get_ae_example(self, content: str, entities: list) -> list:
+    def get_ae_example(self, content: str) -> list:
         """ 获取属性抽取示例
         """
         raise NotImplementedError
@@ -92,11 +95,8 @@ class SentenceEmbeddingStrategy(PromptStrategy):
             'metric_type': self.metric_type
         }
 
-    @abstractmethod
-    def reimport_example(
-            self,
-            data: list) -> None:
-        """ 重新向数据库中导入提示词示例
+    def reimport_example(self, data: list) -> None:
+        """ 重新向数据库中导入示例
 
         Args:
             data (list): 源数据, 每一项需要包含 `text` 字段
@@ -124,7 +124,7 @@ class SentenceEmbeddingStrategy(PromptStrategy):
             data=examples
         )
 
-    def _get_example_by_sts_similarity(self, content: str, filter: str = None) -> list:
+    def _get_example_by_sts_similarity(self, content: str) -> list:
         """ 使用待抽取内容 content 和库中已有文本片段 text 的句相似度进行 example 检索
 
         Args:
@@ -147,7 +147,7 @@ class SentenceEmbeddingStrategy(PromptStrategy):
             search_params={
                 'metric_type': self.metric_type
             },
-            filter=filter if filter else '',
+            filter='',
             output_fields=['*']
         )
         resp = [i['entity'] for i in resp[0]]
@@ -155,18 +155,17 @@ class SentenceEmbeddingStrategy(PromptStrategy):
             resp = resp[1:]
         return resp
 
-    def get_ner_example(self, content: str, filter: str = None) -> list:
+    def get_ner_example(self, content: str) -> list:
         """ 获取命名实体识别示例
 
         Args:
             content (str): 待抽取的文本内容
-            filter (str, optional): 过滤条件. Defaults to None.
 
         Returns:
             list: 提示词示例列表
         """
         examples = []
-        for example in self._get_example_by_sts_similarity(content, filter):  # topk 个示例
+        for example in self._get_example_by_sts_similarity(content):  # topk 个示例
             output = {}
             for e in example['entities']:
                 type_ = e['type']

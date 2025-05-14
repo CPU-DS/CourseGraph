@@ -7,7 +7,6 @@
 from openai import OpenAI
 from openai.types.chat import *
 from openai.types import *
-from openai import NotFoundError
 from openai import NOT_GIVEN, NotGiven
 from typing import Generator
 import os
@@ -20,6 +19,8 @@ from pathlib import Path
 import weakref
 from .config import LLMConfig, VLLMConfig
 import shlex
+from contextlib import contextmanager
+import re
 
 
 class LLMBase:
@@ -28,18 +29,23 @@ class LLMBase:
         self,
         base_url: str,
         api_key: str,
+        proxy: str = None
     ):
         """ 大模型基类, 兼容 OpenAI API
             
         Args:
             base_url (str): OpenAI Base URL
             api_key (str): OpenAI API Key
+            proxy (str, optional): 代理. Defaults to None.
         """
-
-        self.client = OpenAI(
-            base_url=base_url,
-            api_key=api_key,
-        )
+        self.proxy = proxy
+        
+        with self._proxy_context():
+            self.client = OpenAI(
+                base_url=base_url,
+                api_key=api_key,
+            )
+        
         self.model = ''
 
         self.extra_body = {}
@@ -57,6 +63,16 @@ class LLMBase:
             return
         self._instruction = value
 
+    @contextmanager
+    def _proxy_context(self):
+        if self.proxy:
+            os.environ['http_proxy'] = self.proxy
+            os.environ['https_proxy'] = self.proxy
+        try:
+            yield
+        finally:
+            os.environ.pop('http_proxy', None)
+            os.environ.pop('https_proxy', None)
 
     def chat_completion(
         self,
@@ -78,35 +94,32 @@ class LLMBase:
         Returns:
             ChatCompletion: 模型返回结果
         """
-        # functions 废弃
-        # 参考: https://platform.openai.com/docs/api-reference/chat/create
         messages = [{'role': 'system', 'content': self.instruction}] + messages
-        return self.client.chat.completions.create(
-            model=self.model,
-            messages=messages,
-            stream=stream,
-            top_p=self.config.get('top_p', NOT_GIVEN),
-            temperature=self.config.get('temperature', NOT_GIVEN),
-            presence_penalty=self.config.get('presence_penalty', NOT_GIVEN),
-            frequency_penalty=self.config.get('frequency_penalty', NOT_GIVEN),
-            max_tokens=self.config.get('max_tokens', NOT_GIVEN),
-            tools=tools,
-            reasoning_effort=self.config.get('reasoning_effort', NOT_GIVEN),
-            parallel_tool_calls=parallel_tool_calls,
-            tool_choice=tool_choice,
-            response_format={
-                'type': 'json_object'
-            } if self.config.get('json', False) else {
-                'type': 'text'
-            },
-            stop=self.config.get('stop', NOT_GIVEN),
-            extra_body={
-                'top_k': self.config.get('top_k', NOT_GIVEN),
-                'repetition_penalty': self.config.get('repetition_penalty', NOT_GIVEN),
-                **self.extra_body
-            })
+        with self._proxy_context():
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                stream=stream,
+                top_p=self.config.get('top_p', NOT_GIVEN),
+                temperature=self.config.get('temperature', NOT_GIVEN),
+                presence_penalty=self.config.get('presence_penalty', NOT_GIVEN),
+                frequency_penalty=self.config.get('frequency_penalty', NOT_GIVEN),
+                max_tokens=self.config.get('max_tokens', NOT_GIVEN),
+                tools=tools,
+                reasoning_effort=self.config.get('reasoning_effort', NOT_GIVEN),
+                parallel_tool_calls=parallel_tool_calls,
+                tool_choice=tool_choice,
+                response_format={
+                    'type': 'json_object'
+                } if self.config.get('json', False) else NOT_GIVEN,
+                stop=self.config.get('stop', NOT_GIVEN),
+                extra_body={
+                    'top_k': self.config.get('top_k', NOT_GIVEN),
+                    'repetition_penalty': self.config.get('repetition_penalty', NOT_GIVEN),
+                    **self.extra_body
+                })
+        return response
 
-    
     def embedding(self, input: str, dimensions: int = 1024, encoding_format: str = "float") -> list:
         """ 文本嵌入
 
@@ -118,28 +131,33 @@ class LLMBase:
         Returns:
             list: 向量
         """
-        return self.client.embeddings.create(
-            model=self.model,
-            input=input,
-            dimensions=dimensions,
-            encoding_format=encoding_format
-        ).data[0].embedding
+        with self._proxy_context():
+            response = self.client.embeddings.create(
+                model=self.model,
+                input=input,
+                dimensions=dimensions,
+                encoding_format=encoding_format
+            ).data[0].embedding
+        return response
 
 
 class LLM(LLMBase):
 
     def __init__(self,
                  api_key: str,
-                 base_url: str = None):
+                 base_url: str = None,
+                 proxy: str = None):
         """ 大模型封装类
 
         Args:
             api_key (str): API key.
             base_url (str, optional): 地址. Defaults to None.
+            proxy (str, optional): 代理. Defaults to None.
         """ 
         super().__init__(
             api_key=api_key,
-            base_url=base_url
+            base_url=base_url,
+            proxy=proxy
         )
         
     def get_model_ids(self) -> list[str]:
@@ -149,7 +167,15 @@ class LLM(LLMBase):
             list[str]: 模型列表
         """
         return [model.id for model in self.client.models.list().data]
-
+    
+    def get_model_config(self) -> dict:
+        """ 获取模型配置
+        
+        Returns:
+            dict: 配置信息
+        """
+        return {**self.config, **self.extra_body}
+    
     def chat(self, message: str) -> tuple[str, str] | tuple[str, None]:
         """ 模型的单轮对话
 
@@ -160,7 +186,17 @@ class LLM(LLMBase):
             tuple[str, str] | tuple[str, None]: 模型输出, 推理过程
         """
         response = self.chat_completion(messages=[{'role': 'user', 'content': message}]).choices[0].message
-        return response.content, response.reasoning_content if hasattr(response, 'reasoning_content') else None
+        resp = response.content
+        reasoning = response.reasoning_content if hasattr(response, 'reasoning_content') else None
+        if reasoning is None and self.config.get('reasoning_parser') is not None:
+            match self.config.get('reasoning_parser'):
+                case 'deepseek_r1':
+                    pattern = r'<think>(.*?)</think>'
+                    reasoning = re.findall(pattern, resp, re.DOTALL)[0]
+                    resp = re.sub(pattern, '', resp, flags=re.DOTALL)
+                case _:
+                    ...
+        return resp.strip(), reasoning.strip() if reasoning is not None else None
     
     def stream_chat(self, message: str) -> Generator[str, None, None]:
         """ 模型的单轮流式对话
@@ -173,10 +209,12 @@ class LLM(LLMBase):
         """
         chunks = self.chat_completion(messages=[{'role': 'user', 'content': message}], stream=True)
         for chunk in chunks:
-            response = chunk.choices[0].delta
-            content = response.reasoning_content if hasattr(response, 'reasoning_content') and response.reasoning_content is not None else response.content
-            if content:
-                yield content
+            choices = chunk.choices
+            if len(choices) > 0:
+                response = chunk.choices[0].delta
+                content = response.reasoning_content if hasattr(response, 'reasoning_content') and response.reasoning_content is not None else response.content
+                if content:
+                    yield content
     
     def image_chat(self, path: str | list[str], message: str) -> tuple[str, str] | tuple[str, None]:
         """ 基于图片单轮对话
