@@ -6,6 +6,7 @@
 
 
 from prompt.ner import main
+from prompt.metric import compute_sample_metrics
 from course_graph.llm import Gemini, LLM
 from glob import glob
 import json
@@ -15,6 +16,7 @@ from course_graph.llm.prompt import (
     ExamplePrompt
 )
 import os
+from course_graph import DATA_DIR
 
 
 def load_data(path: str) -> list[dict]:
@@ -44,43 +46,50 @@ strategy = SentenceEmbeddingStrategy(
 )
 strategy.json_block = True
 
+gemini = Gemini(proxy='http://127.0.0.1:7890/')
+gemini.model = 'gemini-2.5-flash-preview-04-17'
+gemini.config = {
+    'reasoning_effort': 'high',
+    'json': True
+}
 
-api_key=os.getenv('AZURE_API_KEY')
-base_url=os.getenv('AZURE_ENDPOINT')
-deepseek_azure = LLM(
-    base_url=base_url,
-    api_key=api_key
-)
-deepseek_azure.model = 'DeepSeek-R1'
-deepseek_azure.config['reasoning_parser'] = 'deepseek_r1'
 
-main(
-    eval_data=load_data('experimental/data'),
-    embed_model=text_embed,
-    chat_model=deepseek_azure,
-    prompt_strategy=strategy
-)
+# api_key=os.getenv('AZURE_API_KEY')
+# base_url=os.getenv('AZURE_ENDPOINT')
+# deepseek_azure = LLM(
+#     base_url=base_url,
+#     api_key=api_key
+# )
+# deepseek_azure.model = 'DeepSeek-R1'
+# deepseek_azure.config['reasoning_parser'] = 'deepseek_r1'
 
-# def f1_func(example: dict, resp: str) -> float:
-#     label = [(e['text'], e['type']) for e in example['entities']]
-#     resp = json.loads(resp)
-#     pred = []
-#     for k, v in resp.items():
-#         for n in v:
-#             pred.append((n, k))
-#     eval_result = metric(pred, label)
-#     return eval_result['f1']
-
-# filter = F1Filter(
-#     llm=gemini,
-#     prompt=ExamplePrompt(),
-#     f1_func=f1_func,
-#     filter_strategy='percentage',
-#     filter_percent=0.4
+# main(
+#     eval_data=load_data('experimental/data'),
+#     chat_model=deepseek_azure,
+#     prompt_strategy=strategy,
+#     continue_file='experimental/results/exp_ner_prompt/course_graph_exp_ner_prompt_20250514_113502.json'
 # )
 
-# origin_data = load_data(DATA_DIR)
+def f1_func(example: dict, resp: str) -> float:
+    label = [(e['text'], e['type']) for e in example['entities']]
+    resp = json.loads(resp)
+    pred = []
+    for k, v in resp.items():
+        for n in v:
+            pred.append((n, k))
+    eval_result = compute_sample_metrics(pred, label)
+    return eval_result['f1']
 
-# data = filter.calculate_f1(origin_data)
-# with open(os.path.join(DATA_DIR, 'f1/data.json'), 'w', encoding='utf-8') as f:
-#     json.dump(data, f, ensure_ascii=False)
+filter = F1Filter(
+    llm=gemini,
+    prompt=ExamplePrompt(),
+    f1_func=f1_func,
+    filter_strategy='percentage',
+    filter_percent=0.4
+)
+
+origin_data = load_data(DATA_DIR)
+
+data = filter.calculate_f1(origin_data)
+with open(os.path.join(DATA_DIR, 'f1/data.json'), 'w', encoding='utf-8') as f:
+    json.dump(data, f, ensure_ascii=False)

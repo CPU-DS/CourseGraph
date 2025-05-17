@@ -19,27 +19,8 @@ from tqdm import tqdm
 import os
 import sys
 from typing import Optional
-
-
-def metric(pred, label):
-    # pred/label 为 list of (text, type)
-    pred_set = set(pred)
-    label_set = set(label)
-    correct = len(pred_set & label_set)
-
-    precision = correct / len(pred_set) if pred_set else 0.0
-    recall = correct / len(label_set) if label_set else 0.0
-    f1 = 2 * precision * recall / (precision + recall) if precision + recall > 0 else 0.0
-
-    union_size = len(pred_set | label_set)
-    acc = correct / union_size if union_size > 0 else 1.0
-
-    return {
-        'precision': precision,
-        'recall': recall,
-        'acc': acc,
-        'f1': f1
-    }
+import traceback
+from .metric import compute_overall_metrics, compute_sample_metrics
 
 
 def get_model_name(model: LLM) -> str:
@@ -109,7 +90,7 @@ def main(
             for k, v in resp.items():
                 for n in v:
                     pred.append((n, k))
-            eval_result = metric(pred, label)
+            eval_result = compute_sample_metrics(pred, label)
             result = {
                 'id': idx,
                 'text': item['text'],
@@ -119,10 +100,25 @@ def main(
             result.update(eval_result)
             results.append(result)
     except Exception as e:
-        print(e)
-        pass
+        traceback.print_exc()
     else:
-        swanlab.log(pd.DataFrame(results)[['acc', 'precision', 'recall', 'f1']].mean().to_dict())
+        df = pd.DataFrame(results)
+        labels = []
+        for label in df['label']:
+            labels.append([tuple(item) for item in label])
+        preds = []
+        for pred in df['pred']:
+            preds.append([tuple(item) for item in pred])
+        r = compute_overall_metrics(preds, labels)
+        swanlab.log({
+            'micro_precision': r['micro']['precision'],
+            'micro_recall': r['micro']['recall'],
+            'micro_f1': r['micro']['f1'],
+            'precision': r['macro']['precision'],
+            'recall': r['macro']['recall'],
+            'f1': r['macro']['f1'],
+            'accuracy': r['macro']['accuracy'],
+        })
     finally:
         with open(os.path.join(result_path, f'{run_name}.json'), 'w', encoding='utf-8') as f:
             json.dump(results, f, ensure_ascii=False)
