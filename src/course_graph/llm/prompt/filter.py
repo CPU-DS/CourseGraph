@@ -51,6 +51,8 @@ class F1Filter(Filter):
         self.f1_func = f1_func
         self.filter_strategy = filter_strategy
         self.kwargs = kwargs
+        
+        self.key = '_filter_f1'
 
     @property
     def config(self) -> dict:
@@ -66,11 +68,15 @@ class F1Filter(Filter):
         """ 计算 F1 值
         """
         for example in tqdm(examples):
-            prompt, instruction = self.prompt.get_ner_prompt(example['text'])
-            self.llm.instruction = instruction
-            resp, _ = self.llm.chat(prompt)
-            f1 = self.f1_func(example, resp)
-            example['f1'] = f1
+            example[self.key] = self._calculate_f1_sample(example)
+            
+    def _calculate_f1_sample(self, example: dict) -> float:
+        """ 计算 F1 值
+        """
+        prompt, instruction = self.prompt.get_ner_prompt(example['text'])
+        self.llm.instruction = instruction
+        resp, _ = self.llm.chat(prompt)
+        return self.f1_func(example, resp)
 
     def filter(self, examples: list) -> list:
         """ 过滤示例
@@ -82,15 +88,14 @@ class F1Filter(Filter):
             list: 过滤后的示例列表
         """
         for example in tqdm(examples):
-            if 'f1' in example:
-                continue
-            self.calculate_f1(example)
+            if self.key not in example:
+                example[self.key] = self._calculate_f1_sample(example)
         match self.filter_strategy:
             case 'percentage':
-                examples.sort(key=lambda x: x['f1'], reverse=True)
+                examples.sort(key=lambda x: x[self.key], reverse=True)
                 return examples[:int(len(examples) * self.kwargs.get('filter_percent', 0.4))]
             case 'fixed_quantity':
-                examples.sort(key=lambda x: x['f1'], reverse=True)
+                examples.sort(key=lambda x: x[self.key], reverse=True)
                 return examples[:self.kwargs.get('filter_quantity', 100)]
             case _:
                 return examples

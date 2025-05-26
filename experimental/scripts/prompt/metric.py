@@ -131,9 +131,9 @@ def compute_overall_metrics(
                 macro_accum[typ]['recall'] += m['recall']
                 macro_accum[typ]['f1'] += m['f1']
                 macro_accum[typ]['count'] += 1
-            for text, typ in t:
+            for _, typ in t:
                 fn_counts[typ] += 1
-            for text, typ in p:
+            for _, typ in p:
                 fp_counts[typ] += 1
             for typ in set([ty for _, ty in t] + [ty for _, ty in p]):
                 true_set = set(txt for txt, ty in t if ty == typ)
